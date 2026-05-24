@@ -302,7 +302,7 @@ class SubscriptionController extends BaseController
         $system_currency = System::getCurrency();
 
         $charge = Charge::create([
-            'amount' => $package->price * 100,
+            'amount' => $package->price,
             'currency' => strtolower($system_currency->code),
             'customer' => $customer,
             'metadata' => $metadata,
@@ -558,485 +558,222 @@ class SubscriptionController extends BaseController
     }
 
     /**
-     * Initialize OneKhusa payment using Laravel HTTP Client
+     * Step 1: Initiate OneKhusa Payment
      */
     public function initiateOneKhusaPayment(Request $request)
     {
         try {
-            // Validate request
             $request->validate([
                 'package_id' => 'required|integer'
             ]);
-            
-            // Get package details
-            $package = Package::find($request->package_id);
-            if (!$package) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Package not found'
-                ]);
-            }
-            
-            // Generate unique reference and transaction ID
-            $reference = 'SUB_' . time() . '_' . uniqid();
-            $paymentTransactionId = 'TXN_' . time() . '_' . uniqid();
-            
-            // Get business and user data
+
+            $package = Package::findOrFail($request->package_id);
+
             $business_id = $request->session()->get('user.business_id');
             $user_id = $request->session()->get('user.id');
             $business = Business::find($business_id);
-            
-            // Store payment data in session BEFORE API call
+
+            // Unique reference (this is fine to generate locally)
+            $reference = 'SUB-' . time() . '-' . Str::upper(Str::random(6));
+
+            // Idempotency key (valid format)
+            $idempotencyKey = 'OKH-' . Str::upper(Str::random(24));
+
+            // Store session BEFORE API call
             $paymentData = [
                 'package_id' => $package->id,
                 'reference' => $reference,
-                'payment_transaction_id' => $paymentTransactionId,
                 'amount' => $package->price,
                 'business_id' => $business_id,
                 'user_id' => $user_id,
-                'gateway' => 'onekhusa'
             ];
-            
+
             session([
-                'onekhusa_payment_' . $reference => $paymentData,
-                'onekhusa_payment_txn_' . $paymentTransactionId => $paymentData
+                "onekhusa_payment_$reference" => $paymentData,
             ]);
-            
+
             // Get access token
             $accessToken = $this->getOneKhusaAccessToken();
+
             if (!$accessToken) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unable to authenticate with payment gateway. Please try again later.',
-                    'payment_url' => route('superadmin.onekhusa.payment.checkout', ['ptid' => $paymentTransactionId])
+                    'message' => 'Authentication failed'
                 ]);
             }
-            
-            // Prepare payload for OneKhusa API
+
+            // Build payload (NO paymentTransactionId here)
             $payload = [
                 'authentication' => [
                     'apiKey' => env('ONEKHUSA_API_KEY'),
-                    'apiSecret' => env('ONEKHUSA_API_SECRET')
+                    'apiSecret' => env('ONEKHUSA_API_SECRET'),
                 ],
                 'merchant' => [
                     'organisationId' => env('ONEKHUSA_ORGANISATION_ID'),
-                    'merchantAccountNumber' => (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER')
+                    'merchantAccountNumber' => (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER'),
                 ],
                 'payment' => [
                     'sourceReferenceNumber' => $reference,
-                    'paymentTransactionId' => $paymentTransactionId,
-                    'description' => 'Payment for ' . $package->name . ' - ' . ($business->name ?? 'Business'),
-                    'amount' => (int) ($package->price * 100), // Convert to cents
-                    'currency' => 'ZAR'
+                    'description' => 'Subscription payment - ' . $package->name,
+                    'amount' => (int) $package->price,
+                    'currency' => 'MWK',
                 ],
                 'route' => [
-                    'successRedirectionUrl' => route('superadmin.onekhusa.payment.success', ['reference' => $reference, 'ptid' => $paymentTransactionId]),
-                    'failureRedirectionUrl' => route('superadmin.onekhusa.payment.failed'),
-                    'callbackApiUrl' => route('superadmin.onekhusa.webhook')
+                    'successRedirectionUrl' => route('superadmin.onekhusa.success', [
+                        'reference' => $reference
+                    ]),
+                    'failureRedirectionUrl' => route('superadmin.onekhusa.failed'),
+                    'callbackApiUrl' => route('superadmin.onekhusa.webhook'),
                 ],
-                'metadata' => [
-                    'package_id' => $package->id,
-                    'business_id' => $business_id,
-                    'user_id' => $user_id,
-                    'package_name' => $package->name
-                ]
             ];
-            
-            // Log the request payload for debugging
-            Log::info('OneKhusa Request Payload', [
-                'payload' => $payload,
-                'reference' => $reference,
-                'payment_transaction_id' => $paymentTransactionId
-            ]);
-            
-            $baseUrl = env('ONEKHUSA_BASEURL', 'https://api.onekhusa.com/sandbox');
-            
-            // Try the initiate endpoint
-            try {
-                $response = Http::timeout(60)
-                    ->retry(2, 2000)
-                    ->withHeaders([
-                        'Authorization' => 'Bearer ' . $accessToken,
-                        'Content-Type' => 'application/json',
-                        'Accept' => 'application/json',
-                        'X-Idempotency-Key' => $reference
-                    ])->post($baseUrl . '/v1/checkout/rtp/initiate', $payload);
-                
-                $statusCode = $response->status();
-                $responseData = $response->json();
-                
-                Log::info('OneKhusa Initiate Response', [
-                    'status_code' => $statusCode,
-                    'response' => $responseData,
-                    'reference' => $reference
-                ]);
-                
-                // Check if we got a payment URL
-                if ($response->successful()) {
-                    // Try different possible response structures
-                    $paymentUrl = $responseData['paymentUrl'] ?? 
-                                $responseData['data']['paymentUrl'] ?? 
-                                $responseData['redirectUrl'] ?? 
-                                $responseData['data']['redirectUrl'] ?? 
-                                $responseData['checkoutUrl'] ?? 
-                                $responseData['data']['checkoutUrl'] ?? null;
-                    
-                    // If we have a payment transaction ID, construct the checkout URL
-                    if (!$paymentUrl && $paymentTransactionId) {
-                        $paymentUrl = env('ONEKHUSA_CHECKOUT_URL', 'https://checkout.onekhusa.com/requestToPay/initiate') . '?ptid=' . $paymentTransactionId;
-                        Log::info('OneKhusa: Using constructed checkout URL', ['url' => $paymentUrl]);
-                    }
-                    
-                    if ($paymentUrl) {
-                        return response()->json([
-                            'success' => true,
-                            'payment_url' => $paymentUrl,
-                            'reference' => $reference,
-                            'payment_transaction_id' => $paymentTransactionId,
-                            'message' => 'Payment initiated successfully'
-                        ]);
-                    }
-                }
-                
-                // If API call fails, still provide a checkout URL using our transaction ID
-                $checkoutUrl = env('ONEKHUSA_CHECKOUT_URL', 'https://checkout.onekhusa.com/requestToPay/initiate') . '?ptid=' . $paymentTransactionId;
-                
-                Log::warning('OneKhusa: API call failed, using fallback checkout URL', [
-                    'checkout_url' => $checkoutUrl,
-                    'api_response' => $responseData ?? null
-                ]);
-                
+
+            $baseUrl = rtrim(env('ONEKHUSA_BASEURL'), '/');
+
+            // Step 1: Initiate RTP
+            $response = Http::timeout(60)
+                ->withHeaders([
+                    'Authorization' => "Bearer $accessToken",
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'X-Idempotency-Key' => $idempotencyKey,
+                ])
+                ->post("$baseUrl/v1/checkout/rtp/initiate", $payload);
+
+            $data = $response->json();
+
+            Log::info('OneKhusa Initiate Response', $data);
+
+            // Step 2: Extract REAL paymentTransactionId from response
+            $paymentTransactionId =
+                $data['paymentTransactionId']
+                ?? $data['data']['paymentTransactionId']
+                ?? null;
+
+            if (!$paymentTransactionId) {
+                Log::error('OneKhusa: Missing paymentTransactionId', $data);
+
                 return response()->json([
-                    'success' => true,
-                    'payment_url' => $checkoutUrl,
-                    'reference' => $reference,
-                    'payment_transaction_id' => $paymentTransactionId,
-                    'message' => 'Payment initiated (fallback mode)'
-                ]);
-                
-            } catch (\Exception $e) {
-                Log::error('OneKhusa API Exception: ' . $e->getMessage());
-                
-                // Fallback: Use the checkout URL directly
-                $checkoutUrl = env('ONEKHUSA_CHECKOUT_URL', 'https://checkout.onekhusa.com/requestToPay/initiate') . '?ptid=' . $paymentTransactionId;
-                
-                return response()->json([
-                    'success' => true,
-                    'payment_url' => $checkoutUrl,
-                    'reference' => $reference,
-                    'payment_transaction_id' => $paymentTransactionId,
-                    'message' => 'Payment initiated (using fallback URL)'
+                    'success' => false,
+                    'message' => 'Invalid payment gateway response'
                 ]);
             }
-            
+
+            // Store full transaction mapping
+            session([
+                "onekhusa_payment_txn_$paymentTransactionId" => array_merge($paymentData, [
+                    'payment_transaction_id' => $paymentTransactionId
+                ])
+            ]);
+
+            // Step 3: Build checkout URL (MANDATORY flow)
+            $checkoutUrl = 'https://checkout.onekhusa.com/requestToPay/initiate?' . http_build_query([
+                'ptid' => $paymentTransactionId
+            ]);
+
+            Log::info('OneKhusa Checkout URL', [
+                'url' => $checkoutUrl,
+                'ptid' => $paymentTransactionId
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_url' => $checkoutUrl,
+                'reference' => $reference,
+                'payment_transaction_id' => $paymentTransactionId,
+            ]);
+
         } catch (\Exception $e) {
-            Log::error('OneKhusa Initiate Exception: ' . $e->getMessage(), [
+            Log::error('OneKhusa Initiate Error', [
+                'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Server error: ' . $e->getMessage()
+                'message' => $e->getMessage()
             ]);
         }
     }
 
     /**
-     * Handle OneKhusa checkout redirect
-     */
-    public function oneKhusaCheckout(Request $request)
-    {
-        $ptid = $request->get('ptid');
-        
-        if (!$ptid) {
-            return redirect()
-                ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
-                ->with('status', ['success' => 0, 'msg' => 'Invalid payment transaction ID']);
-        }
-        
-        // Get payment data from session
-        $paymentData = session('onekhusa_payment_txn_' . $ptid);
-        
-        if (!$paymentData) {
-            return redirect()
-                ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
-                ->with('status', ['success' => 0, 'msg' => 'Payment session expired. Please try again.']);
-        }
-        
-        // Display payment checkout page or redirect to OneKhusa
-        return view('superadmin::subscription.onekhusa_checkout', [
-            'payment_transaction_id' => $ptid,
-            'amount' => $paymentData['amount'],
-            'reference' => $paymentData['reference']
-        ]);
-    }
-
-    /**
-     * Handle successful payment redirect from OneKhusa
-     */
-    public function oneKhusaPaymentSuccess(Request $request, $reference = null)
-    {
-        try {
-            // Get reference from URL or query param
-            if (!$reference) {
-                $reference = $request->get('reference') ?? $request->get('referenceNumber');
-            }
-            
-            $ptid = $request->get('ptid');
-            
-            Log::info('OneKhusa Success Redirect', [
-                'reference' => $reference,
-                'ptid' => $ptid,
-                'all_data' => $request->all()
-            ]);
-            
-            // Try to get payment data from session
-            $paymentData = null;
-            if ($reference) {
-                $paymentData = session('onekhusa_payment_' . $reference);
-            }
-            if (!$paymentData && $ptid) {
-                $paymentData = session('onekhusa_payment_txn_' . $ptid);
-            }
-            
-            if (!$paymentData) {
-                Log::warning('OneKhusa Success: No payment data found', ['reference' => $reference, 'ptid' => $ptid]);
-                return redirect()
-                    ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
-                    ->with('status', ['success' => 0, 'msg' => 'Payment session expired. Please contact support.']);
-            }
-            
-            // Add subscription (mark as pending or completed based on your business logic)
-            $this->_add_subscription(
-                $paymentData['business_id'],
-                $paymentData['package_id'],
-                'onekhusa',
-                $paymentData['reference'],
-                $paymentData['user_id']
-            );
-            
-            // Clear session data
-            session()->forget('onekhusa_payment_' . $paymentData['reference']);
-            if ($ptid) {
-                session()->forget('onekhusa_payment_txn_' . $ptid);
-            }
-            
-            return redirect()
-                ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
-                ->with('status', ['success' => 1, 'msg' => __('lang_v1.success') . ' Payment completed successfully.']);
-            
-        } catch (\Exception $e) {
-            Log::error('OneKhusa Success Error: ' . $e->getMessage());
-            return redirect()
-                ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
-                ->with('status', ['success' => 0, 'msg' => 'Error processing payment: ' . $e->getMessage()]);
-        }
-    }
-    
-    /**
-     * Get OneKhusa Access Token using Laravel HTTP Client
+     * Step 2: Access token
      */
     private function getOneKhusaAccessToken()
     {
-        // Check if token exists and is valid
-        if (session()->has('onekhusa_access_token') && session()->has('onekhusa_token_expires_at')) {
-            if (now()->lt(session('onekhusa_token_expires_at'))) {
-                Log::info('OneKhusa: Using cached token');
-                return session('onekhusa_access_token');
-            }
-        }
-        
-        // Get credentials from env
-        $apiKey = env('ONEKHUSA_API_KEY');
-        $apiSecret = env('ONEKHUSA_API_SECRET');
-        $organisationId = env('ONEKHUSA_ORGANISATION_ID');
-        $merchantAccountNumber = (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER');
-        
-        // Check if credentials exist
-        if (empty($apiKey) || empty($apiSecret) || empty($organisationId) || empty($merchantAccountNumber)) {
-            Log::error('OneKhusa: Missing credentials in .env file');
-            return null;
-        }
-        
         try {
-            $baseUrl = env('ONEKHUSA_BASEURL', 'https://api.onekhusa.com/sandbox');
-            $url = $baseUrl . '/v1/account/getAccessToken';
-            
-            Log::info('OneKhusa: Requesting token from: ' . $url);
-            
-            $idempotencyKey = \Illuminate\Support\Str::uuid()->toString();
-            
+            $baseUrl = rtrim(env('ONEKHUSA_BASEURL'), '/');
+
+            $idempotencyKey = 'OKH-' . Str::upper(Str::random(24));
+
             $response = Http::timeout(60)
-                ->retry(3, 2000)
                 ->withHeaders([
                     'Content-Type' => 'application/json',
-                    'Accept-Language' => 'en',
                     'Accept' => 'application/json',
-                    'X-Idempotency-Key' => $idempotencyKey
-                ])->post($url, [
-                    'apiKey' => $apiKey,
-                    'apiSecret' => $apiSecret,
-                    'organisationId' => $organisationId,
-                    'merchantAccountNumber' => $merchantAccountNumber
+                    'X-Idempotency-Key' => $idempotencyKey,
+                ])
+                ->post("$baseUrl/v1/account/getAccessToken", [
+                    'apiKey' => env('ONEKHUSA_API_KEY'),
+                    'apiSecret' => env('ONEKHUSA_API_SECRET'),
+                    'organisationId' => env('ONEKHUSA_ORGANISATION_ID'),
+                    'merchantAccountNumber' => (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER'),
                 ]);
-            
-            Log::info('OneKhusa Token Response Status: ' . $response->status());
-            
-            if ($response->successful()) {
-                $responseData = $response->json();
-                
-                if (isset($responseData['accessToken'])) {
-                    $accessToken = $responseData['accessToken'];
-                    
-                    // Store token in session (valid for 55 minutes to be safe)
-                    session([
-                        'onekhusa_access_token' => $accessToken,
-                        'onekhusa_token_expires_at' => now()->addMinutes(55)
-                    ]);
-                    
-                    Log::info('OneKhusa: Token obtained successfully');
-                    return $accessToken;
-                } else {
-                    Log::error('OneKhusa: No accessToken in response', $responseData);
-                }
-            } else {
-                Log::error('OneKhusa Token HTTP Error', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-            }
-            
-            return null;
-            
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::error('OneKhusa Token Connection Error: ' . $e->getMessage());
-            return null;
+
+            $data = $response->json();
+
+            return $data['accessToken'] ?? null;
         } catch (\Exception $e) {
-            Log::error('OneKhusa Token Exception: ' . $e->getMessage());
+            Log::error('OneKhusa Token Error', ['message' => $e->getMessage()]);
             return null;
         }
     }
-        
+
     /**
-     * Handle failed payment redirect from OneKhusa
+     * Success redirect
      */
-    public function oneKhusaPaymentFailed(Request $request)
+    public function oneKhusaSuccess(Request $request)
     {
-        Log::info('OneKhusa Failed Redirect', $request->all());
-        
-        $errorMessage = $request->get('message') ?? 
-                       $request->get('error') ?? 
-                       'Payment was cancelled or failed. Please try again.';
-        
+        $reference = $request->get('reference');
+        $ptid = $request->get('ptid');
+
+        $paymentData =
+            session("onekhusa_payment_$reference")
+            ?? session("onekhusa_payment_txn_$ptid");
+
+        if (!$paymentData) {
+            return redirect()->back()
+                ->with('status', [
+                    'success' => 0,
+                    'msg' => 'Payment session expired'
+                ]);
+        }
+
+        $this->_add_subscription(
+            $paymentData['business_id'],
+            $paymentData['package_id'],
+            'onekhusa',
+            $paymentData['reference'],
+            $paymentData['user_id']
+        );
+
         return redirect()
             ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
-            ->with('status', ['success' => 0, 'msg' => $errorMessage]);
-    }
-    
-    /**
-     * Obtain OneKhusa payment information (Webhook)
-     *
-     * @return response
-     */
-    public function postOneKhusaPaymentCallback(Request $request)
-    {
-        Log::info('OneKhusa Webhook Received', $request->all());
-        
-        // Get access token for verification
-        $accessToken = $this->getOneKhusaAccessToken();
-        
-        if (!$accessToken) {
-            Log::error('OneKhusa Callback: Unable to get access token');
-            return response()->json(['status' => 'error', 'message' => 'Authentication failed'], 401);
-        }
-        
-        // Get parameters from the callback
-        $reference_number = $request->get('referenceNumber') ?? $request->get('reference_number');
-        $transaction_status = $request->get('transactionStatus') ?? $request->get('status');
-        
-        if (empty($reference_number)) {
-            Log::error('OneKhusa Callback: Missing reference number', $request->all());
-            return response()->json(['status' => 'error', 'message' => 'Missing reference number'], 400);
-        }
-        
-        // Verify payment status with OneKhusa API
-        $verificationResult = $this->verifyOneKhusaPayment($reference_number, $accessToken);
-        
-        if ($verificationResult['success']) {
-            // Get payment data from session (might not be available in webhook)
-            $paymentData = session('onekhusa_payment_' . $reference_number);
-            
-            if ($paymentData) {
-                $this->_add_subscription(
-                    $paymentData['business_id'],
-                    $paymentData['package_id'],
-                    'onekhusa',
-                    $reference_number,
-                    $paymentData['user_id']
-                );
-                
-                // Clear session data
-                session()->forget('onekhusa_payment_' . $reference_number);
-                
-                return response()->json(['status' => 'success', 'message' => 'Subscription added'], 200);
-            } else {
-                Log::warning('OneKhusa Webhook: No payment data found in session', ['reference' => $reference_number]);
-                return response()->json(['status' => 'warning', 'message' => 'Payment verified but no session data'], 200);
-            }
-        }
-        
-        Log::warning('OneKhusa Payment Verification Failed', [
-            'reference_number' => $reference_number,
-            'verification' => $verificationResult
-        ]);
-        
-        return response()->json(['status' => 'error', 'message' => 'Payment verification failed'], 400);
-    }
-    
-    /**
-     * Verify OneKhusa payment status
-     */
-    private function verifyOneKhusaPayment($reference, $accessToken)
-    {
-        try {
-            $response = Http::timeout(30)
-                ->withHeaders([
-                    'Authorization' => 'Bearer ' . $accessToken,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json'
-                ])->post(
-                    env('ONEKHUSA_BASEURL', 'https://api.onekhusa.com/sandbox') . '/v1/collections/requestToPay/status',
-                    [
-                        'merchantAccountNumber' => (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER'),
-                        'referenceNumber' => $reference
-                    ]
-                );
-            
-            Log::info('OneKhusa Verification Response', [
-                'reference' => $reference,
-                'status' => $response->status(),
-                'body' => $response->json()
+            ->with('status', [
+                'success' => 1,
+                'msg' => 'Payment successful'
             ]);
-            
-            if ($response->successful()) {
-                $data = $response->json();
-                
-                if (isset($data['success']) && $data['success'] == true) {
-                    $transactionStatus = $data['data']['transactionStatus'] ?? $data['transactionStatus'] ?? '';
-                    
-                    if ($transactionStatus == 'SUCCESSFUL') {
-                        return ['success' => true, 'message' => 'Payment verified'];
-                    } else {
-                        return ['success' => false, 'message' => 'Payment status: ' . $transactionStatus];
-                    }
-                }
-            }
-            
-            return ['success' => false, 'message' => 'Payment not verified'];
-            
-        } catch (\Exception $e) {
-            Log::error('OneKhusa Verification Error: ' . $e->getMessage());
-            return ['success' => false, 'message' => $e->getMessage()];
-        }
+    }
+
+    /**
+     * Failed redirect
+     */
+    public function oneKhusaFailed()
+    {
+        return redirect()
+            ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
+            ->with('status', [
+                'success' => 0,
+                'msg' => 'Payment failed or cancelled'
+            ]);
     }
 
     /**

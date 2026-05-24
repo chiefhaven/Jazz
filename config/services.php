@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'eis' => [
+        'base_url' => env('EIS_BASE_URL', 'http://dev-eis-api.mra.mw'),
+        'product_id' => env('EIS_PRODUCT_ID', 'Mbira ERP'),
+    ],
+
 ];

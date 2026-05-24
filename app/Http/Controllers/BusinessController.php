@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use App\Rules\ReCaptcha;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
 
 class BusinessController extends Controller
 {
@@ -329,6 +330,8 @@ class BusinessController extends Controller
 
         $email_settings = empty($business->email_settings) ? $this->businessUtil->defaultEmailSettings() : $business->email_settings;
 
+        $eis_settings = empty($business->eis_settings) ? $this->businessUtil->defaultEisSettings() : $business->eis_settings;
+
         $sms_settings = empty($business->sms_settings) ? $this->businessUtil->defaultSmsSettings() : $business->sms_settings;
 
         $modules = $this->moduleUtil->availableModules();
@@ -347,7 +350,7 @@ class BusinessController extends Controller
 
         $payment_types = $this->moduleUtil->payment_types(null, false, $business_id);
 
-        return view('business.settings', compact('business', 'currencies', 'tax_rates', 'timezone_list', 'months', 'accounting_methods', 'commission_agent_dropdown', 'units_dropdown', 'date_formats', 'shortcuts', 'pos_settings', 'modules', 'theme_colors', 'email_settings', 'sms_settings', 'mail_drivers', 'allow_superadmin_email_settings', 'custom_labels', 'common_settings', 'weighing_scale_setting', 'payment_types'));
+        return view('business.settings', compact('business', 'currencies', 'tax_rates', 'timezone_list', 'months', 'accounting_methods', 'commission_agent_dropdown', 'units_dropdown', 'date_formats', 'shortcuts', 'pos_settings', 'modules', 'theme_colors', 'email_settings', 'eis_settings', 'sms_settings', 'mail_drivers', 'allow_superadmin_email_settings', 'custom_labels', 'common_settings', 'weighing_scale_setting', 'payment_types'));
     }
 
     /**
@@ -370,7 +373,7 @@ class BusinessController extends Controller
 
             $business_details = $request->only(['name', 'start_date', 'currency_id', 'tax_label_1', 'tax_number_1', 'tax_label_2', 'tax_number_2', 'default_profit_percent', 'default_sales_tax', 'default_sales_discount', 'sell_price_tax', 'sku_prefix', 'time_zone', 'fy_start_month', 'accounting_method', 'transaction_edit_days', 'sales_cmsn_agnt', 'item_addition_method', 'currency_symbol_placement', 'on_product_expiry',
                 'stop_selling_before', 'default_unit', 'expiry_type', 'date_format',
-                'time_format', 'ref_no_prefixes', 'theme_color', 'email_settings',
+                'time_format', 'ref_no_prefixes', 'theme_color', 'email_settings', 'eis_settings',
                 'sms_settings', 'rp_name', 'amount_for_unit_rp',
                 'min_order_total_for_rp', 'max_rp_per_order',
                 'redeem_amount_per_unit_rp', 'min_order_total_for_redeem',
@@ -610,6 +613,151 @@ class BusinessController extends Controller
         }
 
         return $output;
+    }
+
+    /**
+     * Handles the activation of EIS terminal
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function activateEISTerminal(Request $request)
+    {
+        $base_url = config('services.eis.base_url');
+
+        try {
+
+            $validated = $request->validate([
+                'terminal_activation_code' => 'required|string',
+            ]);
+
+            /**
+             * Activate terminal with provided activation code and environment details
+            */
+            $payload = [
+                'terminalActivationCode' => $validated['terminal_activation_code'],
+                'environment' => [
+                    'platform' => [
+                        'osName' => php_uname('s'),
+                        'osVersion' => php_uname('r'),
+                        'osBuild' => php_uname('v'),
+                        'macAddress' => '00-00-00-00-00-00',
+                    ],
+                    'pos' => [
+                        'productID' => 'MRA-desktop/' . uniqid(),
+                        'productVersion' => '1.0.0',
+                    ],
+                ],
+            ];
+
+            $response = Http::acceptJson()
+                ->timeout(30)
+                ->post(
+                    $base_url.'/onboarding/activate-terminal',
+                    $payload
+                );
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => 0,
+                    'msg' => 'Activation failed',
+                    'error' => $response->body(),
+                ], 400);
+            }
+
+            $data = $response->json();
+            $terminal = $data['data']['activatedTerminal'] ?? [];
+
+            $jwt = $terminal['terminalCredentials']['jwtToken'] ?? null;
+            $secret = $terminal['terminalCredentials']['secretKey'] ?? null;
+
+            // Save initial activation data
+            $settings = [
+                'terminal_id' => $terminal['terminalId'] ?? null,
+                'taxpayer_id' => $terminal['taxpayerId'] ?? null,
+                'terminal_position' => $terminal['terminalPosition'] ?? null,
+                'jwt_token' => $jwt,
+                'secret_key' => $secret,
+                'site_id' => $data['data']['configuration']['terminalConfiguration']['terminalSite']['siteId'] ?? null,
+                'status' => 0,
+            ];
+
+            $business = Business::find(session('user.business_id'));
+
+            /**
+             * -----------------------------
+             * IMPORTANT: Depending on the API response time, the terminal might already be active by the time we attempt confirmation. 
+             * If the terminal is not yet active, we save it as PENDING_CONFIRMATION and attempt confirmation immediately.
+             * If the terminal is already active, we can skip to final status update.
+             * This ensures that we handle both fast and slow activation scenarios gracefully.
+             * -----------------------------
+             */
+
+            $confirmPayload = [
+                'terminalId' => $settings['terminal_id'],
+                'terminalPosition' => $settings['terminal_position'],
+                'taxpayerId' => $settings['taxpayer_id'],
+            ];
+
+            $confirmResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $jwt,
+                    'x-secret-key' => $secret,
+                    'Accept' => 'application/json',
+                ])
+                ->post(
+                    $base_url.'/onboarding/confirm-terminal',
+                    $confirmPayload
+                );
+
+            if (!$confirmResponse->successful()) {
+
+                // Save as partially activated
+                $business->update([
+                    'eis_settings' => json_encode($settings),
+                ]);
+
+                return response()->json([
+                    'success' => 0,
+                    'msg' => 'Activated but confirmation failed',
+                    'activation' => $data,
+                    'confirmation_error' => $confirmResponse->body(),
+                ], 400);
+            }
+
+            $confirmData = $confirmResponse->json();
+
+            /**
+             * Update the status to ACTIVE and save all details.
+             */
+            $settings['status'] = 'ACTIVE';
+
+            $business->update([
+                'eis_settings' => json_encode($settings),
+            ]);
+
+            return response()->json([
+                'success' => 1,
+                'msg' => 'Terminal fully activated and confirmed',
+                'data' => [
+                    'activation' => $data,
+                    'confirmation' => $confirmData,
+                    'settings' => $settings,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+
+            \Log::error('EIS Full Activation Flow Error', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            $output  = [
+                'success' => 0,
+                'msg' => 'Terminal activation failed',
+            ];
+
+            return $output;
+        }
     }
 
     /**

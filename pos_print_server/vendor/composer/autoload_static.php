@@ -13,15 +13,15 @@ class ComposerStaticInit27cb109543b987ab4a7a164e2b333e2a
     );
 
     public static $prefixLengthsPsr4 = array (
-        'T' => 
+        'T' =>
         array (
             'Twf\\Pps\\' => 8,
         ),
-        'M' => 
+        'M' =>
         array (
             'Mike42\\' => 7,
         ),
-        'H' => 
+        'H' =>
         array (
             'Hoa\\Websocket\\' => 14,
             'Hoa\\Stream\\' => 11,
@@ -35,46 +35,50 @@ class ComposerStaticInit27cb109543b987ab4a7a164e2b333e2a
     );
 
     public static $prefixDirsPsr4 = array (
-        'Twf\\Pps\\' => 
+        'Twf\\Pps\\' =>
         array (
             0 => __DIR__ . '/../..' . '/lib',
         ),
-        'Mike42\\' => 
+        'Mike42\\' =>
         array (
             0 => __DIR__ . '/..' . '/mike42/escpos-php/src/Mike42',
         ),
-        'Hoa\\Websocket\\' => 
+        'Hoa\\Websocket\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/websocket',
         ),
-        'Hoa\\Stream\\' => 
+        'Hoa\\Stream\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/stream',
         ),
-        'Hoa\\Socket\\' => 
+        'Hoa\\Socket\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/socket',
         ),
-        'Hoa\\Protocol\\' => 
+        'Hoa\\Protocol\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/protocol',
         ),
-        'Hoa\\Http\\' => 
+        'Hoa\\Http\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/http',
         ),
-        'Hoa\\Exception\\' => 
+        'Hoa\\Exception\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/exception',
         ),
-        'Hoa\\Event\\' => 
+        'Hoa\\Event\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/event',
         ),
-        'Hoa\\Consistency\\' => 
+        'Hoa\\Consistency\\' =>
         array (
             0 => __DIR__ . '/..' . '/hoa/consistency',
         ),
+    );
+
+    public static $classMap = array (
+        'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
@@ -82,6 +86,7 @@ class ComposerStaticInit27cb109543b987ab4a7a164e2b333e2a
         return \Closure::bind(function () use ($loader) {
             $loader->prefixLengthsPsr4 = ComposerStaticInit27cb109543b987ab4a7a164e2b333e2a::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInit27cb109543b987ab4a7a164e2b333e2a::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit27cb109543b987ab4a7a164e2b333e2a::$classMap;
 
         }, null, ClassLoader::class);
     }

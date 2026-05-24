@@ -1601,8 +1601,9 @@ class TransactionUtil extends Util
         $output['additional_notes'] = $transaction->additional_notes;
         $output['footer_text'] = $invoice_layout->footer_text .
             '<br>
-            <small style="font-size:10px; color:#333333; line-height:1.4;">
-                POS & ERP Supported by <strong>HavenPlus Technologies Ltd.</strong><br>
+            <small style="font-size:6px; color:#333333; line-height:1.4;">
+                POS & ERP Supported by <br>
+                <strong>HavenPlus Technologies Ltd.</strong><br>
                 Contact: +265 882 547 343
             </small>';
 

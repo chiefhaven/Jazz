@@ -36,6 +36,7 @@
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('lang_v1.email_settings')</a>
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('lang_v1.sms_settings')</a>
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('lang_v1.reward_point_settings')</a>
+                    <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('lang_v1.mra_eis')</a>
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('lang_v1.modules')</a>
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('lang_v1.custom_labels')</a>
                 </div>
@@ -81,8 +82,11 @@
                 @include('business.partials.settings_reward_point')
                 <!-- tab 11 end -->
                 <!-- tab 12 start -->
-                @include('business.partials.settings_modules')
+                @include('business.partials.settings_mra_eis')
                 <!-- tab 12 end -->
+                <!-- tab 13 start -->
+                @include('business.partials.settings_modules')
+                <!-- tab 13 end -->
                 @include('business.partials.settings_custom_labels')
             </div>
         @endcomponent
@@ -131,6 +135,31 @@
                 method: 'post',
                 data: data,
                 url: "{{ action([\App\Http\Controllers\BusinessController::class, 'testEmailConfiguration']) }}",
+                dataType: 'json',
+                success: function(result) {
+                    if (result.success == true) {
+                        swal({
+                            text: result.msg,
+                            icon: 'success'
+                        });
+                    } else {
+                        swal({
+                            text: result.msg,
+                            icon: 'error'
+                        });
+                    }
+                },
+            });
+        });
+
+        $('#activate_eis_terminal_btn').click( function() {
+            var data = {
+                terminal_activation_code: $('#terminal_activation_code').val(),
+            };
+            $.ajax({
+                method: 'post',
+                data: data,
+                url: "{{ action([\App\Http\Controllers\BusinessController::class, 'activateEISTerminal']) }}",
                 dataType: 'json',
                 success: function(result) {
                     if (result.success == true) {

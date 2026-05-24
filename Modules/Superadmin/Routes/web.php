@@ -4,6 +4,8 @@
 // use App\Http\Controllers\Modules;
 // use Illuminate\Support\Facades\Route;
 
+use Modules\Superadmin\Http\Controllers\SubscriptionController;
+
 Route::get('/pricing', [Modules\Superadmin\Http\Controllers\PricingController::class, 'index'])->name('pricing');
 
 Route::middleware('web', 'auth', 'language', 'AdminSidebarMenu', 'superadmin')->prefix('superadmin')->group(function () {
@@ -72,8 +74,8 @@ Route::middleware('web', 'SetSessionData', 'auth', 'language', 'timezone', 'Admi
 //     Route::post('/initiate-onekhusa-payment', [Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'initiateOneKhusaPayment'])
 //         ->name('superadmin.onekhusa.initiate');
     
-//     Route::get('/onekhusa-checkout', [Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'oneKhusaCheckout'])
-//         ->name('superadmin.onekhusa.payment.checkout');
+       Route::get('/onekhusa-checkout', [Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'oneKhusaCheckout'])
+           ->name('superadmin.onekhusa.payment.checkout');
     
 //     Route::get('/onekhusa-payment-success/{reference?}', [Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'oneKhusaPaymentSuccess'])
 //         ->name('superadmin.onekhusa.payment.success');
@@ -84,6 +86,39 @@ Route::middleware('web', 'SetSessionData', 'auth', 'language', 'timezone', 'Admi
 //     Route::post('/onekhusa-webhook', [Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'postOneKhusaPaymentCallback'])
 //         ->name('superadmin.onekhusa.webhook');
 // });
+
+Route::prefix('superadmin/onekhusa')->name('superadmin.onekhusa.')->group(function () {
+
+    // Step 1: Initiate payment (API call from frontend)
+    Route::post('/initiate', [
+        SubscriptionController::class,
+        'initiateOneKhusaPayment'
+    ])->name('initiate');
+
+    // Step 2: Optional checkout page (if you want internal page before redirect)
+    Route::get('/checkout', [
+        SubscriptionController::class,
+        'oneKhusaCheckout'
+    ])->name('checkout');
+
+    // Success redirect from OneKhusa
+    Route::get('/success', [
+        SubscriptionController::class,
+        'oneKhusaSuccess'
+    ])->name('success');
+
+    // Failure redirect from OneKhusa
+    Route::get('/failed', [
+        SubscriptionController::class,
+        'oneKhusaFailed'
+    ])->name('failed');
+
+    // Webhook callback (server-to-server)
+    Route::post('/webhook', [
+        SubscriptionController::class,
+        'postOneKhusaPaymentCallback'
+    ])->name('webhook');
+});
 
 // Add these routes inside your superadmin middleware group
 Route::group(['middleware' => ['auth', 'superadmin'], 'prefix' => 'superadmin'], function () {

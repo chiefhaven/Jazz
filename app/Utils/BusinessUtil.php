@@ -430,6 +430,16 @@ class BusinessUtil extends Util
     }
 
     /**
+     * Return the default setting for the EIS.
+     *
+     * @return array
+     */
+    public function defaultEisSettings()
+    {
+        return ['terminal_activation_code' => '', 'jwtToken' => '', 'secretKey' => ''];
+    }
+
+    /**
      * Return the default setting for the email.
      *
      * @return array

@@ -13,10 +13,10 @@
 namespace Mike42\Escpos\PrintConnectors;
 
 /**
- * Print connector that writes to nowhere, but allows the user to retrieve the
- * buffered data. Used for testing.
+ * Print connector for android RawBT application
+ * https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter
  */
-final class DummyPrintConnector implements PrintConnector
+final class RawbtPrintConnector implements PrintConnector
 {
     /**
      * @var array $buffer
@@ -34,24 +34,27 @@ final class DummyPrintConnector implements PrintConnector
      */
     public function __construct()
     {
-        $this -> buffer = [];
+        ob_start();
+        $this->buffer = [];
     }
 
     public function clear()
     {
-        $this -> buffer = [];
+        $this->buffer = [];
     }
-    
+
     public function __destruct()
     {
-        if ($this -> buffer !== null) {
+        if ($this->buffer !== null) {
             trigger_error("Print connector was not finalized. Did you forget to close the printer?", E_USER_NOTICE);
         }
     }
 
     public function finalize()
     {
-        $this -> buffer = null;
+        ob_end_clean();
+        echo "intent:base64," . base64_encode($this->getData()) . "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+        $this->buffer = null;
     }
 
     /**
@@ -59,7 +62,7 @@ final class DummyPrintConnector implements PrintConnector
      */
     public function getData()
     {
-        return implode($this -> buffer);
+        return implode($this->buffer);
     }
 
     /**
@@ -68,11 +71,11 @@ final class DummyPrintConnector implements PrintConnector
      */
     public function read($len)
     {
-        return $len >= strlen($this -> readData) ? $this -> readData : substr($this -> readData, 0, $len);
+        return $len >= strlen($this->readData) ? $this->readData : substr($this->readData, 0, $len);
     }
 
     public function write($data)
     {
-        $this -> buffer[] = $data;
+        $this->buffer[] = $data;
     }
 }
