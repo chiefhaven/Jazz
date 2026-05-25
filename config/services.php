@@ -32,7 +32,7 @@ return [
     ],
 
     'eis' => [
-        'base_url' => env('EIS_BASE_URL', 'http://dev-eis-api.mra.mw'),
+        'base_url' => env('EIS_BASE_URL', 'http://dev-eis-api.mra.mw/api/v1'),
         'product_id' => env('EIS_PRODUCT_ID', 'Mbira ERP'),
     ],
 

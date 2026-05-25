@@ -631,8 +631,8 @@ class BusinessController extends Controller
             ]);
 
             /**
-             * Activate terminal with provided activation code and environment details
-            */
+             * STEP 1: ACTIVATE TERMINAL
+             */
             $payload = [
                 'terminalActivationCode' => $validated['terminal_activation_code'],
                 'environment' => [
@@ -650,27 +650,72 @@ class BusinessController extends Controller
             ];
 
             $response = Http::acceptJson()
-                ->timeout(30)
-                ->post(
-                    $base_url.'/onboarding/activate-terminal',
-                    $payload
-                );
-
-            if (!$response->successful()) {
-                return response()->json([
-                    'success' => 0,
-                    'msg' => 'Activation failed',
-                    'error' => $response->body(),
-                ], 400);
-            }
+                ->timeout(60)
+                ->post($base_url . '/onboarding/activate-terminal', $payload);
 
             $data = $response->json();
-            $terminal = $data['data']['activatedTerminal'] ?? [];
+
+            /**
+             * STEP 2: HTTP CHECK
+             */
+            if (!$response->successful()) {
+                $output = [
+                    'success' => 0,
+                    'msg' => 'HTTP request failed',
+                    'error' => $response->body(),
+                ];
+                return $output;
+            }
+
+            $status = $data['statusCode'] ?? null;
+
+            /**
+             * STEP 3: HANDLE STATUS CODES
+             */
+            if (!in_array($status, [1, -2])) {
+                $output = [
+                    'success' => 0,
+                    'msg' => $data['remark'] ?? 'Activation failed',
+                    'error_code' => $status,
+                    'data' => $data
+                ];
+
+                return $output;
+            }
+
+            /**
+             * STEP 4: EXTRACT TERMINAL SAFELY
+             */
+            $terminal = $data['data']['activatedTerminal'] ?? null;
 
             $jwt = $terminal['terminalCredentials']['jwtToken'] ?? null;
             $secret = $terminal['terminalCredentials']['secretKey'] ?? null;
+            $x_signature = $this->computeXSignature($validated['terminal_activation_code'], $secret);
 
-            // Save initial activation data
+            /**
+             * FALLBACK (IMPORTANT for -2 cases)
+             */
+            if (!$jwt || !$secret) {
+                $business = Business::find(session('user.business_id'));
+                $existing = $business->eis_settings ?? [];
+
+                $jwt = $existing['jwt_token'] ?? null;
+                $secret = $existing['secret_key'] ?? null;
+            }
+
+            if (!$jwt || !$secret) {
+                $output = [
+                    'success' => 0,
+                    'msg' => 'Missing terminal credentials',
+                    'data' => $data
+                ];
+
+                return $output;
+            }
+
+            /**
+             * STEP 5: BUILD SETTINGS
+             */
             $settings = [
                 'terminal_id' => $terminal['terminalId'] ?? null,
                 'taxpayer_id' => $terminal['taxpayerId'] ?? null,
@@ -678,71 +723,58 @@ class BusinessController extends Controller
                 'jwt_token' => $jwt,
                 'secret_key' => $secret,
                 'site_id' => $data['data']['configuration']['terminalConfiguration']['terminalSite']['siteId'] ?? null,
-                'status' => 0,
+                'status' => 'PENDING_CONFIRMATION',
             ];
 
             $business = Business::find(session('user.business_id'));
 
             /**
-             * -----------------------------
-             * IMPORTANT: Depending on the API response time, the terminal might already be active by the time we attempt confirmation. 
-             * If the terminal is not yet active, we save it as PENDING_CONFIRMATION and attempt confirmation immediately.
-             * If the terminal is already active, we can skip to final status update.
-             * This ensures that we handle both fast and slow activation scenarios gracefully.
-             * -----------------------------
+             * STEP 6: CONFIRM TERMINAL
              */
-
             $confirmPayload = [
                 'terminalId' => $settings['terminal_id'],
-                'terminalPosition' => $settings['terminal_position'],
-                'taxpayerId' => $settings['taxpayer_id'],
             ];
 
             $confirmResponse = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $jwt,
-                    'x-secret-key' => $secret,
+                    'x-signature' => $x_signature,
                     'Accept' => 'application/json',
                 ])
-                ->post(
-                    $base_url.'/onboarding/confirm-terminal',
-                    $confirmPayload
-                );
-
-            if (!$confirmResponse->successful()) {
-
-                // Save as partially activated
-                $business->update([
-                    'eis_settings' => json_encode($settings),
-                ]);
-
-                return response()->json([
-                    'success' => 0,
-                    'msg' => 'Activated but confirmation failed',
-                    'activation' => $data,
-                    'confirmation_error' => $confirmResponse->body(),
-                ], 400);
-            }
+                ->timeout(60)
+                ->post($base_url . '/onboarding/terminal-activated-confirmation', $confirmPayload);
 
             $confirmData = $confirmResponse->json();
 
             /**
-             * Update the status to ACTIVE and save all details.
+             * STEP 7: FINAL STATUS
              */
-            $settings['status'] = 'ACTIVE';
+            if ($confirmResponse->successful()) {
+                $settings['status'] = 'ACTIVE';
+            } else {
+                $settings['status'] = 'PENDING_CONFIRMATION';
+            }
 
+            /**
+             * STEP 8: SAVE (NO json_encode if cast exists)
+             */
             $business->update([
-                'eis_settings' => json_encode($settings),
+                'eis_settings' => $settings,
             ]);
 
-            return response()->json([
+            /**
+             * STEP 9: FINAL RESPONSE (ONLY RETURN HERE)
+             */
+            $output = [
                 'success' => 1,
-                'msg' => 'Terminal fully activated and confirmed',
+                'msg' => 'Terminal activation processed',
                 'data' => [
                     'activation' => $data,
                     'confirmation' => $confirmData,
                     'settings' => $settings,
                 ]
-            ]);
+            ];
+
+            return $output;
 
         } catch (\Exception $e) {
 
@@ -751,13 +783,18 @@ class BusinessController extends Controller
                 'line' => $e->getLine(),
             ]);
 
-            $output  = [
+            $output = [
                 'success' => 0,
-                'msg' => 'Terminal activation failed',
+                'msg' => 'Terminal activation failed: ' . $e->getMessage(),
             ];
 
             return $output;
         }
+    }
+
+    public function computeXSignature($activationCode, $secretKey) {
+        $hash = hash_hmac('sha512', $activationCode, $secretKey, true);
+        return base64_encode($hash);
     }
 
     /**
