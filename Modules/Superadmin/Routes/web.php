@@ -116,7 +116,7 @@ Route::prefix('superadmin/onekhusa')->name('superadmin.onekhusa.')->group(functi
     // Webhook callback (server-to-server)
     Route::post('/webhook', [
         SubscriptionController::class,
-        'postOneKhusaPaymentCallback'
+        'oneKhusaWebhook'
     ])->name('webhook');
 });
 

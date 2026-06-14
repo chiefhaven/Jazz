@@ -655,6 +655,8 @@ class BusinessController extends Controller
 
             $data = $response->json();
 
+            \Log::info('EIS Terminal Activation Response', ['response' => $data]);
+
             /**
              * STEP 2: HTTP CHECK
              */
@@ -667,7 +669,7 @@ class BusinessController extends Controller
                 return $output;
             }
 
-            $status = $data['statusCode'] ?? null;
+            $status = $data['response']['statusCode'] ?? null;
 
             /**
              * STEP 3: HANDLE STATUS CODES
@@ -717,6 +719,7 @@ class BusinessController extends Controller
              * STEP 5: BUILD SETTINGS
              */
             $settings = [
+                'activation_code' => $validated['terminal_activation_code'],
                 'terminal_id' => $terminal['terminalId'] ?? null,
                 'taxpayer_id' => $terminal['taxpayerId'] ?? null,
                 'terminal_position' => $terminal['terminalPosition'] ?? null,

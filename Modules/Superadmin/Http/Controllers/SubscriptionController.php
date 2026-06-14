@@ -572,12 +572,19 @@ class SubscriptionController extends BaseController
             $business_id = $request->session()->get('user.business_id');
             $user_id = $request->session()->get('user.id');
             $business = Business::find($business_id);
+            $merchantAccountNumber = config('services.onekhusa.merchant_account_number');
+            $apiKey = config('services.onekhusa.api_key');
+            $apiSecret = config('services.onekhusa.api_secret');
+            $organisationId = config('services.onekhusa.organisation_id');
+            $baseUrl = rtrim(config('services.onekhusa.base_url'), '/');
+            $moduleCode = 'MbiraERP';
+            $uniqueNumber = Str::upper(Str::random(6));
 
             // Unique reference (this is fine to generate locally)
             $reference = 'SUB-' . time() . '-' . Str::upper(Str::random(6));
 
             // Idempotency key (valid format)
-            $idempotencyKey = 'OKH-' . Str::upper(Str::random(24));
+            $idempotencyKey = "{$merchantAccountNumber}-{$moduleCode}-{$uniqueNumber}";
 
             // Store session BEFORE API call
             $paymentData = [
@@ -589,7 +596,7 @@ class SubscriptionController extends BaseController
             ];
 
             session([
-                "onekhusa_payment_$reference" => $paymentData,
+                "onekhusa_payment_reference" => $paymentData,
             ]);
 
             // Get access token
@@ -605,18 +612,17 @@ class SubscriptionController extends BaseController
             // Build payload (NO paymentTransactionId here)
             $payload = [
                 'authentication' => [
-                    'apiKey' => env('ONEKHUSA_API_KEY'),
-                    'apiSecret' => env('ONEKHUSA_API_SECRET'),
+                    'apiKey' => $apiKey,
+                    'apiSecret' => $apiSecret,
                 ],
                 'merchant' => [
-                    'organisationId' => env('ONEKHUSA_ORGANISATION_ID'),
-                    'merchantAccountNumber' => (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER'),
+                    'organisationId' => $organisationId,
+                    'merchantAccountNumber' => (int) $merchantAccountNumber,
                 ],
                 'payment' => [
                     'sourceReferenceNumber' => $reference,
                     'description' => 'Subscription payment - ' . $package->name,
                     'amount' => (int) $package->price,
-                    'currency' => 'MWK',
                 ],
                 'route' => [
                     'successRedirectionUrl' => route('superadmin.onekhusa.success', [
@@ -627,8 +633,6 @@ class SubscriptionController extends BaseController
                 ],
             ];
 
-            $baseUrl = rtrim(env('ONEKHUSA_BASEURL'), '/');
-
             // Step 1: Initiate RTP
             $response = Http::timeout(60)
                 ->withHeaders([
@@ -637,7 +641,7 @@ class SubscriptionController extends BaseController
                     'Accept' => 'application/json',
                     'X-Idempotency-Key' => $idempotencyKey,
                 ])
-                ->post("$baseUrl/v1/checkout/rtp/initiate", $payload);
+                ->post("$baseUrl/checkout/rtp/initiate", $payload);
 
             $data = $response->json();
 
@@ -670,11 +674,6 @@ class SubscriptionController extends BaseController
                 'ptid' => $paymentTransactionId
             ]);
 
-            Log::info('OneKhusa Checkout URL', [
-                'url' => $checkoutUrl,
-                'ptid' => $paymentTransactionId
-            ]);
-
             return response()->json([
                 'success' => true,
                 'payment_url' => $checkoutUrl,
@@ -701,21 +700,22 @@ class SubscriptionController extends BaseController
     private function getOneKhusaAccessToken()
     {
         try {
-            $baseUrl = rtrim(env('ONEKHUSA_BASEURL'), '/');
+            $baseUrl = rtrim(config('services.onekhusa.base_url'), '/');
 
-            $idempotencyKey = 'OKH-' . Str::upper(Str::random(24));
+            $idempotencyKey = 'TOKEN-' . Str::upper(Str::random(6));
 
             $response = Http::timeout(60)
                 ->withHeaders([
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                     'X-Idempotency-Key' => $idempotencyKey,
+                    'Accept-language' => 'en',
                 ])
-                ->post("$baseUrl/v1/account/getAccessToken", [
-                    'apiKey' => env('ONEKHUSA_API_KEY'),
-                    'apiSecret' => env('ONEKHUSA_API_SECRET'),
-                    'organisationId' => env('ONEKHUSA_ORGANISATION_ID'),
-                    'merchantAccountNumber' => (int) env('ONEKHUSA_MERCHANT_ACCOUNT_NUMBER'),
+                ->post("$baseUrl/account/getAccessToken", [
+                    'apiKey' => config('services.onekhusa.api_key'),
+                    'apiSecret' => config('services.onekhusa.api_secret'),
+                    'organisationId' => config('services.onekhusa.organisation_id'),
+                    'merchantAccountNumber' => (int) config('services.onekhusa.merchant_account_number'),
                 ]);
 
             $data = $response->json();
@@ -768,12 +768,22 @@ class SubscriptionController extends BaseController
      */
     public function oneKhusaFailed()
     {
+        \Log::warning('OneKhusa Payment Failed or Cancelled', request()->all());
+
         return redirect()
             ->action([\Modules\Superadmin\Http\Controllers\SubscriptionController::class, 'index'])
             ->with('status', [
                 'success' => 0,
                 'msg' => 'Payment failed or cancelled'
             ]);
+    }
+
+    public function oneKhusaWebhook(Request $request)
+    {
+        $payload = $request->all();
+
+        Log::info('OneKhusa Webhook Received', $payload);
+
     }
 
     /**

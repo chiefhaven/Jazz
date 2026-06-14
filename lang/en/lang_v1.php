@@ -868,6 +868,7 @@ return [
     'show_credit_sale_button' => 'Show Credit Sale Button',
     'show_credit_sale_btn_help' => 'If enabled credit sale button will be shown in place of Card button on pos screen',
     'credit_sale' => 'Credit Sale',
+    'place_order' => 'Place order',
     'tooltip_credit_sale' => 'Checkout as credit sale',
     'add_as_sub_txonomy' => 'Add as sub taxonomy',
     'select_parent_taxonomy' => 'Select parent taxonomy',
