@@ -54,23 +54,29 @@
 }
 
 /* ── Button base ── */
+/* ── Button base ── */
 .pos-bar .pb{
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    gap:6px;
+    gap:10px;
     border:1px solid #d1d5db;
-    border-radius:8px;
+    border-radius:10px;
     background:#fff;
     color:#374151;
-    font-size:13px;
+    font-size:16px;
     font-weight:600;
-    padding:8px 14px;
+    padding:16px 24px;
+    min-height:60px;
     cursor:pointer;
-    transition:background .15s, border-color .15s, transform .1s, opacity .15s;
+    transition:background .15s, border-color .15s, transform .1s;
     white-space:nowrap;
     text-decoration:none;
     line-height:1;
+}
+
+.pos-bar .pb i{
+    font-size:20px;
 }
 .pos-bar .pb:hover{background:#f3f4f6;border-color:#9ca3af}
 .pos-bar .pb:active{transform:scale(.97)}
@@ -108,8 +114,8 @@
 .pos-bar .pb--danger{background:transparent;border-color:#fca5a5;color:#dc2626}
 .pos-bar .pb--danger:hover{background:#fef2f2;border-color:#f87171}
 
-.pos-bar .pb--logout{background:transparent;border-color:#d1d5db;color:#6b7280}
-.pos-bar .pb--logout:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626}
+.pos-bar .pb--logout{background:transparent;border-color:#ff0000;color:#ffffff}
+.pos-bar .pb--logout:hover{background:#fef2f2;border-color:#ffffff;color:#ffe7e7}
 
 /* Icon accent colours */
 .pos-bar .ic-draft{color:#009ce4}
@@ -144,6 +150,18 @@
     .pos-bar__mobile-total,
     .pos-bar__mobile-actions,
     .pos-bar__mobile-utilities{display:none!important}
+}
+
+.pos-bar .pb--dark,
+.pos-bar .pb--green,
+.pos-bar .pb--indigo{
+    min-height:64px;
+    font-size:17px;
+    padding:18px 28px;
+}
+
+.pos-bar .pb--indigo{
+    border-radius:12px;
 }
 </style>
 
@@ -351,7 +369,7 @@
         @endif
 
         <a href="{{ route('logout') }}"
-            class="pb pb--logout">
+            class="pb pb--logout bg-danger">
             <i class="fas fa-sign-out-alt"></i> Exit
         </a>
 
