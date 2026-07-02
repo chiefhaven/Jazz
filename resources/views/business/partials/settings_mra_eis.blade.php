@@ -10,13 +10,13 @@
         <div class="col-xs-4">
             <div class="form-group">
             	{!! Form::label('jwtToken' , __('lang_v1.jwtToken') . ':') !!}
-            	{!! Form::text('eis_settings[jwtToken]', $eis_settings['jwtToken'], ['class' => 'form-control','placeholder' => __('lang_v1.jwtToken'), 'id' => 'jwtToken']); !!}
+            	{!! Form::text('eis_settings[jwtToken]', $eis_settings['jwt_token'], ['class' => 'form-control','placeholder' => __('lang_v1.jwtToken'), 'id' => 'jwtToken']); !!}
             </div>
         </div>
         <div class="col-xs-4">
             <div class="form-group">
                 {!! Form::label('secretKey', __('lang_v1.secretKey') . ':') !!}
-                {!! Form::text('eis_settings[secretKey]', $eis_settings['secretKey'], ['class' => 'form-control','placeholder' => __('lang_v1.secretKey'), 'id' => 'secretKey']); !!}
+                {!! Form::text('eis_settings[secretKey]', $eis_settings['secret_key'], ['class' => 'form-control','placeholder' => __('lang_v1.secretKey'), 'id' => 'secretKey']); !!}
             </div>
         </div>
         <div class="clearfix"></div>
