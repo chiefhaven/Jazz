@@ -28,7 +28,9 @@ class ProductSyncService
             if (empty($items)) {
                 break;
             }
-            
+
+            Log::info('SyncProductsJob: Fetched ' . count($items) . ' products for business_id: ' . $businessId . ' on page: ' . $page);
+
             foreach ($items as $item) {
 
                 $data = $this->transformer->fromEis($item);
@@ -36,7 +38,7 @@ class ProductSyncService
                 $this->upserter->upsert(
                     $businessId,
                     $data,
-                    $item['productCode'] ?? ''
+                    $item['id'] ?? ''
                 );
             }
 
