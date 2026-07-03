@@ -23,7 +23,7 @@ class ProductSyncService
 
             $response = $this->client->fetch($settings, $page);
 
-            Log::info('SyncProductsJob: Fetched page '.$page.' for business_id: '.$businessId);
+            Log::info('SyncProductsJob: Fetched page ', ['page' => $page, 'response' => $response]);
 
             $items = $response['data'] ?? [];
 
