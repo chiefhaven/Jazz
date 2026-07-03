@@ -73,7 +73,6 @@ class ProductController extends Controller
         dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
         ->onQueue('eis-products');
 
-        Log::info('SyncProductsJob dispatched for business_id: '.$business_id);
 
         if (request()->ajax()) {
             //Filter by location

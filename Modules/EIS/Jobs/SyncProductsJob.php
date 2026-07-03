@@ -18,7 +18,6 @@ class SyncProductsJob implements ShouldQueue
     {
         $settings = EisSetting::where('business_id', $this->businessId)->first();
 
-        Log::info('SyncProductsJob started for business_id: '.$this->businessId);
 
         if (!$settings) {
             return;
