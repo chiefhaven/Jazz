@@ -1,0 +1,11 @@
+{
+    "name": "EIS",
+    "alias": "eis",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\EIS\\Providers\\EISServiceProvider"
+    ],
+    "files": []
+}
