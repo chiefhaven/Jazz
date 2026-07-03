@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\ProductsCreatedOrModified;
 use App\TransactionSellLine;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -72,7 +73,7 @@ class ProductController extends Controller
         dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
         ->onQueue('eis-products');
 
-        \Log::info('SyncProductsJob dispatched for business_id: '.$business_id);
+        Log::info('SyncProductsJob dispatched for business_id: '.$business_id);
 
         if (request()->ajax()) {
             //Filter by location
