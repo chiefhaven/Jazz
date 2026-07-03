@@ -23,13 +23,13 @@ class ProductSyncService
 
             $response = $this->client->fetch($settings, $page);
 
-            Log::info('SyncProductsJob: Fetched page ', ['page' => $page, 'response' => $response]);
-
             $items = $response['data'] ?? [];
 
             if (empty($items)) {
                 break;
             }
+
+            Log::info('SyncProductsJob: Fetched ' . count($items) . ' products for business_id: ' . $businessId . ' on page: ' . $page);
 
             foreach ($items as $item) {
 
@@ -38,7 +38,7 @@ class ProductSyncService
                 $this->upserter->upsert(
                     $businessId,
                     $data,
-                    $item['id']
+                    $item['productCode'] ?? $item['sku'] ?? ''
                 );
             }
 
