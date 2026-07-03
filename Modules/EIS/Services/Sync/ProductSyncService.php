@@ -2,7 +2,6 @@
 
 namespace Modules\EIS\Services\Sync;
 
-use AWS\CRT\Log;
 use Modules\EIS\Services\Product\EisProductClient;
 use Modules\EIS\Services\Product\ProductTransformer;
 use Modules\EIS\Services\Product\ProductUpsertService;
@@ -24,8 +23,6 @@ class ProductSyncService
             $response = $this->client->fetch($settings, $page);
 
             $items = $response['data'] ?? [];
-
-            \Log::info("Fetched " . count($items) . " products from EIS for business ID: $businessId, page: $page");
 
             if (empty($items)) {
                 break;

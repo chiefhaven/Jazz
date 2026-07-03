@@ -2,6 +2,7 @@
 
 namespace Modules\EIS\Jobs;
 
+use AWS\CRT\Log;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\EIS\Models\EisSetting;
@@ -16,6 +17,8 @@ class SyncProductsJob implements ShouldQueue
     public function handle(ProductSyncService $service)
     {
         $settings = EisSetting::where('business_id', $this->businessId)->first();
+
+        \Log::info('SyncProductsJob started for business_id: '.$this->businessId);
 
         if (!$settings) {
             return;
