@@ -71,7 +71,7 @@ class ProductController extends Controller
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
 
         dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
-        ->onQueue('eis-products');
+        ->onQueue('eis-products')
 
 
         if (request()->ajax()) {
