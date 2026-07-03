@@ -13,6 +13,7 @@ class EisProductClient
             ->post('/utilities/get-terminal-site-products', [
                 'tin'    => $settings->tpin,
                 'siteId' => $settings->site_id ?? $settings->branch_id,
+                'page'   => $page,
             ])
             ->json();
     }
