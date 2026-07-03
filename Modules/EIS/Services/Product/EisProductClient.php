@@ -10,8 +10,9 @@ class EisProductClient
     {
         return Http::baseUrl(config('eis.base_url'))
             ->withToken($settings->jwt_token)
-            ->get('/utilities/get-terminal-site-products', [
-                'page' => $page
+            ->post('/utilities/get-terminal-site-products', [
+                'tin'    => $settings->tpin,
+                'siteId' => $settings->site_id ?? $settings->branch_id,
             ])
             ->json();
     }
