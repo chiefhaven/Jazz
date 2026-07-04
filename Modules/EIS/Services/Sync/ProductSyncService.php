@@ -29,7 +29,7 @@ class ProductSyncService
                 break;
             }
 
-            Log::info('SyncProductsJob: Fetched ' . count($items) . ' products for business_id: ' . $businessId . ' on page: ' . $page);
+            Log::info('SyncProductsJob: Fetched ' . $items . ' products for business_id: ' . $businessId . ' on page: ' . $page);
 
             foreach ($items as $item) {
 
