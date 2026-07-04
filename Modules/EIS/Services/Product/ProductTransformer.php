@@ -15,6 +15,8 @@ class ProductTransformer
             'stock' => $item['quantity'] ?? 0,
             'manage_stock' => $item['isProduct'] ?? false,
             'unit_of_measure' => $item['unitOfMeasure'] ?? null,
+            'expiry_period' => $item['productExpiryDate'] ?? null,
+
         ];
     }
 }

@@ -141,6 +141,8 @@ class ProductController extends Controller
                 DB::raw('MIN(v.dpp_inc_tax) as min_purchase_price')
                 );
 
+            Log::info($products);
+
             //if woocomerce enabled add field to query
             if ($is_woocommerce) {
                 $products->addSelect('woocommerce_disable_sync');

@@ -35,7 +35,12 @@ class ProductUpsertService
                 ?? 'UNKNOWN PRODUCT';
 
             $product->sku = $item['sku'] ?? null;
-            $product->created_by = 10000000;
+            $product->unit_id = 2; // Default unit_id to 2 (piece)
+            $product->type = 'single';
+            $product->expiry_period = $item['expiry_period'] ?? null;
+            $product->expiry_period_type = null;
+            $product->enable_stock = $item['manage_stock'] ?? false;
+            $product->updated_by = 10000000;
             $product->save();
 
             // -----------------------
