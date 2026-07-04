@@ -24,8 +24,9 @@ class ProductUpsertService
         $product->name = $item['name'];
         $product->sku = $item['sku'];
         $product->variations->default_sell_price = $item['price'];
-        $product->cost = $item['cost'];
-        $product->quantity = $item['stock'];
+        $product->variations->default_purchase_price = $item['cost'];
+        $product->variations->profit_percent = $item['price'] > 0 ? (($item['price'] - $item['cost']) / $item['price']) * 100 : 0;
+        $product->variations->variation_location_details->first()->quantity_available = $item['stock'];
         $product->save();
 
         EisProductMap::updateOrCreate(
