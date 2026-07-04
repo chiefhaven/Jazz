@@ -4,6 +4,7 @@ namespace Modules\EIS\Services\Product;
 
 use Modules\EIS\Models\EisProductMap;
 use App\Models\Product;
+use App\Product as AppProduct;
 
 class ProductUpsertService
 {
@@ -14,9 +15,9 @@ class ProductUpsertService
             ->first();
 
         $product = $map
-            ? Product::with(['variations.variation_location_details'])
+            ? AppProduct::with(['variations.variation_location_details'])
                 ->find($map->product_id)
-            : new Product();
+            : new AppProduct();
 
         // -----------------------
         // PRODUCT LEVEL
