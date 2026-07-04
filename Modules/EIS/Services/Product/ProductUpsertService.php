@@ -40,6 +40,7 @@ class ProductUpsertService
                 'default_sell_price' => $item['price'] ?? 0,
                 'default_purchase_price' => $item['cost'] ?? 0,
                 'profit_percent' => $this->profit($item),
+                'created_by' => 10000000, // TODO: Automated by system user
             ]);
         } else {
             $variation->update([
