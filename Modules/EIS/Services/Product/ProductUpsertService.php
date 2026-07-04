@@ -15,7 +15,7 @@ class ProductUpsertService
             ->first();
 
         if ($map) {
-            $product = AppProduct::find($map->product_id);
+            $product = AppProduct::with('variations')->find($map->product_id);
         } else {
             $product = new AppProduct();
             $product->business_id = $businessId;
@@ -23,7 +23,7 @@ class ProductUpsertService
 
         $product->name = $item['name'];
         $product->sku = $item['sku'];
-        $product->price = $item['price'];
+        $product->variations->default_sell_price = $item['price'];
         $product->cost = $item['cost'];
         $product->quantity = $item['stock'];
         $product->save();
