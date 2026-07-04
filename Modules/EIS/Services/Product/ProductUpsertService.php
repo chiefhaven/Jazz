@@ -20,40 +20,63 @@ class ProductUpsertService
             : new AppProduct();
 
         // -----------------------
-        // PRODUCT LEVEL
+        // PRODUCT
         // -----------------------
         $product->business_id = $businessId;
         $product->name = $item['name'] ?? null;
         $product->sku = $item['sku'] ?? null;
-        $product->created_by = 10000000; // TODO: Automated by system user
+        $product->created_by = 10000000;
         $product->save();
 
         // -----------------------
-        // VARIATION LEVEL
+        // PRODUCT VARIATION (NEW - REQUIRED)
+        // -----------------------
+        $productVariation = \DB::table('product_variations')
+            ->where('product_id', $product->id)
+            ->first();
+
+        if (!$productVariation) {
+            $productVariationId = \DB::table('product_variations')->insertGetId([
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } else {
+            $productVariationId = $productVariation->id;
+        }
+
+        // -----------------------
+        // VARIATION
         // -----------------------
         $variation = $product->variations()->first();
 
         if (!$variation) {
             $variation = $product->variations()->create([
                 'product_id' => $product->id,
+                'product_variation_id' => $productVariationId, // 🔥 IMPORTANT FIX
                 'name' => $product->name,
                 'default_sell_price' => $item['price'] ?? 0,
                 'default_purchase_price' => $item['cost'] ?? 0,
                 'profit_percent' => $this->profit($item),
-                'product_variation_id' => $product->id,
             ]);
         } else {
             $variation->update([
                 'default_sell_price' => $item['price'] ?? 0,
                 'default_purchase_price' => $item['cost'] ?? 0,
                 'profit_percent' => $this->profit($item),
+                'product_variation_id' => $productVariationId,
             ]);
         }
 
         // -----------------------
-        // STOCK (LOCATION SAFE)
+        // STOCK (VLD)
         // -----------------------
         $locationId = $this->getDefaultLocation($businessId);
+
+        if (!$locationId) {
+            throw new \Exception("Missing business location for business_id {$businessId}");
+        }
 
         $vld = $variation->variation_location_details()
             ->where('location_id', $locationId)
@@ -71,7 +94,7 @@ class ProductUpsertService
         }
 
         // -----------------------
-        // MAPPING TABLE
+        // MAPPING
         // -----------------------
         EisProductMap::updateOrCreate(
             [
