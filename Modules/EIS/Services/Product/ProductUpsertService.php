@@ -25,6 +25,8 @@ class ProductUpsertService
         $product->business_id = $businessId;
         $product->name = $item['name'] ?? null;
         $product->sku = $item['sku'] ?? null;
+        $product->updated_by = 100000000; // TODO: Automated by system user
+        $product->created_by = 100000000; // TODO: Automated by system user
         $product->save();
 
         // -----------------------
