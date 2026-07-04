@@ -25,7 +25,10 @@ class ProductSyncService
 
             $items = $response['data'] ?? [];
 
-            Log::info($items);
+            Log::info('EIS product page fetched', [
+                'page' => $page,
+                'count' => count($items),
+            ]);
 
             if (empty($items)) {
                 break;
@@ -33,13 +36,31 @@ class ProductSyncService
 
             foreach ($items as $item) {
 
-                $data = $this->transformer->fromEis($item);
+                $eisId = $item['productCode']
+                    ?? $item['id']
+                    ?? $item['sku']
+                    ?? null;
 
-                $this->upserter->upsert(
-                    $businessId,
-                    $data,
-                    $item['productCode'] ?? ''
-                );
+                if (!$eisId) {
+                    Log::warning('Missing EIS product identifier', $item);
+                    continue;
+                }
+
+                try {
+                    $data = $this->transformer->fromEis($item);
+
+                    $this->upserter->upsert(
+                        $businessId,
+                        $data,
+                        $eisId
+                    );
+
+                } catch (\Throwable $e) {
+                    Log::error('EIS product sync failed', [
+                        'error' => $e->getMessage(),
+                        'item' => $item,
+                    ]);
+                }
             }
 
             if (!($response['has_more'] ?? false)) {
