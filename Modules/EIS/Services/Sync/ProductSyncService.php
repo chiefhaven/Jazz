@@ -38,7 +38,7 @@ class ProductSyncService
                 $this->upserter->upsert(
                     $businessId,
                     $data,
-                    $item['id'] ?? ''
+                    $item['productCode'] ?? ''
                 );
             }
 
