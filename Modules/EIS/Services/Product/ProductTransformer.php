@@ -8,12 +8,13 @@ class ProductTransformer
     {
         return [
             'name'  => $item['productName'],
-            
-            'sku'   => $item['sku'],
+
+            'sku'   => $item['productCode'],
             'price' => $item['price'] ?? 0,
             'cost'  => $item['cost'] ?? 0,
             'stock' => $item['quantity'] ?? 0,
             'manage_stock' => $item['isProduct'] ?? false,
+            'unit_of_measure' => $item['unitOfMeasure'] ?? null,
         ];
     }
 }
