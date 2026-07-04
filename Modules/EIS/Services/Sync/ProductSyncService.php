@@ -25,11 +25,11 @@ class ProductSyncService
 
             $items = $response['data'] ?? [];
 
+            Log::info($items);
+
             if (empty($items)) {
                 break;
             }
-
-            Log::info('SyncProductsJob: Fetched ' . $items . ' products for business_id: ' . $businessId . ' on page: ' . $page);
 
             foreach ($items as $item) {
 
