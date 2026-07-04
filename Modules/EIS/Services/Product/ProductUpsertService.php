@@ -4,6 +4,7 @@ namespace Modules\EIS\Services\Product;
 
 use Modules\EIS\Models\EisProductMap;
 use App\Models\Product;
+use App\Product as AppProduct;
 
 class ProductUpsertService
 {
@@ -14,9 +15,9 @@ class ProductUpsertService
             ->first();
 
         if ($map) {
-            $product = Product::find($map->product_id);
+            $product = AppProduct::find($map->product_id);
         } else {
-            $product = new Product();
+            $product = new AppProduct();
             $product->business_id = $businessId;
         }
 
