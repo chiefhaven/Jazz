@@ -3,135 +3,143 @@
 namespace Modules\EIS\Services\Product;
 
 use Modules\EIS\Models\EisProductMap;
-use App\Models\Product;
-use App\Product as AppProduct;
+use App\Product;
+use Illuminate\Support\Facades\DB;
 
 class ProductUpsertService
 {
     public function upsert(int $businessId, array $item, string $eisId)
     {
-        $map = EisProductMap::where('business_id', $businessId)
-            ->where('eis_product_id', $eisId)
-            ->first();
+        return DB::transaction(function () use ($businessId, $item, $eisId) {
 
-        $product = $map
-            ? AppProduct::with(['variations.variation_location_details'])
-                ->find($map->product_id)
-            : new AppProduct();
+            // -----------------------
+            // MAP CHECK
+            // -----------------------
+            $map = EisProductMap::where('business_id', $businessId)
+                ->where('eis_product_id', $eisId)
+                ->first();
 
-        // -----------------------
-        // PRODUCT
-        // -----------------------
-        $product->business_id = $businessId;
-        $product->name = $item['name'] ?? null;
-        $product->sku = $item['sku'] ?? null;
-        $product->created_by = 10000000;
-        $product->save();
+            $product = $map
+                ? Product::with(['variations.variation_location_details'])
+                    ->find($map->product_id)
+                : new Product();
 
-        // -----------------------
-        // PRODUCT VARIATION (NEW - REQUIRED)
-        // -----------------------
-        $productVariation = \DB::table('product_variations')
-            ->where('product_id', $product->id)
-            ->first();
+            // -----------------------
+            // PRODUCT
+            // -----------------------
+            $product->business_id = $businessId;
 
-        if (!$productVariation) {
-            $productVariationId = \DB::table('product_variations')->insertGetId([
-                'product_id' => $product->id,
-                'name' => $product->name,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } else {
-            $productVariationId = $productVariation->id;
-        }
+            $product->name = $item['name']
+                ?? $item['productName']
+                ?? $item['sku']
+                ?? 'UNKNOWN PRODUCT';
 
-        // -----------------------
-        // VARIATION
-        // -----------------------
-        $variation = $product->variations()->first();
+            $product->sku = $item['sku'] ?? null;
+            $product->created_by = 10000000;
+            $product->save();
 
-        if (!$variation) {
-            $variation = $product->variations()->create([
-                'product_id' => $product->id,
-                'product_variation_id' => $productVariationId, // 🔥 IMPORTANT FIX
-                'name' => $product->name,
-                'default_sell_price' => $item['price'] ?? 0,
-                'default_purchase_price' => $item['cost'] ?? 0,
-                'profit_percent' => $this->profit($item),
-            ]);
-        } else {
+            // -----------------------
+            // PRODUCT VARIATION (SAFE UPSERT)
+            // -----------------------
+            $productVariationId = DB::table('product_variations')
+                ->where('product_id', $product->id)
+                ->value('id');
+
+            if (!$productVariationId) {
+                $productVariationId = DB::table('product_variations')
+                    ->insertGetId([
+                        'variation_template_id' => null,
+                        'product_id' => $product->id,
+                        'name' => $product->name,
+                        'is_dummy' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            // -----------------------
+            // VARIATION (UPSERT SAFE)
+            // -----------------------
+            $variation = $product->variations()
+                ->firstOrCreate(
+                    ['product_id' => $product->id],
+                    [
+                        'name' => $product->name,
+                        'product_variation_id' => $productVariationId,
+                        'default_sell_price' => 0,
+                        'default_purchase_price' => 0,
+                        'profit_percent' => 0,
+                    ]
+                );
+
             $variation->update([
                 'default_sell_price' => $item['price'] ?? 0,
                 'default_purchase_price' => $item['cost'] ?? 0,
                 'profit_percent' => $this->profit($item),
                 'product_variation_id' => $productVariationId,
             ]);
-        }
 
-        // -----------------------
-        // STOCK (VLD)
-        // -----------------------
-        $locationId = $this->getDefaultLocation($businessId);
+            // -----------------------
+            // LOCATION
+            // -----------------------
+            $locationId = $this->getDefaultLocation($businessId);
 
-        if (!$locationId) {
-            throw new \Exception("Missing business location for business_id {$businessId}");
-        }
+            if (!$locationId) {
+                throw new \Exception("Missing business location for business_id {$businessId}");
+            }
 
-        $vld = $variation->variation_location_details()
-            ->where('location_id', $locationId)
-            ->first();
+            // -----------------------
+            // VLD (UPSERT STYLE)
+            // -----------------------
+            DB::table('variation_location_details')
+                ->updateOrInsert(
+                    [
+                        'variation_id' => $variation->id,
+                        'location_id' => $locationId,
+                    ],
+                    [
+                        'qty_available' => $item['stock'] ?? 0,
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
 
-        if (!$vld) {
-            $variation->variation_location_details()->create([
-                'location_id' => $locationId,
-                'qty_available' => $item['stock'] ?? 0,
-            ]);
-        } else {
-            $vld->update([
-                'qty_available' => $item['stock'] ?? 0,
-            ]);
-        }
+            // -----------------------
+            // MAPPING
+            // -----------------------
+            EisProductMap::updateOrCreate(
+                [
+                    'business_id' => $businessId,
+                    'eis_product_id' => $eisId,
+                ],
+                [
+                    'product_id' => $product->id,
+                    'sku' => $item['sku'] ?? null,
+                    'last_synced_at' => now(),
+                ]
+            );
 
-        // -----------------------
-        // MAPPING
-        // -----------------------
-        EisProductMap::updateOrCreate(
-            [
-                'business_id' => $businessId,
-                'eis_product_id' => $eisId,
-            ],
-            [
-                'product_id' => $product->id,
-                'sku' => $item['sku'] ?? null,
-                'last_synced_at' => now(),
-            ]
-        );
-
-        return $product;
+            return $product;
+        });
     }
 
     // -----------------------
-    // PROFIT CALCULATION
+    // PROFIT
     // -----------------------
     private function profit(array $item): float
     {
         $price = $item['price'] ?? 0;
         $cost  = $item['cost'] ?? 0;
 
-        if ($price <= 0) {
-            return 0;
-        }
-
-        return (($price - $cost) / $price) * 100;
+        return $price > 0 ? (($price - $cost) / $price) * 100 : 0;
     }
 
     // -----------------------
-    // DEFAULT LOCATION
+    // LOCATION
     // -----------------------
     private function getDefaultLocation(int $businessId)
     {
-        return \DB::table('business_locations')
+        return DB::table('business_locations')
             ->where('business_id', $businessId)
             ->value('id');
     }
