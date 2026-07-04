@@ -23,7 +23,7 @@ class ProductUpsertService
         // PRODUCT LEVEL
         // -----------------------
         $product->business_id = $businessId;
-        $product->name = $item['productName'] ?? null;
+        $product->name = $item['name'] ?? null;
         $product->sku = $item['sku'] ?? null;
         $product->save();
 
