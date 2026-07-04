@@ -3,8 +3,7 @@
 namespace Modules\EIS\Services\Product;
 
 use Modules\EIS\Models\EisProductMap;
-use App\Models\Product as AppProduct;
-use App\Product;
+use App\Models\Product;
 
 class ProductUpsertService
 {
@@ -28,7 +27,7 @@ class ProductUpsertService
         $product->save();
 
         // -----------------------
-        // VARIATION LEVEL (FIXED)
+        // VARIATION LEVEL
         // -----------------------
         $variation = $product->variations()->first();
 
@@ -49,13 +48,17 @@ class ProductUpsertService
         }
 
         // -----------------------
-        // STOCK (VLD FIXED)
+        // STOCK (LOCATION SAFE)
         // -----------------------
-        $vld = $variation->variation_location_details()->first();
+        $locationId = $this->getDefaultLocation($businessId);
+
+        $vld = $variation->variation_location_details()
+            ->where('location_id', $locationId)
+            ->first();
 
         if (!$vld) {
             $variation->variation_location_details()->create([
-                'location_id' => $this->getDefaultLocation($businessId),
+                'location_id' => $locationId,
                 'qty_available' => $item['stock'] ?? 0,
             ]);
         } else {
