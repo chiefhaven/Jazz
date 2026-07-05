@@ -63,6 +63,7 @@ use Stripe\Charge;
 use Stripe\Stripe;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\SellCreatedOrModified;
+use Illuminate\Support\Facades\Log;
 use Modules\EIS\Events\SaleCompleted;
 
 
@@ -386,7 +387,7 @@ class SellPosController extends Controller
                 $discount = ['discount_type' => $input['discount_type'],
                     'discount_amount' => $input['discount_amount'],
                 ];
-                
+
                 $invoice_total = $this->productUtil->calculateInvoiceTotal($input['products'], $input['tax_rate_id'], $discount);
 
                 DB::beginTransaction();
@@ -615,6 +616,7 @@ class SellPosController extends Controller
                 $this->transactionUtil->activityLog($transaction, 'added');
 
                 event(new SaleCompleted($transaction));
+                Log::info('SaleCompleted event dispatched for transaction ID: ' . $transaction->id);
 
                 DB::commit();
 

@@ -8,109 +8,114 @@ use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSale;
 use Modules\EIS\Services\Http\EisSaleClient;
 use Modules\EIS\Exceptions\EisSaleException;
+use Modules\EIS\Services\Sales\SaleResponseService;
 
 class SaleSubmissionService
 {
     public function __construct(
         protected SaleTransformer $transformer,
-        protected EisSaleClient $client
+        protected EisSaleClient $client,
+        protected SaleResponseService $responseService
     ) {}
 
-    /**
-     * Submit transaction to EIS
-     */
     public function submit(Transaction $transaction, object $settings): EisSale
     {
-        return DB::transaction(function () use ($transaction, $settings) {
+        // ----------------------------
+        // IDEMPOTENCY CHECK (BEFORE DB TX)
+        // ----------------------------
+        $existing = EisSale::where('transaction_id', $transaction->id)->first();
+
+        if ($existing && $existing->status === 'submitted') {
+            return $existing;
+        }
+
+        // ----------------------------
+        // CREATE/UPDATE TRACKING
+        // ----------------------------
+        $eisSale = EisSale::updateOrCreate(
+            ['transaction_id' => $transaction->id],
+            [
+                'business_id' => $transaction->business_id,
+                'invoice_number' => $transaction->invoice_no,
+                'status' => 'pending',
+            ]
+        );
+
+        $payload = [];
+
+        try {
 
             // ----------------------------
-            // IDEMPOTENCY CHECK
+            // TRANSFORM
             // ----------------------------
-            $existing = EisSale::where('transaction_id', $transaction->id)->first();
+            $payload = $this->transformer->transform($transaction, $settings);
 
-            if ($existing && in_array($existing->status, ['submitted'])) {
-                return $existing;
-            }
+            $eisSale->update([
+                'request_payload' => $payload,
+            ]);
 
             // ----------------------------
-            // TRACKING ROW
+            // SUBMIT (OUTSIDE DB TRANSACTION)
             // ----------------------------
-            $eisSale = EisSale::updateOrCreate(
-                ['transaction_id' => $transaction->id],
-                [
-                    'business_id' => $transaction->business_id,
-                    'invoice_number' => $transaction->invoice_no,
-                    'status' => 'pending',
-                ]
-            );
+            $response = $this->client->submit($payload, $settings);
 
-            // ensure payload exists for catch block
-            $payload = [];
+            // ----------------------------
+            // SINGLE SOURCE OF TRUTH UPDATE
+            // ----------------------------
+            $this->responseService->handle($transaction, $response);
 
-            try {
+            // ONLY mark EIS record
+            $eisSale->update([
+                'status' => 'submitted',
+                'response_payload' => $response,
+                'submitted_at' => now(),
+            ]);
 
-                // ----------------------------
-                // TRANSFORM
-                // ----------------------------
-                $payload = $this->transformer->transform($transaction, $settings);
+            return $eisSale;
 
-                $eisSale->update([
-                    'request_payload' => $payload,
-                ]);
+        } catch (EisSaleException $e) {
 
-                // ----------------------------
-                // SUBMIT
-                // ----------------------------
-                $response = $this->client->submit($payload, $settings);
+            Log::error('EIS Sale Submission Failed', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage(),
+            ]);
 
-                // ----------------------------
-                // SUCCESS UPDATE
-                // ----------------------------
-                $eisSale->update([
-                    'status' => 'submitted',
-                    'response_payload' => $response,
-                    'submitted_at' => now(),
+            $eisSale->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
 
-                    'fiscal_invoice_number' => $response['fiscalInvoiceNumber'] ?? null,
-                    'receipt_number' => $response['receiptNumber'] ?? null,
-                    'receipt_signature' => $response['signature'] ?? null,
-                    'qr_code' => $response['qrCode'] ?? null,
-                ]);
+            // -------------------------
+            // SAFE RETRY STORAGE
+            // -------------------------
+            $failed = DB::table('eis_failed_transactions')
+                ->where('business_id', $transaction->business_id)
+                ->where('transaction_id', $transaction->id)
+                ->first();
 
-                return $eisSale;
-
-            } catch (EisSaleException $e) {
-
-                Log::error('EIS Sale Submission Failed', [
-                    'transaction_id' => $transaction->id,
-                    'error' => $e->getMessage(),
-                ]);
-
-                $eisSale->update([
-                    'status' => 'failed',
-                    'error_message' => $e->getMessage(),
-                ]);
-
-                // -------------------------
-                // RETRY STORAGE
-                // -------------------------
-                DB::table('eis_failed_transactions')->updateOrInsert(
-                    [
-                        'business_id' => $transaction->business_id,
-                        'transaction_id' => $transaction->id,
-                    ],
-                    [
-                        'payload' => json_encode($payload),
-                        'error_message' => $e->getMessage(),
-                        'attempts' => DB::raw('attempts + 1'),
+            if ($failed) {
+                DB::table('eis_failed_transactions')
+                    ->where('id', $failed->id)
+                    ->update([
+                        'attempts' => $failed->attempts + 1,
                         'next_retry_at' => now()->addMinutes(5),
+                        'error_message' => $e->getMessage(),
                         'updated_at' => now(),
-                        'created_at' => now(),
-                    ]
-                );
-
-                throw $e;
+                    ]);
+            } else {
+                DB::table('eis_failed_transactions')->insert([
+                    'business_id' => $transaction->business_id,
+                    'transaction_id' => $transaction->id,
+                    'payload' => json_encode($payload),
+                    'error_message' => $e->getMessage(),
+                    'attempts' => 1,
+                    'next_retry_at' => now()->addMinutes(5),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
-        });
+
+            throw $e;
+        }
     }
 }
