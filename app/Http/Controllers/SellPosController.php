@@ -615,10 +615,21 @@ class SellPosController extends Controller
 
                 $this->transactionUtil->activityLog($transaction, 'added');
 
-                event(new SaleCompleted($transaction));
-                Log::info('SaleCompleted event dispatched for transaction ID: ' . $transaction->id);
+                DB::commit();
 
                 DB::commit();
+
+                /**
+                 * SAFE POINT: DB is now permanent
+                 * External systems can no longer break POS
+                 */
+                DB::afterCommit(function () use ($transaction) {
+                    event(new SaleCompleted($transaction));
+                });
+
+                Log::info('Sale committed and EIS event queued', [
+                    'transaction_id' => $transaction->id
+                ]);
 
                 SellCreatedOrModified::dispatch($transaction);
 
