@@ -91,12 +91,12 @@ class ProductUpsertService
             // -----------------------
             $locationId = $this->getLocationFromSite(
                 $businessId,
-                $item['siteId'] ?? null
+                $item['site_id'] ?? null
             );
 
             if (!$locationId) {
                 throw new \Exception(
-                    "Business location not found for EIS siteId: " . ($item['siteId'] ?? 'NULL')
+                    "Business location not found for EIS siteId: " . ($item['site_id'] ?? 'NULL')
                 );
             }
 

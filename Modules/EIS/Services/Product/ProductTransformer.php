@@ -8,7 +8,6 @@ class ProductTransformer
     {
         return [
             'name'  => $item['productName'],
-
             'sku'   => $item['productCode'],
             'price' => $item['price'] ?? 0,
             'cost'  => $item['cost'] ?? 0,
@@ -16,6 +15,7 @@ class ProductTransformer
             'manage_stock' => $item['isProduct'] ?? false,
             'unit_of_measure' => $item['unitOfMeasure'] ?? null,
             'expiry_period' => $item['productExpiryDate'] ?? null,
+            'site_id' => $item['siteId'] ?? null,
 
         ];
     }
