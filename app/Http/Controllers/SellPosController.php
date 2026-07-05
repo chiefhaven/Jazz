@@ -615,12 +615,13 @@ class SellPosController extends Controller
 
                 $this->transactionUtil->activityLog($transaction, 'added');
 
-                event(new SaleCompleted($transaction));
-                Log::info('SaleCompleted event dispatched for transaction ID: ' . $transaction->id);
-
                 DB::commit();
 
                 SellCreatedOrModified::dispatch($transaction);
+
+                event(new SaleCompleted($transaction));
+                Log::info('SaleCompleted event dispatched for transaction ID: ' . $transaction->id);
+
 
                 if ($request->input('is_save_and_print') == 1) {
                     $url = $this->transactionUtil->getInvoiceUrl($transaction->id, $business_id);

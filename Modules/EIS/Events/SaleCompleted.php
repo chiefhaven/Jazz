@@ -3,14 +3,14 @@
 namespace Modules\EIS\Events;
 
 use App\Transaction;
-use AWS\CRT\Log;
-use Illuminate\Support\Facades\Log as FacadesLog;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
 
 class SaleCompleted
 {
+    use Dispatchable, SerializesModels;
+
     public function __construct(
         public Transaction $transaction
-    ) {
-        FacadesLog::info('SaleCompleted event created for transaction ID: ' . $transaction->id);
-    }
+    ) {}
 }
