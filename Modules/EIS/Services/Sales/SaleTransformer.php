@@ -85,12 +85,12 @@ class SaleTransformer
                     ? $transaction->transaction_date
                     : now(),
 
-                'sellerTIN' => $settings->tin,
+                'sellerTIN' => $settings->tpin,
                 'buyerTIN' => optional($transaction->contact)->tax_number,
                 'buyerName' => optional($transaction->contact)->name,
                 'buyerAuthorizationCode' => '',
 
-                'siteId' => $settings->site_id,
+                'siteId' => $settings->branch_id ?? $settings->site_id,
 
                 'globalConfigVersion' => (int) $settings->global_config_version,
                 'taxpayerConfigVersion' => (int) $settings->taxpayer_config_version,
