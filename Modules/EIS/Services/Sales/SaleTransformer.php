@@ -3,6 +3,7 @@
 namespace Modules\EIS\Services\Sales;
 
 use App\Transaction;
+use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Tax\TaxMappingService;
 
@@ -21,6 +22,10 @@ class SaleTransformer
             'sell_lines.product',
             'tax',
         ]);
+
+        Log::info('Transforming transaction for EIS submission',
+            $settings
+        );
 
         $invoiceItems = [];
         $taxBreakdown = [];
