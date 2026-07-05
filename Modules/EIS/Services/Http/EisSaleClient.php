@@ -34,6 +34,11 @@ class EisSaleClient
      */
     public function submit(array $payload, object $settings): array
     {
+        Log::info('Submitting sale transaction to EIS', [
+            'payload' => $payload,
+            'settings' => $settings,
+        ]);
+        
         if (empty($settings->jwt_token)) {
             throw new EisSaleException('Missing EIS JWT token.');
         }
