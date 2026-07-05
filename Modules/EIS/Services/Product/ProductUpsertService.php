@@ -35,7 +35,10 @@ class ProductUpsertService
                 ?? 'UNKNOWN PRODUCT';
 
             $product->sku = $item['sku'] ?? null;
-            $product->unit_id = 2;
+            $product->unit_id = $this->getUnitId(
+                $businessId,
+                $item['unit_of_measure'] ?? null
+            ) ?? 2; // default PCS
             $product->type = 'single';
             $product->expiry_period = $item['expiry_period'] ?? null;
             $product->expiry_period_type = null;
@@ -171,6 +174,24 @@ class ProductUpsertService
         return DB::table('business_locations')
             ->where('business_id', $businessId)
             ->where('eis_site_id', $siteId)
+            ->value('id');
+    }
+
+    // -----------------------
+    // UNIT OF MEASURE LOOKUP
+    // -----------------------
+    private function getUnitId(int $businessId, ?string $unitName): ?int
+    {
+        if (empty($unitName)) {
+            return null;
+        }
+
+        return DB::table('units')
+            ->where('business_id', $businessId)
+            ->where(function ($q) use ($unitName) {
+                $q->where('short_name', $unitName)
+                ->orWhere('actual_name', $unitName);
+            })
             ->value('id');
     }
 }
