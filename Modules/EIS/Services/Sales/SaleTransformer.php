@@ -23,9 +23,11 @@ class SaleTransformer
             'tax',
         ]);
 
-        Log::info('Transforming transaction for EIS submission',
-            $settings
-        );
+        Log::info('Transforming sale transaction for EIS submission', [
+            'transaction_id' => $transaction->id,
+            'invoice_no' => $transaction->invoice_no,
+            'settings' => $settings
+        ]);
 
         $invoiceItems = [];
         $taxBreakdown = [];
