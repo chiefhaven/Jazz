@@ -29,6 +29,7 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Events\ProductsCreatedOrModified;
 use App\TransactionSellLine;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisProductMap;
 
 class ProductController extends Controller
 {
@@ -1020,6 +1021,10 @@ class ProductController extends Controller
                         //Delete variation location details
                         VariationLocationDetails::where('product_id', $id)
                                                 ->delete();
+
+                        //Eis product mapping delete
+                        EisProductMap::where('product_id', $id)->delete();
+
                         //Detach product locations pivot
                         $product->product_locations()->detach();
                         //Delete rack details
@@ -1765,6 +1770,9 @@ class ProductController extends Controller
                         //Delete variation location details
                         VariationLocationDetails::where('product_id', $product->id)
                                                     ->delete();
+                        //Delete Eis product map
+                        EisProductMap::where('product_id', $product->id)->delete();
+
                         //Detach product locations pivot
                         $product->product_locations()->detach();
                         //Delete rack details
