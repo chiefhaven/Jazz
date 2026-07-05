@@ -75,8 +75,8 @@ class SaleTransformer
                 'invoiceNumber' => $transaction->invoice_no,
 
                 'invoiceDateTime' => optional($transaction->transaction_date)
-                    ? $transaction->transaction_date->format('Y-m-d\TH:i:s')
-                    : now()->format('Y-m-d\TH:i:s'),
+                    ? $transaction->transaction_date
+                    : now(),
 
                 'sellerTIN' => $settings->tin,
                 'buyerTIN' => optional($transaction->contact)->tax_number,
