@@ -106,6 +106,8 @@ class ProductUpsertService
                     ],
                     [
                         'qty_available' => $item['stock'] ?? 0,
+                        'product_id' => $product->id,
+                        'product_variation_id' => $productVariationId,
                         'updated_at' => now(),
                         'created_at' => now(),
                     ]
