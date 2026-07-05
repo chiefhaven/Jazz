@@ -22,7 +22,7 @@ class EisSaleClient
     {
         try {
 
-            $url = $this->baseUrl . '/invoice/submit'; // adjust if different endpoint
+            $url = $this->baseUrl . '/sales/submit-sales-transaction'; // adjust if different endpoint
 
             $response = Http::timeout(30)
                 ->withHeaders([

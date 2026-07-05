@@ -1,6 +1,7 @@
 <?php
 namespace Modules\EIS\Jobs;
 
+use App\Transaction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,7 +20,7 @@ class SubmitInvoiceJob implements ShouldQueue
 
         if (!$setting) return;
 
-        $sale = \App\Models\Transaction::find($this->saleId);
+        $sale = Transaction::find($this->saleId);
 
         if (!$sale) return;
 
