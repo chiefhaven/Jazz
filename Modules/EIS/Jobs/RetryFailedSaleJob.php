@@ -16,42 +16,64 @@ class RetryFailedSaleJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $timeout = 120;
+
     public function handle(SaleSubmissionService $service)
     {
+        // 1. LIMIT BATCH SIZE (CRITICAL)
         $failed = DB::table('eis_failed_transactions')
             ->where('next_retry_at', '<=', now())
             ->where('attempts', '<', 5)
+            ->limit(50)
+            ->lockForUpdate()
             ->get();
 
         foreach ($failed as $row) {
 
-            $transaction = Transaction::find($row->transaction_id);
+            // 2. Prevent race condition
+            $updated = DB::table('eis_failed_transactions')
+                ->where('id', $row->id)
+                ->where('next_retry_at', '<=', now())
+                ->update([
+                    'next_retry_at' => now()->addMinutes(1), // temporary lock
+                ]);
 
-            if (!$transaction) {
-                continue;
-            }
-
-            $settings = EisSetting::where('business_id', $row->business_id)->first();
-
-            if (!$settings) {
+            if (!$updated) {
                 continue;
             }
 
             try {
+                $transaction = Transaction::find($row->transaction_id);
+
+                if (!$transaction) {
+                    DB::table('eis_failed_transactions')
+                        ->where('id', $row->id)
+                        ->delete();
+                    continue;
+                }
+
+                $settings = EisSetting::where('business_id', $row->business_id)->first();
+
+                if (!$settings) {
+                    continue;
+                }
+
                 $service->submit($transaction, $settings);
 
-                // success → remove from retry queue
+                // SUCCESS → remove
                 DB::table('eis_failed_transactions')
                     ->where('id', $row->id)
                     ->delete();
 
             } catch (\Throwable $e) {
 
+                $attempts = $row->attempts + 1;
+
                 DB::table('eis_failed_transactions')
                     ->where('id', $row->id)
                     ->update([
-                        'attempts' => $row->attempts + 1,
-                        'next_retry_at' => now()->addMinutes(pow(2, $row->attempts)),
+                        'attempts' => $attempts,
+                        'next_retry_at' => now()->addMinutes(pow(2, $attempts)),
                         'error_message' => $e->getMessage(),
                     ]);
             }
