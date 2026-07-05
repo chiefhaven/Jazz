@@ -38,7 +38,7 @@ class ProductUpsertService
             $product->unit_id = $this->getUnitId(
                 $businessId,
                 $item['unit_of_measure'] ?? null
-            ) ?? 2; // default PCS
+            ) ?? 1; // default PCS
             $product->type = 'single';
             $product->expiry_period = $item['expiry_period'] ?? null;
             $product->expiry_period_type = null;

@@ -1024,10 +1024,6 @@ class ProductController extends Controller
 
                         //Eis product mapping delete
                         EisProductMap::where('product_id', $id)->delete();
-                        Log::info(
-                            EisProductMap::where('product_id', $id)->get()
-                        );
-                        Log::info('Product deleted: '.$product->name.' by user: '.auth()->user()->username);
 
                         //Detach product locations pivot
                         $product->product_locations()->detach();
