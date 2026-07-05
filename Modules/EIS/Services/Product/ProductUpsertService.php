@@ -35,7 +35,7 @@ class ProductUpsertService
                 ?? 'UNKNOWN PRODUCT';
 
             $product->sku = $item['sku'] ?? null;
-            $product->unit_id = 2; // Default unit_id to 2 (piece)
+            $product->unit_id = 2;
             $product->type = 'single';
             $product->expiry_period = $item['expiry_period'] ?? null;
             $product->expiry_period_type = null;
@@ -44,7 +44,7 @@ class ProductUpsertService
             $product->save();
 
             // -----------------------
-            // PRODUCT VARIATION (SAFE UPSERT)
+            // PRODUCT VARIATION
             // -----------------------
             $productVariationId = DB::table('product_variations')
                 ->where('product_id', $product->id)
@@ -63,19 +63,19 @@ class ProductUpsertService
             }
 
             // -----------------------
-            // VARIATION (UPSERT SAFE)
+            // VARIATION
             // -----------------------
-            $variation = $product->variations()
-                ->firstOrCreate(
-                    ['product_id' => $product->id],
-                    [
-                        'name' => $product->name,
-                        'product_variation_id' => $productVariationId,
-                        'default_sell_price' => 0,
-                        'default_purchase_price' => 0,
-                        'profit_percent' => 0,
-                    ]
-                );
+            $variation = $product->variations()->firstOrCreate(
+                ['product_id' => $product->id],
+                [
+                    'name' => $product->name,
+                    'product_variation_id' => $productVariationId,
+                    'default_sell_price' => 0,
+                    'default_purchase_price' => 0,
+                    'sell_price_inc_tax' => 0,
+                    'profit_percent' => 0,
+                ]
+            );
 
             $variation->update([
                 'default_sell_price' => $item['price'] ?? 0,
@@ -87,7 +87,7 @@ class ProductUpsertService
             ]);
 
             // -----------------------
-            // LOCATION
+            // LOCATION (FROM EIS SITE ID)
             // -----------------------
             $locationId = $this->getLocationFromSite(
                 $businessId,
@@ -100,30 +100,39 @@ class ProductUpsertService
                 );
             }
 
-            if (!$locationId) {
-                throw new \Exception("Missing business location for business_id {$businessId}");
-            }
+            // -----------------------
+            // PRODUCT LOCATION
+            // -----------------------
+            DB::table('product_locations')->updateOrInsert(
+                [
+                    'product_id' => $product->id,
+                    'location_id' => $locationId,
+                ],
+                [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
 
             // -----------------------
-            // VLD (UPSERT STYLE)
+            // VARIATION LOCATION DETAILS
             // -----------------------
-            DB::table('variation_location_details')
-                ->updateOrInsert(
-                    [
-                        'variation_id' => $variation->id,
-                        'location_id' => $locationId,
-                    ],
-                    [
-                        'qty_available' => $item['stock'] ?? 0,
-                        'product_id' => $product->id,
-                        'product_variation_id' => $productVariationId,
-                        'updated_at' => now(),
-                        'created_at' => now(),
-                    ]
-                );
+            DB::table('variation_location_details')->updateOrInsert(
+                [
+                    'variation_id' => $variation->id,
+                    'location_id' => $locationId,
+                ],
+                [
+                    'qty_available' => $item['stock'] ?? 0,
+                    'product_id' => $product->id,
+                    'product_variation_id' => $productVariationId,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
 
             // -----------------------
-            // MAPPING
+            // EIS PRODUCT MAP
             // -----------------------
             EisProductMap::updateOrCreate(
                 [
@@ -149,19 +158,14 @@ class ProductUpsertService
         $price = $item['price'] ?? 0;
         $cost  = $item['cost'] ?? 0;
 
-        return $price > 0 ? (($price - $cost) / $price) * 100 : 0;
+        return $price > 0
+            ? (($price - $cost) / $price) * 100
+            : 0;
     }
 
     // -----------------------
-    // LOCATION
+    // LOCATION LOOKUP
     // -----------------------
-    private function getDefaultLocation(int $businessId)
-    {
-        return DB::table('business_locations')
-            ->where('business_id', $businessId)
-            ->value('id');
-    }
-
     private function getLocationFromSite(int $businessId, ?string $siteId): ?int
     {
         if (empty($siteId)) {
