@@ -89,7 +89,16 @@ class ProductUpsertService
             // -----------------------
             // LOCATION
             // -----------------------
-            $locationId = $this->getDefaultLocation($businessId);
+            $locationId = $this->getLocationFromSite(
+                $businessId,
+                $item['siteId'] ?? null
+            );
+
+            if (!$locationId) {
+                throw new \Exception(
+                    "Business location not found for EIS siteId: " . ($item['siteId'] ?? 'NULL')
+                );
+            }
 
             if (!$locationId) {
                 throw new \Exception("Missing business location for business_id {$businessId}");
@@ -150,6 +159,18 @@ class ProductUpsertService
     {
         return DB::table('business_locations')
             ->where('business_id', $businessId)
+            ->value('id');
+    }
+
+    private function getLocationFromSite(int $businessId, ?string $siteId): ?int
+    {
+        if (empty($siteId)) {
+            return null;
+        }
+
+        return DB::table('business_locations')
+            ->where('business_id', $businessId)
+            ->where('eis_site_id', $siteId)
             ->value('id');
     }
 }
