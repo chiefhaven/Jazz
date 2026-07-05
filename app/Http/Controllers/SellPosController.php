@@ -386,6 +386,7 @@ class SellPosController extends Controller
                 $discount = ['discount_type' => $input['discount_type'],
                     'discount_amount' => $input['discount_amount'],
                 ];
+                
                 $invoice_total = $this->productUtil->calculateInvoiceTotal($input['products'], $input['tax_rate_id'], $discount);
 
                 DB::beginTransaction();

@@ -42,7 +42,7 @@ class ProductUpsertService
             $product->type = 'single';
             $product->expiry_period = $item['expiry_period'] ?? null;
             $product->expiry_period_type = null;
-            $product->enable_stock = $item['manage_stock'] ?? false;
+            $product->enable_stock = false; //$item['manage_stock'] ?? false;
             $product->created_by = 10000000;
             $product->save();
 
