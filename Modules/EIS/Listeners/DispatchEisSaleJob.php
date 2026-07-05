@@ -5,6 +5,7 @@ namespace Modules\EIS\Listeners;
 use Modules\EIS\Events\SaleCompleted;
 use Modules\EIS\Jobs\SubmitSaleJob;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 class DispatchEisSaleJob implements ShouldQueue
 {
@@ -17,5 +18,7 @@ class DispatchEisSaleJob implements ShouldQueue
     {
         SubmitSaleJob::dispatch($event->transaction->id)
             ->onQueue($this->queue);
+
+            Log::info('DispatchEisSaleJob: Dispatched SubmitSaleJob for transaction ID: ' . $event->transaction->id);
     }
 }
