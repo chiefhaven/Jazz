@@ -80,6 +80,8 @@ class ProductUpsertService
             $variation->update([
                 'default_sell_price' => $item['price'] ?? 0,
                 'default_purchase_price' => $item['cost'] ?? 0,
+                'default_sell_price_inc_tax' => $item['price'] ?? 0,
+                'sub_sku' => $item['sku'] ?? null,
                 'profit_percent' => $this->profit($item),
                 'product_variation_id' => $productVariationId,
             ]);
