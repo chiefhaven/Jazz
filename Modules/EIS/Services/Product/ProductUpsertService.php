@@ -107,10 +107,6 @@ class ProductUpsertService
                 [
                     'product_id' => $product->id,
                     'location_id' => $locationId,
-                ],
-                [
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]
             );
 
