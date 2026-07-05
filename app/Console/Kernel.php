@@ -33,11 +33,8 @@ class Kernel extends ConsoleKernel
 
             $schedule->command('pos:generateRecurringExpense')->dailyAt('02:00');
 
-            $schedule->job(new \App\EIS\Jobs\RetryFailedInvoicesJob)
+            $schedule->job(new \Modules\EIS\Jobs\RetryFailedSaleJob)
             ->everyFiveMinutes();
-
-            $schedule->job(new \App\EIS\Jobs\SyncOfflineInvoicesJob)
-                ->everyMinute();
 
         }
 

@@ -63,6 +63,8 @@ use Stripe\Charge;
 use Stripe\Stripe;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\SellCreatedOrModified;
+use Modules\EIS\Events\SaleCompleted;
+
 
 class SellPosController extends Controller
 {
@@ -611,7 +613,7 @@ class SellPosController extends Controller
 
                 $this->transactionUtil->activityLog($transaction, 'added');
 
-                
+                event(new SaleCompleted($transaction));
 
                 DB::commit();
 

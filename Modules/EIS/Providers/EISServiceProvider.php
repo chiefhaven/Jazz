@@ -117,4 +117,10 @@ class EISServiceProvider extends ServiceProvider
         }
         return $paths;
     }
+
+    protected $listen = [
+        \Modules\EIS\Events\SaleCompleted::class => [
+            \Modules\EIS\Listeners\DispatchEisSaleJob::class,
+        ],
+    ];
 }
