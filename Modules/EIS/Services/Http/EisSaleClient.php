@@ -108,12 +108,6 @@ class EisSaleClient
                 'error' => $e->getMessage(),
             ]);
 
-            throw new EisSaleException(
-                'Unable to connect to the EIS server.',
-                0,
-                $e
-            );
-
         } catch (RequestException $e) {
 
             Log::error('EIS request exception.', [
@@ -134,11 +128,11 @@ class EisSaleClient
                 'error' => $e->getMessage(),
             ]);
 
-            // throw new EisSaleException(
-            //     $e->getMessage(),
-            //     0,
-            //     $e
-            // );
+            throw new EisSaleException(
+                $e->getMessage(),
+                 0,
+                 $e
+            );
         }
     }
 }
