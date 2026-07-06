@@ -25,6 +25,7 @@ class EisSaleClient
         $this->timeout = config('eis.http_timeout', 60);
         $this->connectTimeout = config('eis.connect_timeout', 10);
         $this->retries = config('eis.http_retries', 2);
+
     }
 
     /**
@@ -128,11 +129,6 @@ class EisSaleClient
                 'error' => $e->getMessage(),
             ]);
 
-            // throw new EisSaleException(
-            //     $e->getMessage(),
-            //      0,
-            //      $e
-            // );
         }
     }
 }

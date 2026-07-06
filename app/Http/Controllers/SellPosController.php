@@ -616,7 +616,7 @@ class SellPosController extends Controller
                 $this->transactionUtil->activityLog($transaction, 'added');
 
                 DB::commit();
-                
+
                 /**
                  * SAFE POINT: DB is now permanent
                  * External systems can no longer break POS

@@ -65,12 +65,5 @@ class SubmitSaleJob implements ShouldQueue
             'transaction_id' => $this->transactionId,
             'error' => $e->getMessage(),
         ]);
-
-        // Optional: push to dead-letter table
-        // \DB::table('eis_dead_letters')->insert([
-        //     'transaction_id' => $this->transactionId,
-        //     'error' => $e->getMessage(),
-        //     'created_at' => now(),
-        // ]);
     }
 }
