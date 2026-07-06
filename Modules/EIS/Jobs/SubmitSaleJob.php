@@ -55,7 +55,7 @@ class SubmitSaleJob implements ShouldQueue
             ]);
 
             // IMPORTANT: rethrow so Laravel retry system kicks in
-            throw $e;
+            //throw $e;
         }
     }
 
