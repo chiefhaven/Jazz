@@ -18,7 +18,10 @@ class EisSaleClient
 
     protected int $retries;
 
-    public function __construct()
+    public function __construct(
+        protected EisHealthService $health
+
+    )
     {
         $this->baseUrl = rtrim(config('eis.base_url'), '/');
 
@@ -39,6 +42,10 @@ class EisSaleClient
             'payload' => $payload,
             'settings' => $settings,
         ]);
+        
+        if (! $this->health->isOnline()) {
+            throw new EisSaleException('EIS server is currently unavailable.');
+        }
 
         if (empty($settings->jwt_token)) {
             throw new EisSaleException('Missing EIS JWT token.');
