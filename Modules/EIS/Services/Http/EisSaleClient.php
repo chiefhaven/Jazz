@@ -128,11 +128,11 @@ class EisSaleClient
                 'error' => $e->getMessage(),
             ]);
 
-            throw new EisSaleException(
-                $e->getMessage(),
-                 0,
-                 $e
-            );
+            // throw new EisSaleException(
+            //     $e->getMessage(),
+            //      0,
+            //      $e
+            // );
         }
     }
 }
