@@ -41,7 +41,7 @@ class EisSaleClient
             'payload' => $payload,
         ]);
 
-        if (! $this->health->isOnline($settings->jwt_token)) {
+        if (! $this->health->isOnline($settings->business_id, $settings->jwt_token)) {
             throw new EisSaleException('EIS server is currently offline.');
         }
 
