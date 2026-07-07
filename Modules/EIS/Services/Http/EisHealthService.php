@@ -8,47 +8,37 @@ use Illuminate\Support\Facades\Log;
 
 class EisHealthService
 {
-    public function isOnline(?string $token): bool
+    public function isOnline(int $businessId, string $token): bool
     {
-        if (empty($token)) {
-            Log::warning('EIS health check skipped. Missing JWT token.');
-            return false;
-        }
-
-        $cacheKey = 'eis.health.' . md5($token);
+        $cacheKey = "eis.health.{$businessId}";
 
         return Cache::remember($cacheKey, now()->addSeconds(30), function () use ($token) {
 
             try {
 
-                $response = Http::withToken($token)
+                $response = Http::connectTimeout(10)
+                    ->timeout(300)
+                    ->retry(2, 5000)
                     ->acceptJson()
+                    ->withToken($token)
                     ->post(rtrim(config('eis.base_url'), '/') . '/utilities/ping');
-
-                Log::info('EIS Ping Response', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
 
                 return $response->successful();
 
             } catch (\Throwable $e) {
 
                 Log::warning('EIS health check failed', [
-                    'message' => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
 
                 return false;
             }
+
         });
     }
 
-    public function clearCache(?string $token = null): void
+    public function clearCache(int $businessId): void
     {
-        if ($token) {
-            Cache::forget('eis.health.' . md5($token));
-        } else {
-            Cache::flush();
-        }
+        Cache::forget("eis.health.{$businessId}");
     }
 }
