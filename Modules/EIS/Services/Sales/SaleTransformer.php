@@ -3,7 +3,6 @@
 namespace Modules\EIS\Services\Sales;
 
 use App\Transaction;
-use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Tax\TaxMappingService;
 
@@ -29,84 +28,132 @@ class SaleTransformer
 
         foreach ($transaction->sell_lines as $index => $line) {
 
-            $taxId = $line->tax_id;
-
             $taxRateId = $this->taxMapper->resolve(
                 $settings->business_id,
-                $taxId
+                $line->tax_id
             );
 
             $unitPrice = (float) $line->unit_price_inc_tax;
-            $qty = (float) $line->quantity;
-
-            $lineTotal = $unitPrice * $qty;
+            $quantity = (float) $line->quantity;
             $vat = (float) $line->item_tax;
+
+            $lineTotal = $unitPrice * $quantity;
 
             $invoiceItems[] = [
                 'id' => $index + 1,
-                'productCode' => $line->product->sku ?? 'N/A',
-                'description' => $line->product->name ?? 'Unknown Product',
+
+                'productCode' => (string) (
+                    $line->product->sku ?? 'N/A'
+                ),
+
+                'description' => (string) (
+                    $line->product->name ?? 'Unknown Product'
+                ),
+
                 'unitPrice' => $unitPrice,
-                'quantity' => $qty,
+                'quantity' => $quantity,
                 'discount' => (float) $line->line_discount_amount,
                 'total' => $lineTotal,
                 'totalVAT' => $vat,
-                'taxRateId' => $taxRateId,
+
+                'taxRateId' => (string) $taxRateId,
+
                 'isProduct' => true,
             ];
 
-            $key = $taxRateId;
 
-            if (!isset($taxBreakdown[$key])) {
-                $taxBreakdown[$key] = [
-                    'rateId' => $taxRateId,
+            if (!isset($taxBreakdown[$taxRateId])) {
+
+                $taxBreakdown[$taxRateId] = [
+                    'rateId' => (string) $taxRateId,
                     'taxableAmount' => 0,
                     'taxAmount' => 0,
                 ];
             }
 
-            $taxBreakdown[$key]['taxableAmount'] += $lineTotal;
-            $taxBreakdown[$key]['taxAmount'] += $vat;
+
+            $taxBreakdown[$taxRateId]['taxableAmount'] += $lineTotal;
+            $taxBreakdown[$taxRateId]['taxAmount'] += $vat;
 
             $totalVat += $vat;
         }
 
+
         return [
+
             'invoiceHeader' => [
-                'invoiceNumber' => $transaction->invoice_no,
+
+                'invoiceNumber' => (string) $transaction->invoice_no,
 
                 'invoiceDateTime' => optional($transaction->transaction_date)
-                    ? $transaction->transaction_date
-                    : now(),
+                    ? $transaction->transaction_date->toIso8601String()
+                    : now()->toIso8601String(),
 
-                'sellerTIN' => $settings->tpin,
-                'buyerTIN' => optional($transaction->contact)->tax_number,
-                'buyerName' => optional($transaction->contact)->name,
+
+                'sellerTIN' => (string) $settings->tpin,
+
+                'buyerTIN' => (string) optional($transaction->contact)
+                    ->tax_number,
+
+                'buyerName' => (string) optional($transaction->contact)
+                    ->name,
+
+
                 'buyerAuthorizationCode' => '',
 
-                'siteId' => $settings->branch_id ?? $settings->site_id,
 
-                'globalConfigVersion' => (int) $settings->global_config_version,
-                'taxpayerConfigVersion' => (int) $settings->taxpayer_config_version,
-                'terminalConfigVersion' => (int) $settings->terminal_config_version,
+                'siteId' => (string) (
+                    $settings->branch_id 
+                    ?? $settings->site_id
+                ),
+
+
+                'globalConfigVersion' => (int) 
+                    $settings->global_config_version,
+
+                'taxpayerConfigVersion' => (int) 
+                    $settings->taxpayer_config_version,
+
+                'terminalConfigVersion' => (int) 
+                    $settings->terminal_config_version,
+
 
                 'isExport' => false,
+
                 'isReliefSupply' => false,
+
 
                 'vat5CertificateDetails' => null,
 
-                // FIX: should be actual payment method (cash/card/mobile)
-                'paymentMethod' => $transaction->payment_method ?? 'CASH',
+
+                'paymentMethod' => strtoupper(
+                    $transaction->payment_method ?? 'CASH'
+                ),
             ],
+
+
 
             'invoiceLineItems' => $invoiceItems,
 
+
+
             'invoiceSummary' => [
+
                 'taxBreakDown' => array_values($taxBreakdown),
+
+
                 'levyBreakDown' => [],
-                'totalVAT' => $totalVat,
+
+
+                'totalVAT' => (float) $totalVat,
+
+
                 'offlineSignature' => '',
+
+
                 'invoiceTotal' => (float) $transaction->final_total,
+
+
                 'amountTendered' => (float) $transaction->final_total,
             ],
         ];
