@@ -21,8 +21,7 @@ class EisHealthService
 
             try {
 
-                $response = Http::connectTimeout(10)
-                    ->timeout(120)
+                $response = Http::timeout(120)
                     ->retry(2, 1000)
                     ->withToken($token)
                     ->acceptJson()
