@@ -26,7 +26,7 @@ class EisHealthService
                     ->retry(2, 1000)
                     ->withToken($token)
                     ->acceptJson()
-                    ->get(rtrim(config('eis.base_url'), '/') . '/utilities/ping');
+                    ->post(rtrim(config('eis.base_url'), '/') . '/utilities/ping');
 
                 Log::info('EIS Ping Response', [
                     'status' => $response->status(),
