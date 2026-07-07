@@ -14,8 +14,9 @@ class EisHealthService
 
             try {
 
-                $response = Http::connectTimeout(5)
-                    ->timeout(10)
+               $response = Http::connectTimeout(10)
+                    ->timeout(300) // 5 minutes
+                    ->retry(2, 5000)
                     ->get(rtrim(config('eis.base_url'), '/') . '/utilities/ping');
 
                 return $response->successful();
