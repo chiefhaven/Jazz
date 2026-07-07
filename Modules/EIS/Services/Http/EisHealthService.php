@@ -21,7 +21,7 @@ class EisHealthService
                     ->retry(2, 5000)
                     ->acceptJson()
                     ->withToken($token)
-                    ->post(rtrim(config('eis.base_url'), '/') . '/utilities/ping');
+                    ->post(rtrim(config('eis.base_url'), '/') . '/utilities/get-terminal-config');
 
                 return $response->successful();
 
