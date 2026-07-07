@@ -85,8 +85,9 @@ class SaleTransformer
 
                 'invoiceNumber' => (string) $transaction->invoice_no,
 
-                'invoiceDateTime' => optional($transaction->transaction_date)
-                    ? $transaction->transaction_date->toIso8601String()
+                'invoiceDateTime' => $transaction->transaction_date
+                    ? \Carbon\Carbon::parse($transaction->transaction_date)
+                        ->toIso8601String()
                     : now()->toIso8601String(),
 
 
