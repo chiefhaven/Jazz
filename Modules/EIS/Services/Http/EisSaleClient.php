@@ -20,14 +20,13 @@ class EisSaleClient
 
     public function __construct(
         protected EisHealthService $health
-
     )
     {
         $this->baseUrl = rtrim(config('eis.base_url'), '/');
 
         $this->timeout = config('eis.http_timeout', 60);
         $this->connectTimeout = config('eis.connect_timeout', 10);
-        $this->retries = config('eis.http_retries', 2);
+        $this->retries = config('eis.http_retries', 3);
 
     }
 
@@ -42,9 +41,9 @@ class EisSaleClient
             'payload' => $payload,
             'settings' => $settings,
         ]);
-        
-        if (! $this->health->isOnline()) {
-            throw new EisSaleException('EIS server is currently unavailable.');
+
+        if (! $this->health->isOnline($settings->jwt_token)) {
+            throw new EisSaleException('EIS server is currently offline.');
         }
 
         if (empty($settings->jwt_token)) {
