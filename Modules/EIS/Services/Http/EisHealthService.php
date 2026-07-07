@@ -21,9 +21,7 @@ class EisHealthService
 
             try {
 
-                $response = Http::timeout(120)
-                    ->retry(2, 1000)
-                    ->withToken($token)
+                $response = Http::withToken($token)
                     ->acceptJson()
                     ->post(rtrim(config('eis.base_url'), '/') . '/utilities/ping');
 
