@@ -39,7 +39,6 @@ class EisSaleClient
     {
         Log::info('Submitting sale transaction to EIS', [
             'payload' => $payload,
-            'settings' => $settings,
         ]);
 
         if (! $this->health->isOnline($settings->jwt_token)) {
