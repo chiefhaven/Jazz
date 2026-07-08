@@ -15,35 +15,100 @@ class ProductUpsertService
             // -----------------------
             // MAP CHECK
             // -----------------------
-            $map = EisProductMap::where('business_id', $businessId)
+            $map = EisProductMap::withTrashed()
+                ->where('business_id', $businessId)
                 ->where('eis_product_id', $eisId)
                 ->first();
 
-            $product = $map
-                ? Product::with(['variations.variation_location_details'])
-                    ->find($map->product_id)
-                : new Product();
+            if ($map?->trashed()) {
+                $map->restore();
+                $map->refresh();
+            }
+
+            $product = null;
+
+            if ($map) {
+                $product = Product::withTrashed()
+                    ->with(['variations.variation_location_details'])
+                    ->find($map->product_id);
+
+                if ($product?->trashed()) {
+                    $product->restore();
+
+                    $product->load([
+                        'variations.variation_location_details'
+                    ]);
+                }
+            } else {
+
+                // Look for an existing product by SKU, including deleted ones
+                if (!empty($item['sku'])) {
+
+                    $product = Product::withTrashed()
+                        ->with(['variations.variation_location_details'])
+                        ->where('business_id', $businessId)
+                        ->where('sku', $item['sku'])
+                        ->first();
+
+                } else {
+                    $product = null;
+                }
+
+                if ($product) {
+
+                    if ($product->trashed()) {
+                        $product->restore();
+                        $product->refresh();
+                    }
+
+                    EisProductMap::updateOrCreate(
+                        [
+                            'business_id' => $businessId,
+                            'eis_product_id' => $eisId,
+                        ],
+                        [
+                            'product_id' => $product->id,
+                            'sku' => $product->sku,
+                            'last_synced_at' => now(),
+                        ]
+                    );
+                } else {
+                    $product = new Product();
+                }
+            }
 
             // -----------------------
             // PRODUCT
             // -----------------------
+            $isNew = !$product->exists;
+
             $product->business_id = $businessId;
 
-            $product->name = $item['name']
-                ?? $item['productName']
-                ?? $item['sku']
-                ?? 'UNKNOWN PRODUCT';
+            // Only set these fields when creating a new product
+            if ($isNew) {
+                $product->type = 'single';
+                $product->created_by = 10000000;
+                $product->enable_stock = false;
+                $product->expiry_period_type = null;
+            }
 
-            $product->sku = $item['sku'] ?? null;
-            $product->unit_id = $this->getUnitId(
+            // Update only EIS-controlled fields
+            $product->name = $item['name'] ?? $product->name;
+            $product->sku = $item['sku'] ?? $product->sku;
+            $product->eis_product_id = $eisId;
+            $product->eis_last_synced_at = now();
+
+            $unitId = $this->getUnitId(
                 $businessId,
                 $item['unit_of_measure'] ?? null
-            ) ?? 1; // default PCS
-            $product->type = 'single';
-            $product->expiry_period = $item['expiry_period'] ?? null;
-            $product->expiry_period_type = null;
-            $product->enable_stock = false; //$item['manage_stock'] ?? false;
-            $product->created_by = 10000000;
+            );
+
+            if ($unitId) {
+                $product->unit_id = $unitId;
+            }
+
+            $product->expiry_period = $item['expiry_period'] ?? $product->expiry_period;
+
             $product->save();
 
             // -----------------------
@@ -68,17 +133,21 @@ class ProductUpsertService
             // -----------------------
             // VARIATION
             // -----------------------
-            $variation = $product->variations()->firstOrCreate(
-                ['product_id' => $product->id],
-                [
-                    'name' => $product->name,
+            $variation = $product->variations()
+                ->where('product_variation_id', $productVariationId)
+                ->first();
+
+            if (!$variation) {
+
+                $variation = $product->variations()->create([
                     'product_variation_id' => $productVariationId,
+                    'name' => $product->name,
                     'default_sell_price' => 0,
                     'default_purchase_price' => 0,
                     'sell_price_inc_tax' => 0,
                     'profit_percent' => 0,
-                ]
-            );
+                ]);
+            }
 
             $variation->update([
                 'default_sell_price' => $item['price'] ?? 0,
