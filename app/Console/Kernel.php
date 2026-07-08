@@ -76,7 +76,7 @@ class Kernel extends ConsoleKernel
                     });
 
             })
-            ->dailyAt('00:05')
+            ->dailyAt('01:59')
             ->name('eis-configuration-sync')
             ->withoutOverlapping();              
         }
