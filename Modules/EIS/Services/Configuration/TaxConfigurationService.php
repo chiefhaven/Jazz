@@ -2,6 +2,7 @@
 
 namespace Modules\EIS\Services\Configuration;
 
+use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisTaxRate;
 
 class TaxConfigurationService
@@ -26,13 +27,9 @@ class TaxConfigurationService
                 ],
 
                 [
-
                     'name'=>$tax['name'],
-
                     'charge_mode'=>$tax['chargeMode'],
-
                     'ordinal'=>$tax['ordinal'],
-
                     'rate'=>$tax['rate']
 
                 ]

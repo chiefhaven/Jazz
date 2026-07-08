@@ -51,7 +51,7 @@ class Kernel extends ConsoleKernel
 
                                 $syncService->sync(
                                     $setting->business_id,
-                                    $setting->eis_token
+                                    $setting->jwt_token
                                 );
 
                                 $setting->update([
