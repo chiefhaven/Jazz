@@ -38,8 +38,8 @@ class EisHealthService
 
         $this->client = new Client([
             'handler' => $stack,
-            'connect_timeout' => 100,
-            'timeout' => 300,
+            'connect_timeout' => 1000,
+            'timeout' => 10000,
         ]);
     }
 
