@@ -2,6 +2,7 @@
 
 namespace Modules\EIS\Services\Configuration;
 
+use AWS\CRT\Log;
 use Illuminate\Support\Facades\Http;
 use Modules\EIS\Exceptions\EisException;
 
@@ -25,8 +26,9 @@ class EisConfigurationClient
 
         if(!$response->successful()){
 
-            throw new EisException(
-                "EIS configuration request failed"
+            \Log::error(
+                'EIS Configuration Client Error: '
+                . $response->body()
             );
 
         }
