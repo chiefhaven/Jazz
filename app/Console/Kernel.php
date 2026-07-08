@@ -4,6 +4,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Modules\EIS\Services\Configuration\ConfigurationSyncService;
 
 class Kernel extends ConsoleKernel
 {
@@ -35,6 +36,16 @@ class Kernel extends ConsoleKernel
 
             $schedule->job(new \Modules\EIS\Jobs\RetryFailedSaleJob)
             ->everyFiveMinutes();
+
+            Schedule::call(function(){
+
+                app(ConfigurationSyncService::class)
+                    ->sync(
+                        $businessId,
+                        $token
+                    );
+
+            })->dailyAt('00:05');
 
         }
 

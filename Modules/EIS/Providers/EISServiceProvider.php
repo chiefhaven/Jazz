@@ -3,8 +3,9 @@
 namespace Modules\EIS\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
 use Modules\EIS\Services\Http\EisHttpClient;
+use Illuminate\Console\Scheduling\Schedule;
+use Modules\EIS\Console\Commands\SyncEisConfiguration;
 
 class EISServiceProvider extends ServiceProvider
 {
@@ -29,6 +30,17 @@ class EISServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+        $this->commands([SyncEisConfiguration::class]);
+        $this->app->booted(function () {
+
+            $schedule = app(Schedule::class);
+
+            $schedule->command(
+                'eis:sync-config'
+            )
+            ->dailyAt('00:10');
+
+        });
     }
 
     /**
