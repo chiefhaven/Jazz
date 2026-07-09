@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\EIS\Services\Configuration\Responses;
+namespace Modules\EIS\Services\Configuration;
 
 class EISConfigurationResponse
 {

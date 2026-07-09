@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Services\Configuration\Exceptions\SyncException;
-use Modules\EIS\Services\Configuration\Responses\EISConfigurationResponse;
+use Modules\EIS\Services\Configuration\EISConfigurationResponse;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
 
 class ConfigurationSyncService

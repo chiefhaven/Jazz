@@ -4,7 +4,7 @@ namespace Modules\EIS\Services\Configuration;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Modules\EIS\Services\Configuration\Responses\EISConfigurationResponse;
+use Modules\EIS\Services\Configuration\EISConfigurationResponse;
 
 class EisConfigurationClient
 {
