@@ -75,7 +75,7 @@ class Kernel extends ConsoleKernel
                     });
 
             })
-            ->everyMinute()
+            ->everyTwoHours()
             ->name('eis-configuration-sync')
             ->withoutOverlapping();              
         }
