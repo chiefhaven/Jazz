@@ -35,6 +35,14 @@ class EisConfigurationClient
             );
         }
 
+        Log::info(
+            'EIS Configuration Client Response',
+            [
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]
+        );
+
 
         return $response->object();
 
