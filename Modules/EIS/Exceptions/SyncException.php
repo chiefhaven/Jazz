@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\EIS\Services\Configuration\Exceptions;
+namespace Modules\EIS\Exceptions;
 
 class SyncException extends \Exception
 {
