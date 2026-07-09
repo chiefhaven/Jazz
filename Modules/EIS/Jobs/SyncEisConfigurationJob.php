@@ -19,6 +19,15 @@ class SyncEISConfigurationJob implements ShouldQueue
 
     public $timeout = 300;
     public $tries = 3;
+    
+    // Rate limiting constants
+    private const RATE_LIMIT_KEY = 'eis_sync_rate_limit';
+    private const RATE_LIMIT_TTL = 60; // 60 seconds
+    private const RATE_LIMIT_MAX = 30; // Max 30 requests per minute
+    private const MIN_SYNC_INTERVAL_MINUTES = 1;
+    private const RETRY_BACKOFF_MINUTES = 15;
+    private const CHUNK_SIZE = 50;
+    private const MAX_PROCESS_LIMIT = 500;
 
     public function handle(ConfigurationSyncService $syncService): void
     {
@@ -35,7 +44,7 @@ class SyncEISConfigurationJob implements ShouldQueue
                 ->whereNotNull('jwt_token')
                 ->where(function ($query) {
                     $query->whereNull('last_sync_at')
-                        ->orWhere('last_sync_at', '<', now()->subMinutes(5));
+                        ->orWhere('last_sync_at', '<', now()->subMinutes(self::MIN_SYNC_INTERVAL_MINUTES));
                 })
                 ->where(function ($query) {
                     $query->whereNull('sync_status')
@@ -43,9 +52,9 @@ class SyncEISConfigurationJob implements ShouldQueue
                         ->orWhere('sync_error_retry_after', '<', now());
                 })
                 ->orderBy('last_sync_at', 'asc')
-                ->limit(500);
+                ->limit(self::MAX_PROCESS_LIMIT);
             
-            $settingsQuery->chunkById(50, function ($chunk) use ($syncService, &$processedCount, &$successCount, &$failureCount, &$skippedCount) {
+            $settingsQuery->chunkById(self::CHUNK_SIZE, function ($chunk) use ($syncService, &$processedCount, &$successCount, &$failureCount, &$skippedCount) {
                 foreach ($chunk as $setting) {
                     $processedCount++;
                     
@@ -58,7 +67,7 @@ class SyncEISConfigurationJob implements ShouldQueue
                 }
                 
                 if ($chunk->count() > 0) {
-                    usleep(100000);
+                    usleep(100000); // 100ms delay between chunks
                 }
             });
             
@@ -67,6 +76,8 @@ class SyncEISConfigurationJob implements ShouldQueue
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+            
+            $this->sendAlert('EIS Sync Critical Error', $e->getMessage());
         }
         
         $executionTime = microtime(true) - $startTime;
@@ -76,7 +87,8 @@ class SyncEISConfigurationJob implements ShouldQueue
             'successful' => $successCount,
             'failed' => $failureCount,
             'skipped' => $skippedCount,
-            'execution_time' => round($executionTime, 2)
+            'execution_time' => round($executionTime, 2),
+            'memory_usage_mb' => round(memory_get_usage() / 1024 / 1024, 2)
         ]);
         
         $this->updateMetrics($processedCount, $successCount, $failureCount, $executionTime);
@@ -84,26 +96,31 @@ class SyncEISConfigurationJob implements ShouldQueue
 
     protected function shouldSkipSync($setting): bool
     {
-        if ($setting->last_sync_at && $setting->last_sync_at->diffInMinutes(now()) < 1) {
+        // Skip if synced recently
+        if ($setting->last_sync_at && $setting->last_sync_at->diffInMinutes(now()) < self::MIN_SYNC_INTERVAL_MINUTES) {
             return true;
         }
         
+        // Skip if failed recently (backoff period)
         if ($setting->sync_status === 'failed' && 
             $setting->updated_at && 
-            $setting->updated_at->diffInMinutes(now()) < 15) {
+            $setting->updated_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
             return true;
         }
         
-        $rateLimitKey = 'eis_sync_rate_limit';
-        $rateLimitCount = Cache::get($rateLimitKey, 0);
+        // Global rate limiting
+        $rateLimitCount = Cache::get(self::RATE_LIMIT_KEY, 0);
         
-        if ($rateLimitCount >= 30) {
-            Log::warning('EIS Sync rate limit reached', ['count' => $rateLimitCount]);
+        if ($rateLimitCount >= self::RATE_LIMIT_MAX) {
+            Log::warning('EIS Sync rate limit reached', [
+                'count' => $rateLimitCount,
+                'max' => self::RATE_LIMIT_MAX
+            ]);
             return true;
         }
         
-        // Cache::increment($rateLimitKey);
-        // Cache::expire($rateLimitKey, 60);
+        // Increment rate limit counter with TTL
+        Cache::put(self::RATE_LIMIT_KEY, $rateLimitCount + 1, self::RATE_LIMIT_TTL);
         
         return false;
     }
@@ -134,19 +151,56 @@ class SyncEISConfigurationJob implements ShouldQueue
         } catch (\Throwable $e) {
             $failureCount++;
             
+            // Determine if error is retryable
+            $isRetryable = $this->isRetryableError($e);
+            $retryAfter = $isRetryable ? now()->addMinutes(5) : null;
+            
             $setting->update([
                 'sync_status' => 'failed',
                 'sync_error' => $e->getMessage(),
-                'sync_error_retry_after' => now()->addMinutes(5),
+                'sync_error_retry_after' => $retryAfter,
                 'failed_syncs' => ($setting->failed_syncs ?? 0) + 1,
                 'last_sync_attempt' => now(),
             ]);
             
             Log::error('EIS Sync - Individual Failure', [
                 'business_id' => $setting->business_id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'is_retryable' => $isRetryable
             ]);
+            
+            // Alert on repeated failures
+            if (($setting->failed_syncs ?? 0) >= 5) {
+                $this->sendAlert(
+                    'Repeated EIS Sync Failures',
+                    "Business ID {$setting->business_id} has failed {$setting->failed_syncs} times",
+                    ['business_id' => $setting->business_id]
+                );
+            }
         }
+    }
+
+    protected function isRetryableError(\Throwable $e): bool
+    {
+        $nonRetryableErrors = [
+            'Invalid token',
+            'Authentication failed',
+            'Business not found',
+            'Validation error',
+            'Invalid configuration',
+            'TIN not found',
+            'Taxpayer not found'
+        ];
+        
+        $message = strtolower($e->getMessage());
+        
+        foreach ($nonRetryableErrors as $error) {
+            if (stripos($message, strtolower($error)) !== false) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 
     protected function updateMetrics(int $processed, int $success, int $failure, float $executionTime): void
@@ -160,6 +214,19 @@ class SyncEISConfigurationJob implements ShouldQueue
             'memory_usage' => round(memory_get_usage() / 1024 / 1024, 2)
         ];
         
-        // Cache::put('eis_sync_metrics_last', $metrics, now()->addDay());
+        Cache::put('eis_sync_metrics_last', $metrics, now()->addDay());
+    }
+    
+    protected function sendAlert(string $subject, string $message, array $context = []): void
+    {
+        Log::warning('EIS Alert', [
+            'subject' => $subject,
+            'message' => $message,
+            'context' => $context
+        ]);
+        
+        // Uncomment when ready to implement actual alerting
+        // Notification::route('slack', config('services.slack.webhook_url'))
+        //     ->notify(new EISAlertNotification($subject, $message, $context));
     }
 }
