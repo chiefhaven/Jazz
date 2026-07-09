@@ -19,7 +19,7 @@ class SyncEISConfigurationJob implements ShouldQueue
     public $timeout = 300;
     public $tries = 3;
     
-    private const MIN_SYNC_INTERVAL_MINUTES = 1;
+    private const MIN_SYNC_INTERVAL_MINUTES = 0.1;
     private const RETRY_BACKOFF_MINUTES = 15;
     private const CHUNK_SIZE = 50;
     private const MAX_PROCESS_LIMIT = 500;
