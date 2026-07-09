@@ -16,7 +16,7 @@ class EisConfigurationClient
             ->timeout(60)
             ->post(
                 config('eis.base_url')
-                . '/api/v1/configuration/get-latest-configs'
+                . '/configuration/get-latest-configs'
             );
 
 
