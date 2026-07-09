@@ -2,14 +2,13 @@
 
 namespace Modules\EIS\Services\Configuration;
 
-use AWS\CRT\Log;
 use Illuminate\Support\Facades\Http;
-use Modules\EIS\Exceptions\EisException;
+use Illuminate\Support\Facades\Log;
 
 class EisConfigurationClient
 {
 
-    public function latest(string $token): array
+    public function latest(string $token): object
     {
 
         $response = Http::withToken($token)
@@ -17,17 +16,29 @@ class EisConfigurationClient
             ->timeout(60)
             ->post(
                 config('eis.base_url')
-                . '/configuration/get-latest-configs'
+                . '/api/v1/configuration/get-latest-configs'
             );
 
 
-        if(!$response->successful()){
-            \Log::error(
-                'EIS Configuration Client Error: '
-                . $response->body()
+        if (!$response->successful()) {
+
+            Log::error(
+                'EIS Configuration Client Error',
+                [
+                    'status' => $response->status(),
+                    'response' => $response->body()
+                ]
+            );
+
+            throw new \Exception(
+                'EIS Configuration API request failed'
             );
         }
-        return $response->json();
+
+
+        return $response->object();
+
     }
 
 }
+:::
