@@ -7,7 +7,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSetting;
@@ -20,10 +19,6 @@ class SyncEISConfigurationJob implements ShouldQueue
     public $timeout = 300;
     public $tries = 3;
     
-    // Rate limiting constants
-    private const RATE_LIMIT_KEY = 'eis_sync_rate_limit';
-    private const RATE_LIMIT_TTL = 60; // 60 seconds
-    private const RATE_LIMIT_MAX = 30; // Max 30 requests per minute
     private const MIN_SYNC_INTERVAL_MINUTES = 1;
     private const RETRY_BACKOFF_MINUTES = 15;
     private const CHUNK_SIZE = 50;
@@ -76,8 +71,6 @@ class SyncEISConfigurationJob implements ShouldQueue
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
-            $this->sendAlert('EIS Sync Critical Error', $e->getMessage());
         }
         
         $executionTime = microtime(true) - $startTime;
@@ -90,8 +83,6 @@ class SyncEISConfigurationJob implements ShouldQueue
             'execution_time' => round($executionTime, 2),
             'memory_usage_mb' => round(memory_get_usage() / 1024 / 1024, 2)
         ]);
-        
-        $this->updateMetrics($processedCount, $successCount, $failureCount, $executionTime);
     }
 
     protected function shouldSkipSync($setting): bool
@@ -107,20 +98,6 @@ class SyncEISConfigurationJob implements ShouldQueue
             $setting->updated_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
             return true;
         }
-        
-        // Global rate limiting
-        $rateLimitCount = Cache::get(self::RATE_LIMIT_KEY, 0);
-        
-        if ($rateLimitCount >= self::RATE_LIMIT_MAX) {
-            Log::warning('EIS Sync rate limit reached', [
-                'count' => $rateLimitCount,
-                'max' => self::RATE_LIMIT_MAX
-            ]);
-            return true;
-        }
-        
-        // Increment rate limit counter with TTL
-        Cache::put(self::RATE_LIMIT_KEY, $rateLimitCount + 1, self::RATE_LIMIT_TTL);
         
         return false;
     }
@@ -168,15 +145,6 @@ class SyncEISConfigurationJob implements ShouldQueue
                 'error' => $e->getMessage(),
                 'is_retryable' => $isRetryable
             ]);
-            
-            // Alert on repeated failures
-            if (($setting->failed_syncs ?? 0) >= 5) {
-                $this->sendAlert(
-                    'Repeated EIS Sync Failures',
-                    "Business ID {$setting->business_id} has failed {$setting->failed_syncs} times",
-                    ['business_id' => $setting->business_id]
-                );
-            }
         }
     }
 
@@ -201,32 +169,5 @@ class SyncEISConfigurationJob implements ShouldQueue
         }
         
         return true;
-    }
-
-    protected function updateMetrics(int $processed, int $success, int $failure, float $executionTime): void
-    {
-        $metrics = [
-            'last_run' => now(),
-            'processed' => $processed,
-            'successful' => $success,
-            'failed' => $failure,
-            'execution_time' => $executionTime,
-            'memory_usage' => round(memory_get_usage() / 1024 / 1024, 2)
-        ];
-        
-        Cache::put('eis_sync_metrics_last', $metrics, now()->addDay());
-    }
-    
-    protected function sendAlert(string $subject, string $message, array $context = []): void
-    {
-        Log::warning('EIS Alert', [
-            'subject' => $subject,
-            'message' => $message,
-            'context' => $context
-        ]);
-        
-        // Uncomment when ready to implement actual alerting
-        // Notification::route('slack', config('services.slack.webhook_url'))
-        //     ->notify(new EISAlertNotification($subject, $message, $context));
     }
 }
