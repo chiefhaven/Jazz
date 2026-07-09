@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Business;
+use App\Jobs\SyncEISConfigurationJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Log;
@@ -37,47 +38,14 @@ class Kernel extends ConsoleKernel
 
             $schedule->command('pos:generateRecurringExpense')->dailyAt('02:00');
 
-            $schedule->call(function () {
-
-                $syncService = app(ConfigurationSyncService::class);
-
-                EisSetting::where('status', true)
-                    ->whereNotNull('jwt_token')
-                    ->chunkById(100, function ($settings) use ($syncService) {
-
-                        foreach ($settings as $setting) {
-
-                            try {
-
-                                $syncService->sync(
-                                    $setting->business_id,
-                                    $setting->jwt_token
-                                );
-
-                                $setting->update([
-                                    'last_sync_at' => now(),
-                                ]);
-
-                            } catch (\Throwable $e) {
-
-                                Log::error('EIS Configuration Sync Failed', [
-                                    'business_id' => $setting->business_id,
-                                    'error' => $e->getMessage()
-                                ]);
-
-                                $setting->update([
-                                    'sync_status' => 'failed',
-                                    'sync_error' => $e->getMessage()
-                                ]);
-                            }
-                        }
-
-                    });
-
-            })
-            ->everyMinute()
-            ->name('eis-configuration-sync')
-            ->withoutOverlapping();              
+            // Schedule the EIS configuration sync job
+            $schedule->job(new SyncEISConfigurationJob())
+                ->everyFiveMinutes()
+                ->name('eis-configuration-sync')
+                ->withoutOverlapping(300)
+                ->onFailure(function () {
+                    Log::error('EIS Configuration Sync Job Scheduler Failure');
+                });              
         }
 
         if ($env === 'demo') {
