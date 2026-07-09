@@ -62,7 +62,7 @@ class SyncEISConfigurationJob implements ShouldQueue
                 }
                 
                 if ($chunk->count() > 0) {
-                    usleep(100000); // 100ms delay between chunks
+                    usleep(100000); // 100ms delay between chunk
                 }
             });
             
