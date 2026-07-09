@@ -40,9 +40,8 @@ class Kernel extends ConsoleKernel
 
                 $syncService = app(ConfigurationSyncService::class);
 
-                EisSetting::where('eis_enabled', true)
-                    ->whereNotNull('eis_token')
-                    ->where('status', 'active')
+                EisSetting::where('status', true)
+                    ->whereNotNull('jwt_token')
                     ->chunkById(100, function ($settings) use ($syncService) {
 
                         foreach ($settings as $setting) {
