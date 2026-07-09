@@ -99,6 +99,9 @@ class SyncEISConfigurationJob implements ShouldQueue
             $setting->updated_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
             return true;
         }
+
+        Log::info('Skipping EIS configuration sync for business: ' . $setting->last_sync_at->diffInMinutes(now()) . ' minutes since last sync.');
+
         
         return false;
     }
