@@ -2,13 +2,12 @@
 
 namespace App\Console;
 
-use App\Business;
-use App\Jobs\SyncEISConfigurationJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
+use Modules\EIS\Jobs\SyncEISConfigurationJob;
 
 class Kernel extends ConsoleKernel
 {
