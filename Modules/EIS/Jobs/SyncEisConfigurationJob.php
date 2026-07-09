@@ -102,8 +102,8 @@ class SyncEISConfigurationJob implements ShouldQueue
             return true;
         }
         
-        Cache::increment($rateLimitKey);
-        Cache::expire($rateLimitKey, 60);
+        // Cache::increment($rateLimitKey);
+        // Cache::expire($rateLimitKey, 60);
         
         return false;
     }
@@ -160,6 +160,6 @@ class SyncEISConfigurationJob implements ShouldQueue
             'memory_usage' => round(memory_get_usage() / 1024 / 1024, 2)
         ];
         
-        Cache::put('eis_sync_metrics_last', $metrics, now()->addDay());
+        // Cache::put('eis_sync_metrics_last', $metrics, now()->addDay());
     }
 }
