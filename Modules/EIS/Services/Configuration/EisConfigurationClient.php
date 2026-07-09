@@ -9,15 +9,12 @@ use Modules\EIS\Exceptions\EisException;
 class EisConfigurationClient
 {
 
-    public function latest(string $token): array
+    public function latest(string $token): object
     {
 
         $response = Http::withToken($token)
-
             ->acceptJson()
-
             ->timeout(60)
-
             ->post(
                 config('eis.base_url')
                 . '/api/v1/configuration/get-latest-configs'
@@ -25,17 +22,12 @@ class EisConfigurationClient
 
 
         if(!$response->successful()){
-
             \Log::error(
                 'EIS Configuration Client Error: '
                 . $response->body()
             );
-
         }
-
-
         return $response->json();
-
     }
 
 }
