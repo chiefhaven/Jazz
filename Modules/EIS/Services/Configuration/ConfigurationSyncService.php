@@ -13,51 +13,50 @@ class ConfigurationSyncService
     ){}
 
     public function sync(
-        int $businessId,
-        string $token
-    ) {
+    int $businessId,
+    string $token
+) {
 
-        $response = $this->client->latest($token);
+    $response = $this->client->latest($token);
 
-        if (($response['statusCode'] ?? 1) !== 0) {
-            throw new \Exception(
-                $response['remark']
-            );
-        }
-
-        $data = $response['data'];
-
-        $configuration = EisConfiguration::updateOrCreate(
-            [
-                'business_id'=>$businessId
-            ],
-            [
-                'global_version' => $data['globalConfiguration']['versionNo'] ?? null,
-                'terminal_version' => $data['terminalConfiguration']['versionNo'] ?? null,
-                'taxpayer_version' => $data['taxpayerConfiguration']['versionNo'] ?? null,
-                'tin' => $data['taxpayerConfiguration']['tin'] ?? null,
-                'is_vat_registered' => $data['taxpayerConfiguration']['isVATRegistered'] ?? false,
-                'tax_office_code' => $data['taxpayerConfiguration']['taxOfficeCode'] ?? null,
-                'raw_response' => $data,
-                'last_synced_at' => now()
-            ]
+    if (!is_array($response)) {
+        throw new \Exception(
+            'Invalid EIS response format: ' . gettype($response)
         );
-
-        app(TaxConfigurationService::class)
-            ->sync(
-                $configuration,
-                $data
-            );
-
-        app(TerminalConfigurationService::class)
-            ->sync(
-                $configuration,
-                $data
-            );
-
-        return $configuration;
-
     }
+
+    if (($response['statusCode'] ?? 1) !== 0) {
+        throw new \Exception(
+            $response['remark'] ?? 'EIS configuration sync failed'
+        );
+    }
+
+    $data = $response['data'] ?? [];
+
+    $configuration = EisConfiguration::updateOrCreate(
+        [
+            'business_id' => $businessId
+        ],
+        [
+            'global_version' => $data['globalConfiguration']['versionNo'] ?? null,
+            'terminal_version' => $data['terminalConfiguration']['versionNo'] ?? null,
+            'taxpayer_version' => $data['taxpayerConfiguration']['versionNo'] ?? null,
+            'tin' => $data['taxpayerConfiguration']['tin'] ?? null,
+            'is_vat_registered' => $data['taxpayerConfiguration']['isVATRegistered'] ?? false,
+            'tax_office_code' => $data['taxpayerConfiguration']['taxOfficeCode'] ?? null,
+            'raw_response' => $data,
+            'last_synced_at' => now()
+        ]
+    );
+
+    app(TaxConfigurationService::class)
+        ->sync($configuration, $data);
+
+    app(TerminalConfigurationService::class)
+        ->sync($configuration, $data);
+
+    return $configuration;
+}
 
     private function syncTaxRates(
         $configuration,
