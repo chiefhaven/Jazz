@@ -56,7 +56,6 @@ class Kernel extends ConsoleKernel
 
                                 $setting->update([
                                     'last_sync_at' => now(),
-                                    'sync_status' => 'success'
                                 ]);
 
                             } catch (\Throwable $e) {
