@@ -97,6 +97,7 @@ class SyncEISConfigurationJob implements ShouldQueue
         if ($setting->sync_status === 'failed' && 
             $setting->updated_at && 
             $setting->updated_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
+            Log::info('Skipping EIS configuration sync for business: ' . $setting->last_sync_at->diffInMinutes(now()) . ' minutes since last sync.');
             return true;
         }
 
