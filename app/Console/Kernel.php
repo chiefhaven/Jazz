@@ -39,7 +39,7 @@ class Kernel extends ConsoleKernel
 
             // Schedule the EIS configuration sync job
             $schedule->job(new SyncEISConfigurationJob())
-                ->everyFiveMinutes()
+                ->everyMinute()
                 ->name('eis-configuration-sync')
                 ->withoutOverlapping(300)
                 ->onFailure(function () {
