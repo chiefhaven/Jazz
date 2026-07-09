@@ -2,9 +2,8 @@
 
 namespace Modules\EIS\Services\Configuration;
 
-use AWS\CRT\Log;
 use Illuminate\Support\Facades\Http;
-use Modules\EIS\Exceptions\EisException;
+use Illuminate\Support\Facades\Log;
 
 class EisConfigurationClient
 {
@@ -21,13 +20,24 @@ class EisConfigurationClient
             );
 
 
-        if(!$response->successful()){
-            \Log::error(
-                'EIS Configuration Client Error: '
-                . $response->body()
+        if (!$response->successful()) {
+
+            Log::error(
+                'EIS Configuration Client Error',
+                [
+                    'status' => $response->status(),
+                    'response' => $response->body()
+                ]
+            );
+
+            throw new \Exception(
+                'EIS Configuration API request failed'
             );
         }
-        return $response->json();
+
+
+        return $response->object();
+
     }
 
 }

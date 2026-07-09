@@ -3,7 +3,6 @@
 namespace Modules\EIS\Services\Configuration;
 
 use Modules\EIS\Models\EisConfiguration;
-use Modules\EIS\Models\EisTaxRate;
 
 class ConfigurationSyncService
 {
@@ -20,10 +19,13 @@ class ConfigurationSyncService
 
         $response = $this->client->latest($token);
 
+
         if (!is_object($response)) {
+
             throw new \Exception(
                 'Invalid EIS response format: ' . gettype($response)
             );
+
         }
 
 
@@ -44,27 +46,29 @@ class ConfigurationSyncService
                 'business_id' => $businessId
             ],
             [
-                'global_version' => 
+                'global_version' =>
                     $data->globalConfiguration->versionNo ?? null,
 
-                'terminal_version' => 
+                'terminal_version' =>
                     $data->terminalConfiguration->versionNo ?? null,
 
-                'taxpayer_version' => 
+                'taxpayer_version' =>
                     $data->taxpayerConfiguration->versionNo ?? null,
 
-                'tin' => 
+                'tin' =>
                     $data->taxpayerConfiguration->tin ?? null,
 
-                'is_vat_registered' => 
+                'is_vat_registered' =>
                     $data->taxpayerConfiguration->isVATRegistered ?? false,
 
-                'tax_office_code' => 
+                'tax_office_code' =>
                     $data->taxpayerConfiguration->taxOfficeCode ?? null,
 
-                'raw_response' => json_encode($data),
+                'raw_response' =>
+                    json_encode($response),
 
-                'last_synced_at' => now()
+                'last_synced_at' =>
+                    now()
             ]
         );
 
@@ -84,36 +88,6 @@ class ConfigurationSyncService
 
 
         return $configuration;
-
-    }
-
-
-
-    private function syncTaxRates(
-        $configuration,
-        $config
-    ) {
-
-        $rates = 
-            $config->globalConfiguration->taxrates ?? [];
-
-
-        foreach ($rates as $rate) {
-
-            EisTaxRate::updateOrCreate(
-                [
-                    'configuration_id' => $configuration->id,
-                    'eis_tax_rate_id' => $rate->id
-                ],
-                [
-                    'name' => $rate->name,
-                    'charge_mode' => $rate->chargeMode,
-                    'rate' => $rate->rate,
-                    'ordinal' => $rate->ordinal
-                ]
-            );
-
-        }
 
     }
 
