@@ -20,7 +20,7 @@ class SyncEISConfigurationJob implements ShouldQueue
     public $tries = 3;
     
     private const MIN_SYNC_INTERVAL_MINUTES = 1;
-    private const RETRY_BACKOFF_MINUTES = 15;
+    private const RETRY_BACKOFF_MINUTES = 1;
     private const CHUNK_SIZE = 50;
     private const MAX_PROCESS_LIMIT = 500;
 
@@ -96,7 +96,7 @@ class SyncEISConfigurationJob implements ShouldQueue
         // Skip if failed recently (backoff period)
         if ($setting->sync_status === 'failed' && 
             // $setting->updated_at && Skipping EIS configuration sync for business
-            $setting->updated_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
+            $setting->last_sync_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
             Log::info('Skipping EIS configuration sync for business failed: ' . $setting->last_sync_at->diffInMinutes(now()) . ' minutes since last sync.');
             return true;
         }
