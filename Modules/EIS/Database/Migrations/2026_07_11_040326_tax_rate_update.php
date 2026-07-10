@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('offline_limits', function (Blueprint $table) {
+        Schema::create('eis_offline_limits', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('terminal_configuration_id')->unique();
             $table->integer('max_transaction_age_hours')->default(72);
@@ -31,6 +31,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('offline_limits');
+        Schema::dropIfExists('eis_offline_limits');
     }
 };

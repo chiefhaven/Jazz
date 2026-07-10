@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('terminal_sites', function (Blueprint $table) {
+        Schema::create('eis_terminal_sites', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('terminal_configuration_id')->unique();
             $table->string('site_id', 50)->nullable();
@@ -31,6 +31,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('terminal_sites');
+        Schema::dropIfExists('eis_terminal_sites');
     }
 };
