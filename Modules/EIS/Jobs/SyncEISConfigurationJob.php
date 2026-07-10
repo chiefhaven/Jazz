@@ -89,7 +89,6 @@ class SyncEISConfigurationJob implements ShouldQueue
     {
         // Skip if synced recently
         if ($setting->last_sync_at && $setting->last_sync_at->diffInMinutes(now()) < self::MIN_SYNC_INTERVAL_MINUTES) {
-            Log::info('Skipping EIS configuration sync for business true: ' . $setting->last_sync_at->diffInMinutes(now()) . ' minutes since last sync.');
             return true;
         }
         
@@ -97,12 +96,8 @@ class SyncEISConfigurationJob implements ShouldQueue
         if ($setting->sync_status === 'failed' && 
             // $setting->updated_at && Skipping EIS configuration sync for business
             $setting->last_sync_at->diffInMinutes(now()) < self::RETRY_BACKOFF_MINUTES) {
-            Log::info('Skipping EIS configuration sync for business failed: ' . $setting->last_sync_at->diffInMinutes(now()) . ' minutes since last sync.');
             return true;
         }
-
-        Log::info('Skipping EIS configuration sync for business general: ' . $setting->last_sync_at->diffInMinutes(now()) . ' minutes since last sync.');
-
         
         return false;
     }

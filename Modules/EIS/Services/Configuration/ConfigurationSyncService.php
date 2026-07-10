@@ -5,11 +5,13 @@ namespace Modules\EIS\Services\Configuration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisConfiguration;
+use Modules\EIS\Models\TaxRate;
+use Modules\EIS\Models\TerminalConfiguration;
+use Modules\EIS\Models\TerminalSite;
+use Modules\EIS\Models\OfflineLimit;
 use Modules\EIS\Exceptions\SyncException;
 use Modules\EIS\Services\Configuration\EISConfigurationResponse;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
-use Modules\EIS\Services\Configuration\TaxConfigurationService;
-use Modules\EIS\Services\Configuration\TerminalConfigurationService;
 
 class ConfigurationSyncService
 {
@@ -114,11 +116,14 @@ class ConfigurationSyncService
                 // Prepare data for storage
                 $configurationData = $this->prepareConfigurationData($data, $businessId);
 
-                // Create or update configuration
+                // Create or update main configuration
                 $configuration = $this->saveConfiguration($businessId, $configurationData);
 
-                // Sync related configurations
-                $this->syncRelatedConfigurations($configuration, $data);
+                // Sync tax rates
+                $this->syncTaxRates($configuration, $data);
+
+                // Sync terminal configuration
+                $this->syncTerminalConfiguration($configuration, $data);
 
                 Log::info('Configuration sync completed successfully', [
                     'business_id' => $businessId,
@@ -146,6 +151,275 @@ class ConfigurationSyncService
                 $e
             );
         }
+    }
+
+    /**
+     * Sync tax rates from EIS configuration.
+     *
+     * @param EisConfiguration $configuration
+     * @param object $data
+     * @return void
+     */
+    private function syncTaxRates(EisConfiguration $configuration, object $data): void
+    {
+        try {
+            // Get tax rates from global configuration
+            $taxRates = $data->globalConfiguration->taxrates ?? [];
+            
+            if (empty($taxRates)) {
+                Log::warning('No tax rates found in EIS configuration', [
+                    'configuration_id' => $configuration->id,
+                    'business_id' => $configuration->business_id
+                ]);
+                return;
+            }
+
+            // Get activated tax rate IDs from taxpayer configuration
+            $activatedTaxRateIds = $data->taxpayerConfiguration->activatedTaxRateIds ?? [];
+            $activatedTaxRates = $data->taxpayerConfiguration->activatedTaxrates ?? [];
+
+            Log::info('Syncing tax rates', [
+                'configuration_id' => $configuration->id,
+                'business_id' => $configuration->business_id,
+                'total_tax_rates' => count($taxRates),
+                'activated_count' => count($activatedTaxRateIds)
+            ]);
+
+            // Process each tax rate
+            $syncedIds = [];
+            foreach ($taxRates as $taxRate) {
+                $syncedRate = $this->syncTaxRate(
+                    $configuration,
+                    $taxRate,
+                    $activatedTaxRateIds,
+                    $activatedTaxRates
+                );
+                $syncedIds[] = $syncedRate->id;
+            }
+
+            // Delete tax rates that are no longer in the response
+            $this->cleanupTaxRates($configuration, $syncedIds);
+
+            Log::info('Tax rates synced successfully', [
+                'configuration_id' => $configuration->id,
+                'business_id' => $configuration->business_id,
+                'synced_count' => count($syncedIds)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to sync tax rates', [
+                'configuration_id' => $configuration->id,
+                'business_id' => $configuration->business_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Re-throw to be handled by parent
+            throw $e;
+        }
+    }
+
+    /**
+     * Sync a single tax rate.
+     *
+     * @param EisConfiguration $configuration
+     * @param object $taxRate
+     * @param array $activatedTaxRateIds
+     * @param array $activatedTaxRates
+     * @return TaxRate
+     */
+    private function syncTaxRate(
+        EisConfiguration $configuration,
+        object $taxRate,
+        array $activatedTaxRateIds,
+        array $activatedTaxRates
+    ): TaxRate {
+        // Check if this tax rate is activated
+        $isActivated = in_array($taxRate->id, $activatedTaxRateIds);
+        
+        // Get activation details if available
+        $activationDetails = null;
+        foreach ($activatedTaxRates as $activated) {
+            if (isset($activated->taxRateId) && $activated->taxRateId === $taxRate->id) {
+                $activationDetails = $activated;
+                break;
+            }
+        }
+
+        // Prepare data for storage
+        $data = [
+            'configuration_id' => $configuration->id,
+            'tax_rate_id' => $taxRate->id,
+            'name' => $taxRate->name ?? null,
+            'charge_mode' => $taxRate->chargeMode ?? 'Item',
+            'ordinal' => $taxRate->ordinal ?? 100,
+            'rate' => $taxRate->rate ?? 0,
+            'is_activated' => $isActivated,
+            'activation_id' => $activationDetails->id ?? null,
+        ];
+
+        // Update or create
+        return TaxRate::updateOrCreate(
+            [
+                'configuration_id' => $configuration->id,
+                'tax_rate_id' => $taxRate->id
+            ],
+            $data
+        );
+    }
+
+    /**
+     * Clean up tax rates that are no longer in the response.
+     *
+     * @param EisConfiguration $configuration
+     * @param array $keepIds
+     * @return void
+     */
+    private function cleanupTaxRates(EisConfiguration $configuration, array $keepIds): void
+    {
+        $deleted = TaxRate::where('configuration_id', $configuration->id)
+            ->whereNotIn('id', $keepIds)
+            ->delete();
+
+        if ($deleted > 0) {
+            Log::debug('Cleaned up old tax rates', [
+                'configuration_id' => $configuration->id,
+                'deleted_count' => $deleted
+            ]);
+        }
+    }
+
+    /**
+     * Sync terminal configuration from EIS data.
+     *
+     * @param EisConfiguration $configuration
+     * @param object $data
+     * @return void
+     */
+    private function syncTerminalConfiguration(EisConfiguration $configuration, object $data): void
+    {
+        try {
+            // Get terminal configuration from data
+            $terminalData = $data->terminalConfiguration ?? null;
+            
+            if (!$terminalData) {
+                Log::warning('No terminal configuration found in EIS data', [
+                    'configuration_id' => $configuration->id,
+                    'business_id' => $configuration->business_id
+                ]);
+                return;
+            }
+
+            Log::info('Syncing terminal configuration', [
+                'configuration_id' => $configuration->id,
+                'business_id' => $configuration->business_id,
+                'version' => $terminalData->versionNo ?? null,
+                'is_active' => $terminalData->isActiveTerminal ?? false
+            ]);
+
+            // Prepare terminal configuration data
+            $terminalConfigData = [
+                'configuration_id' => $configuration->id,
+                'version' => $terminalData->versionNo ?? null,
+                'terminal_label' => $terminalData->terminalLabel ?? null,
+                'is_active' => $terminalData->isActiveTerminal ?? false,
+                'email_address' => $terminalData->emailAddress ?? null,
+                'phone_number' => $terminalData->phoneNumber ?? null,
+                'trading_name' => $terminalData->tradingName ?? null,
+                'address_lines' => isset($terminalData->addressLines) 
+                    ? json_encode($terminalData->addressLines) 
+                    : null,
+                'raw_data' => json_encode($terminalData),
+                'last_synced_at' => now()
+            ];
+
+            // Update or create terminal configuration
+            $terminalConfig = TerminalConfiguration::updateOrCreate(
+                ['configuration_id' => $configuration->id],
+                $terminalConfigData
+            );
+
+            // Sync terminal site if present
+            if (isset($terminalData->terminalSite)) {
+                $this->syncTerminalSite($terminalConfig, $terminalData->terminalSite);
+            }
+
+            // Sync offline limit if present
+            if (isset($terminalData->offlineLimit)) {
+                $this->syncOfflineLimit($terminalConfig, $terminalData->offlineLimit);
+            }
+
+            Log::info('Terminal configuration synced successfully', [
+                'configuration_id' => $configuration->id,
+                'terminal_config_id' => $terminalConfig->id,
+                'version' => $terminalConfig->version
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to sync terminal configuration', [
+                'configuration_id' => $configuration->id,
+                'business_id' => $configuration->business_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Re-throw to be handled by parent
+            throw $e;
+        }
+    }
+
+    /**
+     * Sync terminal site.
+     *
+     * @param TerminalConfiguration $terminalConfig
+     * @param object $siteData
+     * @return void
+     */
+    private function syncTerminalSite(TerminalConfiguration $terminalConfig, object $siteData): void
+    {
+        $siteData = [
+            'terminal_configuration_id' => $terminalConfig->id,
+            'site_id' => $siteData->siteId ?? null,
+            'site_name' => $siteData->siteName ?? null,
+            'raw_data' => json_encode($siteData),
+            'last_synced_at' => now()
+        ];
+
+        TerminalSite::updateOrCreate(
+            ['terminal_configuration_id' => $terminalConfig->id],
+            $siteData
+        );
+
+        Log::debug('Terminal site synced', [
+            'terminal_config_id' => $terminalConfig->id,
+            'site_id' => $siteData['site_id'],
+            'site_name' => $siteData['site_name']
+        ]);
+    }
+
+    /**
+     * Sync offline limit.
+     *
+     * @param TerminalConfiguration $terminalConfig
+     * @param object $offlineLimitData
+     * @return void
+     */
+    private function syncOfflineLimit(TerminalConfiguration $terminalConfig, object $offlineLimitData): void
+    {
+        $limitData = [
+            'terminal_configuration_id' => $terminalConfig->id,
+            'max_transaction_age_hours' => $offlineLimitData->maxTransactionAgeInHours ?? 72,
+            'max_cumulative_amount' => $offlineLimitData->maxCummulativeAmount ?? 0,
+            'raw_data' => json_encode($offlineLimitData),
+            'last_synced_at' => now()
+        ];
+
+        OfflineLimit::updateOrCreate(
+            ['terminal_configuration_id' => $terminalConfig->id],
+            $limitData
+        );
+
+        Log::debug('Offline limit synced', [
+            'terminal_config_id' => $terminalConfig->id,
+            'max_hours' => $limitData['max_transaction_age_hours'],
+            'max_amount' => $limitData['max_cumulative_amount']
+        ]);
     }
 
     /**
@@ -178,7 +452,6 @@ class ConfigurationSyncService
             Log::warning('Token does not appear to be a valid JWT format', [
                 'token_length' => strlen($token)
             ]);
-            // Don't throw, just warn - the API will validate it
         }
     }
 
@@ -353,69 +626,6 @@ class ConfigurationSyncService
             ['business_id' => $businessId],
             $data
         );
-    }
-
-    /**
-     * Sync related configurations.
-     *
-     * @param EisConfiguration $configuration
-     * @param object $data
-     * @throws SyncException
-     */
-    private function syncRelatedConfigurations(
-        EisConfiguration $configuration,
-        object $data
-    ): void {
-        $services = [
-            'tax' => TaxConfigurationService::class,
-            'terminal' => TerminalConfigurationService::class
-        ];
-
-        $failedServices = [];
-        $successfulServices = [];
-        
-        foreach ($services as $name => $class) {
-            try {
-                app($class)->sync($configuration, $data);
-                $successfulServices[] = $name;
-                Log::debug("{$name} configuration synced successfully", [
-                    'configuration_id' => $configuration->id
-                ]);
-            } catch (\Exception $e) {
-                $failedServices[] = $name;
-                Log::error("Failed to sync {$name} configuration", [
-                    'configuration_id' => $configuration->id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                
-                // Continue with other services instead of throwing immediately
-                // This allows partial success
-            }
-        }
-
-        // If all services failed, throw an exception
-        if (!empty($failedServices) && count($failedServices) === count($services)) {
-            throw new SyncException(
-                'Failed to sync all related configurations: ' . implode(', ', $failedServices)
-            );
-        }
-
-        // Log warning if some services failed
-        if (!empty($failedServices)) {
-            Log::warning('Some related configurations failed to sync', [
-                'configuration_id' => $configuration->id,
-                'failed_services' => $failedServices,
-                'successful_services' => $successfulServices
-            ]);
-        }
-
-        // Log summary
-        Log::info('Related configurations sync summary', [
-            'configuration_id' => $configuration->id,
-            'successful' => $successfulServices,
-            'failed' => $failedServices
-        ]);
     }
 
     /**
@@ -608,7 +818,7 @@ class ConfigurationSyncService
             'business_id' => $businessId
         ]);
 
-        // Temporarily disable the change detection by deleting the existing config
+        // Delete existing configuration to force full sync
         $existing = EisConfiguration::where('business_id', $businessId)->first();
         if ($existing) {
             Log::info('Deleting existing configuration for force sync', [
@@ -640,6 +850,15 @@ class ConfigurationSyncService
             ];
         }
 
+        // Get tax rates count
+        $taxRatesCount = TaxRate::where('configuration_id', $configuration->id)->count();
+        $activatedTaxRates = TaxRate::where('configuration_id', $configuration->id)
+            ->where('is_activated', true)
+            ->count();
+
+        // Get terminal info
+        $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+
         return [
             'business_id' => $businessId,
             'synced' => true,
@@ -648,11 +867,88 @@ class ConfigurationSyncService
             'global_version' => $configuration->global_version,
             'terminal_version' => $configuration->terminal_version,
             'taxpayer_version' => $configuration->taxpayer_version,
-            'tpin' => $configuration->tin,
+            'tpin' => $configuration->tpin,
             'is_vat_registered' => $configuration->is_vat_registered,
+            'tax_rates' => [
+                'total' => $taxRatesCount,
+                'activated' => $activatedTaxRates
+            ],
+            'terminal' => $terminal ? [
+                'is_active' => $terminal->is_active,
+                'trading_name' => $terminal->trading_name,
+                'has_site' => TerminalSite::where('terminal_configuration_id', $terminal->id)->exists(),
+                'has_offline_limit' => OfflineLimit::where('terminal_configuration_id', $terminal->id)->exists()
+            ] : null,
             'hours_since_sync' => $configuration->last_synced_at 
                 ? $configuration->last_synced_at->diffInHours(now()) 
                 : null
+        ];
+    }
+
+    /**
+     * Get tax rates for a configuration.
+     *
+     * @param EisConfiguration $configuration
+     * @param bool $onlyActivated
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getTaxRates(EisConfiguration $configuration, bool $onlyActivated = false)
+    {
+        $query = TaxRate::where('configuration_id', $configuration->id);
+        
+        if ($onlyActivated) {
+            $query->where('is_activated', true);
+        }
+        
+        return $query->orderBy('ordinal')->orderBy('rate')->get();
+    }
+
+    /**
+     * Get terminal configuration.
+     *
+     * @param EisConfiguration $configuration
+     * @return TerminalConfiguration|null
+     */
+    public function getTerminalConfiguration(EisConfiguration $configuration): ?TerminalConfiguration
+    {
+        return TerminalConfiguration::where('configuration_id', $configuration->id)
+            ->with(['terminalSite', 'offlineLimit'])
+            ->first();
+    }
+
+    /**
+     * Calculate tax for a given amount.
+     *
+     * @param string $taxRateId
+     * @param float $amount
+     * @param int $configurationId
+     * @return array
+     */
+    public function calculateTax(string $taxRateId, float $amount, int $configurationId): array
+    {
+        $taxRate = TaxRate::where('configuration_id', $configurationId)
+            ->where('tax_rate_id', $taxRateId)
+            ->first();
+
+        if (!$taxRate) {
+            return [
+                'rate' => 0,
+                'tax_amount' => 0,
+                'total' => $amount,
+                'tax_rate_id' => $taxRateId,
+                'error' => 'Tax rate not found'
+            ];
+        }
+
+        $taxAmount = ($amount * $taxRate->rate) / 100;
+        
+        return [
+            'rate' => (float) $taxRate->rate,
+            'tax_amount' => round($taxAmount, 2),
+            'total' => round($amount + $taxAmount, 2),
+            'tax_rate_id' => $taxRateId,
+            'name' => $taxRate->name,
+            'is_activated' => $taxRate->is_activated
         ];
     }
 }
