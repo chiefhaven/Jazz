@@ -72,6 +72,7 @@ class ConfigurationSyncService
                     'business_id' => $businessId,
                     'status_code' => $response->getStatusCode(),
                     'remark' => $response->getRemark(),
+                    'is_success' => $response->isSuccess(),
                     'has_data' => $response->hasCompleteData(),
                     'has_errors' => $response->hasErrors()
                 ]);
@@ -189,11 +190,19 @@ class ConfigurationSyncService
      */
     private function validateResponseStatus(EISConfigurationResponse $response): void
     {
+        // Log the full response for debugging
+        Log::debug('EIS API response validation', [
+            'status_code' => $response->getStatusCode(),
+            'remark' => $response->getRemark(),
+            'is_success' => $response->isSuccess(),
+            'has_errors' => $response->hasErrors(),
+            'error_count' => count($response->getErrors())
+        ]);
+
         if (!$response->isSuccess()) {
             $errorMessage = $response->getRemark() ?? 'Unknown error';
             $errors = $response->getErrors();
             
-            // Log detailed error information
             Log::error('EIS API returned error response', [
                 'status_code' => $response->getStatusCode(),
                 'remark' => $response->getRemark(),
@@ -251,7 +260,7 @@ class ConfigurationSyncService
             );
         }
 
-        Log::debug('EIS API response validation passed', [
+        Log::info('EIS API response validation passed', [
             'status_code' => $response->getStatusCode(),
             'remark' => $response->getRemark(),
             'global_version' => $response->getGlobalConfiguration()->versionNo ?? null,
@@ -469,6 +478,11 @@ class ConfigurationSyncService
         
         // Network/connection errors are retryable
         if ($e instanceof \Illuminate\Http\Client\ConnectionException) {
+            return true;
+        }
+        
+        // Timeout errors are retryable
+        if ($e instanceof \Illuminate\Http\Client\TimeoutException) {
             return true;
         }
         
