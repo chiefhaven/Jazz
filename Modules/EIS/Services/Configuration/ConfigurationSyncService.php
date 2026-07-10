@@ -25,7 +25,7 @@ class ConfigurationSyncService
         'business not found',
         'validation error',
         'invalid configuration',
-        'tin not found',
+        'tpin not found',
         'taxpayer not found',
         'business not active',
         'account suspended',
@@ -614,7 +614,7 @@ class ConfigurationSyncService
             'global_version' => $configuration->global_version,
             'terminal_version' => $configuration->terminal_version,
             'taxpayer_version' => $configuration->taxpayer_version,
-            'tin' => $configuration->tin,
+            'tpin' => $configuration->tin,
             'is_vat_registered' => $configuration->is_vat_registered,
             'hours_since_sync' => $configuration->last_synced_at 
                 ? $configuration->last_synced_at->diffInHours(now()) 
