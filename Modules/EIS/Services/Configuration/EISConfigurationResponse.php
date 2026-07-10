@@ -10,7 +10,7 @@ class EISConfigurationResponse
     private array $errors;
     private ?array $rawResponse;
 
-    // Success status code
+    // Success status code - API uses 1 for success
     private const SUCCESS_STATUS_CODE = 1;
 
     public function __construct(object $response)
