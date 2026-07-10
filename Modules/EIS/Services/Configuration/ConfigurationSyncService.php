@@ -301,7 +301,7 @@ class ConfigurationSyncService
         $taxpayerVersionChanged = $existing->taxpayer_version !== ($newData->taxpayerConfiguration->versionNo ?? null);
         
         // Check TIN
-        $tinChanged = $existing->tpin !== ($newData->taxpayerConfiguration->tpin ?? null);
+        $tinChanged = $existing->tpin !== ($newData->taxpayerConfiguration->tin ?? null);
         
         // Check VAT registration status
         $vatChanged = $existing->is_vat_registered !== ($newData->taxpayerConfiguration->isVATRegistered ?? false);
@@ -331,7 +331,7 @@ class ConfigurationSyncService
             'global_version' => $data->globalConfiguration->versionNo ?? null,
             'terminal_version' => $data->terminalConfiguration->versionNo ?? null,
             'taxpayer_version' => $data->taxpayerConfiguration->versionNo ?? null,
-            'tpin' => $data->taxpayerConfiguration->tpin ?? null,
+            'tpin' => $data->taxpayerConfiguration->tin ?? null,
             'is_vat_registered' => $data->taxpayerConfiguration->isVATRegistered ?? false,
             'tax_office_code' => $data->taxpayerConfiguration->taxOfficeCode ?? null,
             'tax_office_name' => $data->taxpayerConfiguration->taxOffice->name ?? null,
@@ -568,10 +568,10 @@ class ConfigurationSyncService
         }
         
         // Check TIN
-        if ($existing->tpin !== ($newData->taxpayerConfiguration->tpin ?? null)) {
+        if ($existing->tpin !== ($newData->taxpayerConfiguration->tin ?? null)) {
             $differences['tpin'] = [
                 'old' => $existing->tpin,
-                'new' => $newData->taxpayerConfiguration->tpin ?? null
+                'new' => $newData->taxpayerConfiguration->tin ?? null
             ];
         }
         
@@ -648,7 +648,7 @@ class ConfigurationSyncService
             'global_version' => $configuration->global_version,
             'terminal_version' => $configuration->terminal_version,
             'taxpayer_version' => $configuration->taxpayer_version,
-            'tpin' => $configuration->tpin,
+            'tpin' => $configuration->tin,
             'is_vat_registered' => $configuration->is_vat_registered,
             'hours_since_sync' => $configuration->last_synced_at 
                 ? $configuration->last_synced_at->diffInHours(now()) 
