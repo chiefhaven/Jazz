@@ -25,7 +25,7 @@ class ConfigurationSyncService
         'business not found',
         'validation error',
         'invalid configuration',
-        'tpin not found',
+        'tin not found',
         'taxpayer not found',
         'business not active',
         'account suspended',
@@ -426,18 +426,51 @@ class ConfigurationSyncService
      */
     private function determineStatusCode(\Exception $e): int
     {
-        // If exception already has a code, use it
-        if ($e->getCode() > 0) {
-            return $e->getCode();
+        // Get the code from the exception
+        $code = $e->getCode();
+        
+        // If code is an integer and > 0, use it
+        if (is_int($code) && $code > 0) {
+            return $code;
+        }
+        
+        // If code is a string, try to convert to int
+        if (is_string($code) && is_numeric($code)) {
+            $intCode = (int) $code;
+            if ($intCode > 0) {
+                return $intCode;
+            }
         }
 
-        // Check for specific error types
+        // Check for specific error types in the message
         $message = strtolower($e->getMessage());
         
         foreach (self::NON_RETRYABLE_ERRORS as $error) {
             if (stripos($message, $error) !== false) {
                 return 400; // Bad request
             }
+        }
+
+        // Check for HTTP status codes in the message
+        if (preg_match('/status[:\s]+(\d{3})/i', $message, $matches)) {
+            $statusCode = (int) $matches[1];
+            if ($statusCode >= 100 && $statusCode <= 599) {
+                return $statusCode;
+            }
+        }
+
+        // Check for common HTTP status codes
+        if (strpos($message, '404') !== false) {
+            return 404;
+        }
+        if (strpos($message, '403') !== false) {
+            return 403;
+        }
+        if (strpos($message, '401') !== false) {
+            return 401;
+        }
+        if (strpos($message, '429') !== false) {
+            return 429;
         }
 
         // Default to 500
@@ -463,7 +496,8 @@ class ConfigurationSyncService
 
         // HTTP errors
         if ($e instanceof \Illuminate\Http\Client\RequestException) {
-            $statusCode = $e->getCode();
+            $code = $e->getCode();
+            $statusCode = is_int($code) ? $code : 0;
             
             // Server errors and rate limiting are retryable
             if ($statusCode >= 500 || $statusCode === 429) {
