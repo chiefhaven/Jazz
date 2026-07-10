@@ -25,7 +25,7 @@ class ConfigurationSyncService
         'business not found',
         'validation error',
         'invalid configuration',
-        'tin not found',
+        'tpin not found',
         'taxpayer not found',
         'business not active',
         'account suspended',
@@ -301,7 +301,7 @@ class ConfigurationSyncService
         $taxpayerVersionChanged = $existing->taxpayer_version !== ($newData->taxpayerConfiguration->versionNo ?? null);
         
         // Check TIN
-        $tinChanged = $existing->tin !== ($newData->taxpayerConfiguration->tin ?? null);
+        $tinChanged = $existing->tpin !== ($newData->taxpayerConfiguration->tpin ?? null);
         
         // Check VAT registration status
         $vatChanged = $existing->is_vat_registered !== ($newData->taxpayerConfiguration->isVATRegistered ?? false);
@@ -331,7 +331,7 @@ class ConfigurationSyncService
             'global_version' => $data->globalConfiguration->versionNo ?? null,
             'terminal_version' => $data->terminalConfiguration->versionNo ?? null,
             'taxpayer_version' => $data->taxpayerConfiguration->versionNo ?? null,
-            'tin' => $data->taxpayerConfiguration->tin ?? null,
+            'tpin' => $data->taxpayerConfiguration->tpin ?? null,
             'is_vat_registered' => $data->taxpayerConfiguration->isVATRegistered ?? false,
             'tax_office_code' => $data->taxpayerConfiguration->taxOfficeCode ?? null,
             'tax_office_name' => $data->taxpayerConfiguration->taxOffice->name ?? null,
@@ -568,10 +568,10 @@ class ConfigurationSyncService
         }
         
         // Check TIN
-        if ($existing->tin !== ($newData->taxpayerConfiguration->tin ?? null)) {
-            $differences['tin'] = [
-                'old' => $existing->tin,
-                'new' => $newData->taxpayerConfiguration->tin ?? null
+        if ($existing->tpin !== ($newData->taxpayerConfiguration->tpin ?? null)) {
+            $differences['tpin'] = [
+                'old' => $existing->tpin,
+                'new' => $newData->taxpayerConfiguration->tpin ?? null
             ];
         }
         
@@ -648,7 +648,7 @@ class ConfigurationSyncService
             'global_version' => $configuration->global_version,
             'terminal_version' => $configuration->terminal_version,
             'taxpayer_version' => $configuration->taxpayer_version,
-            'tpin' => $configuration->tin,
+            'tpin' => $configuration->tpin,
             'is_vat_registered' => $configuration->is_vat_registered,
             'hours_since_sync' => $configuration->last_synced_at 
                 ? $configuration->last_synced_at->diffInHours(now()) 

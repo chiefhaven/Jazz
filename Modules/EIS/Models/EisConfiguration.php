@@ -13,7 +13,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $global_version
  * @property int|null $terminal_version
  * @property int|null $taxpayer_version
- * @property string|null $tin
+ * @property string|null $tpin
  * @property bool $is_vat_registered
  * @property string|null $tax_office_code
  * @property array|null $raw_response
@@ -30,7 +30,7 @@ class EisConfiguration extends Model
         'global_version',
         'terminal_version',
         'taxpayer_version',
-        'tin',
+        'tpin',
         'is_vat_registered',
         'tax_office_code',
         'raw_response',

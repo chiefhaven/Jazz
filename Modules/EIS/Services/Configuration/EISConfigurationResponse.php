@@ -345,7 +345,7 @@ class EISConfigurationResponse
     public function getTIN(): ?string
     {
         $taxpayerConfig = $this->getTaxpayerConfiguration();
-        return $taxpayerConfig->tin ?? null;
+        return $taxpayerConfig->tpin ?? null;
     }
 
     /**
@@ -438,7 +438,7 @@ class EISConfigurationResponse
             'has_errors' => $this->hasErrors(),
             'error_count' => count($this->errors),
             'versions' => $this->getVersions(),
-            'tin' => $this->getTIN(),
+            'tpin' => $this->getTIN(),
             'is_vat_registered' => $this->isVATRegistered(),
             'is_terminal_active' => $this->isTerminalActive(),
             'tax_rates_count' => count($this->getTaxRates()),

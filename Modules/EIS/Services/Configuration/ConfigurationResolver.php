@@ -21,7 +21,7 @@ class ConfigurationResolver
     public function sellerTin(int $businessId)
     {
         return $this->get($businessId)
-            ?->tin;
+            ?->tpin;
     }
 
 

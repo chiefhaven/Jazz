@@ -165,10 +165,10 @@ class ConfigurationValidator
     private function validateTaxpayerConfiguration(object $taxpayerConfig): void
     {
         // Validate TIN
-        if (isset($taxpayerConfig->tin) && !empty($taxpayerConfig->tin)) {
+        if (isset($taxpayerConfig->tpin) && !empty($taxpayerConfig->tpin)) {
             // Adjust regex for your TIN format
-            if (!preg_match('/^[0-9]{6,10}$/', $taxpayerConfig->tin)) {
-                throw new ValidationException('Invalid TIN format: ' . $taxpayerConfig->tin);
+            if (!preg_match('/^[0-9]{6,10}$/', $taxpayerConfig->tpin)) {
+                throw new ValidationException('Invalid TIN format: ' . $taxpayerConfig->tpin);
             }
         } else {
             // TIN might be required, adjust as needed
