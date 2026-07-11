@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EisTerminalConfiguration extends Model
 {
-    protected $table = 'terminal_configurations';
+    protected $table = 'eis_terminal_configurations';
 
     protected $fillable = [
         'configuration_id',
@@ -37,7 +37,8 @@ class EisTerminalConfiguration extends Model
         'taxpayer_id',
         'activation_date',
         'jwt_token',
-        'secret_key'
+        'secret_key',
+        'confirmed_at',
     ];
 
     protected $casts = [
