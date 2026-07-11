@@ -5,8 +5,6 @@ namespace Modules\EIS\Services\Configuration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisConfiguration;
-use Modules\EIS\Models\TerminalConfiguration;
-use Modules\EIS\Models\TerminalSite;
 use Modules\EIS\Models\OfflineLimit;
 use Modules\EIS\Exceptions\SyncException;
 use Modules\EIS\Models\EisTaxRate;
@@ -411,7 +409,7 @@ class ConfigurationSyncService
      * @param object $siteData
      * @return void
      */
-    private function syncTerminalSite(TerminalConfiguration $terminalConfig, object $siteData): void
+    private function syncTerminalSite(EisTerminalConfiguration $terminalConfig, object $siteData): void
     {
         $siteData = [
             'terminal_configuration_id' => $terminalConfig->id,
@@ -440,7 +438,7 @@ class ConfigurationSyncService
      * @param object $offlineLimitData
      * @return void
      */
-    private function syncOfflineLimit(TerminalConfiguration $terminalConfig, object $offlineLimitData): void
+    private function syncOfflineLimit(EisTerminalConfiguration $terminalConfig, object $offlineLimitData): void
     {
         $limitData = [
             'terminal_configuration_id' => $terminalConfig->id,
@@ -928,7 +926,7 @@ class ConfigurationSyncService
                 'is_active' => $terminal->is_active,
                 'trading_name' => $terminal->trading_name,
                 'has_site' => EisTerminalSite::where('terminal_configuration_id', $terminal->id)->exists(),
-                'has_offline_limit' => EisOfflineLimi::where('terminal_configuration_id', $terminal->id)->exists()
+                'has_offline_limit' => EisOfflineLimit::where('terminal_configuration_id', $terminal->id)->exists()
             ] : null,
             'hours_since_sync' => $configuration->last_synced_at 
                 ? $configuration->last_synced_at->diffInHours(now()) 
