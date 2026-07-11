@@ -26,7 +26,6 @@ class EisTerminalActivationService
      * Activate terminal via EIS API - No token required.
      *
      * @param int $businessId
-     * @param string|null $token
      * @param string $activationCode
      * @param array $environment
      * @param int|null $activatedBy
@@ -179,6 +178,7 @@ class EisTerminalActivationService
 
     /**
      * Call EIS activation API with correct payload structure.
+     * statusCode: 1 is considered success.
      *
      * @param int $businessId
      * @param string $activationCode
@@ -235,8 +235,8 @@ class EisTerminalActivationService
             'response' => $responseData
         ]);
 
-        // Check if response has error (statusCode: 0 = success, other = error)
-        if (isset($responseData->statusCode) && $responseData->statusCode !== 0) {
+        // Check if response has error (statusCode: 1 = success, other = error)
+        if (isset($responseData->statusCode) && $responseData->statusCode !== 1) {
             $errorMessage = $responseData->remark ?? 'Unknown error';
             
             if (!empty($responseData->errors)) {
@@ -248,6 +248,15 @@ class EisTerminalActivationService
             }
 
             throw new \Exception('EIS activation API returned error: ' . $errorMessage, $responseData->statusCode);
+        }
+
+        // Check if data exists
+        if (!isset($responseData->data) || !isset($responseData->data->activatedTerminal)) {
+            Log::error('EIS activation API response missing data', [
+                'business_id' => $businessId,
+                'response' => $responseData
+            ]);
+            throw new \Exception('EIS activation API response missing terminal data');
         }
 
         return $responseData;
@@ -339,7 +348,7 @@ class EisTerminalActivationService
                     'data' => $this->getTerminalDetails($terminal, $activatedTerminal),
                     'terminal_credentials' => $terminalCredentials,
                     'activation_code' => $activationCode,
-                    'status_code' => $response->statusCode ?? 0
+                    'status_code' => $response->statusCode ?? 1
                 ];
             });
         } catch (\Exception $e) {
