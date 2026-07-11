@@ -962,7 +962,7 @@ class ConfigurationSyncService
      * @param string $taxRateId
      * @return TaxRate|null
      */
-    public function getTaxRateById(int $configurationId, string $taxRateId): ?TaxRate
+    public function getTaxRateById(int $configurationId, string $taxRateId): ?EisTaxRate
     {
         return EisTaxRate::where('configuration_id', $configurationId)
             ->where('tax_rate_id', $taxRateId)
