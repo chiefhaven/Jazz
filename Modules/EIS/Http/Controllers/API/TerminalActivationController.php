@@ -695,12 +695,11 @@ class TerminalActivationController extends Controller
                         'terminal_position' => $terminal->terminal_position,
                         'taxpayer_id' => $terminal->taxpayer_id,
                         'activation_date' => $terminal->activation_date,
-
-                        // 'activated_at' => $terminal->activated_at,
-                        // 'deactivated_at' => $terminal->deactivated_at,
-                        // 'activation_duration' => $terminal->activation_duration,
-                        // 'has_credentials' => $terminal->hasCredentials(),
-                        // 'last_synced_at' => $terminal->last_synced_at
+                        'activated_at' => $terminal->activated_at,
+                        'deactivated_at' => $terminal->deactivated_at,
+                        'activation_duration' => $terminal->activation_duration,
+                        'has_credentials' => $terminal->hasCredentials(),
+                        'last_synced_at' => $terminal->last_synced_at
                     ],
                     'site' => $terminal->terminalSite ? [
                         'site_id' => $terminal->terminalSite->site_id,
