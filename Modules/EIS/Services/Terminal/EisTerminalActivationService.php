@@ -247,7 +247,7 @@ class EisTerminalActivationService
                 $errorMessage .= ': ' . implode(', ', $errors);
             }
 
-            throw new \Exception('EIS activation API returned error: ' . $errorMessage, $responseData->statusCode);
+            throw new \Exception($errorMessage, $responseData->statusCode);
         }
 
         // Check if data exists
