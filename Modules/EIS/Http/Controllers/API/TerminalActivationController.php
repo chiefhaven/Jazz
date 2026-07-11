@@ -4,6 +4,7 @@ namespace Modules\EIS\Http\Controllers\API;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisTerminalConfiguration;
 use Modules\EIS\Models\EisConfiguration;
@@ -63,7 +64,7 @@ class TerminalActivationController extends Controller
                 $businessId,
                 $activationCode,
                 $environment,
-                null // No authenticated user
+                Auth::user()->name ?? null
             );
 
             if ($result['success']) {
