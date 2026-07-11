@@ -217,7 +217,7 @@
                     } else {
                         console.error('Activation failed:', result);
                         swal({
-                            text: result.message || 'Failed to activate terminal',
+                            text: result || 'Failed to activate terminal',
                             icon: 'error'
                         });
                     }
