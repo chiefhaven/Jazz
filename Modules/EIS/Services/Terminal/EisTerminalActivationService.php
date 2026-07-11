@@ -82,7 +82,7 @@ class EisTerminalActivationService
      */
     private function callActivationAPI(int $businessId, string $activationCode, array $environment): object
     {
-        $url = $this->apiBaseUrl . '/api/v1/onboarding/activate-terminal';
+        $url = $this->apiBaseUrl . '/onboarding/activate-terminal';
 
         // Build the correct payload structure
         $payload = [
@@ -551,7 +551,7 @@ class EisTerminalActivationService
         }
 
         try {
-            $url = $this->apiBaseUrl . '/api/v1/onboarding/deactivate-terminal';
+            $url = $this->apiBaseUrl . '/onboarding/deactivate-terminal';
 
             $response = Http::acceptJson()
                 ->timeout(30)
