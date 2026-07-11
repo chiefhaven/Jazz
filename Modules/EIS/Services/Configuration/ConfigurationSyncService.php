@@ -10,6 +10,8 @@ use Modules\EIS\Models\TerminalSite;
 use Modules\EIS\Models\OfflineLimit;
 use Modules\EIS\Exceptions\SyncException;
 use Modules\EIS\Models\EisTaxRate;
+use Modules\EIS\Models\EisTerminalConfiguration;
+use Modules\EIS\Models\EisTerminalSite;
 use Modules\EIS\Services\Configuration\EISConfigurationResponse;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
 
@@ -370,7 +372,7 @@ class ConfigurationSyncService
             ];
 
             // Update or create terminal configuration
-            $terminalConfig = TerminalConfiguration::updateOrCreate(
+            $terminalConfig = EisTerminalConfiguration::updateOrCreate(
                 ['configuration_id' => $configuration->id],
                 $terminalConfigData
             );
@@ -419,7 +421,7 @@ class ConfigurationSyncService
             'last_synced_at' => now()
         ];
 
-        TerminalSite::updateOrCreate(
+        EisTerminalSite::updateOrCreate(
             ['terminal_configuration_id' => $terminalConfig->id],
             $siteData
         );
@@ -906,7 +908,7 @@ class ConfigurationSyncService
             ]);
 
         // Get terminal info
-        $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+        $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
 
         return [
             'business_id' => $businessId,
@@ -925,8 +927,8 @@ class ConfigurationSyncService
             'terminal' => $terminal ? [
                 'is_active' => $terminal->is_active,
                 'trading_name' => $terminal->trading_name,
-                'has_site' => TerminalSite::where('terminal_configuration_id', $terminal->id)->exists(),
-                'has_offline_limit' => OfflineLimit::where('terminal_configuration_id', $terminal->id)->exists()
+                'has_site' => EisTerminalSite::where('terminal_configuration_id', $terminal->id)->exists(),
+                'has_offline_limit' => EisOfflineLimi::where('terminal_configuration_id', $terminal->id)->exists()
             ] : null,
             'hours_since_sync' => $configuration->last_synced_at 
                 ? $configuration->last_synced_at->diffInHours(now()) 
@@ -1021,9 +1023,9 @@ class ConfigurationSyncService
      * @param EisConfiguration $configuration
      * @return TerminalConfiguration|null
      */
-    public function getTerminalConfiguration(EisConfiguration $configuration): ?TerminalConfiguration
+    public function getTerminalConfiguration(EisConfiguration $configuration): ?EisTerminalConfiguration
     {
-        return TerminalConfiguration::where('configuration_id', $configuration->id)
+        return EisTerminalConfiguration::where('configuration_id', $configuration->id)
             ->with(['terminalSite', 'offlineLimit'])
             ->first();
     }

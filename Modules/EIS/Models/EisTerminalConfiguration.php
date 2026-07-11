@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class TerminalConfiguration extends Model
+class EisTerminalConfiguration extends Model
 {
     protected $table = 'terminal_configurations';
 
@@ -42,7 +42,7 @@ class TerminalConfiguration extends Model
      */
     public function terminalSite(): HasOne
     {
-        return $this->hasOne(TerminalSite::class, 'terminal_configuration_id');
+        return $this->hasOne(EisTerminalSite::class, 'terminal_configuration_id');
     }
 
     /**
@@ -50,7 +50,7 @@ class TerminalConfiguration extends Model
      */
     public function offlineLimit(): HasOne
     {
-        return $this->hasOne(OfflineLimit::class, 'terminal_configuration_id');
+        return $this->hasOne(EisOfflineLimit::class, 'terminal_configuration_id');
     }
 
     /**

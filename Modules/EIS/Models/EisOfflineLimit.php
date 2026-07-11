@@ -5,9 +5,9 @@ namespace Modules\EIS\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class OfflineLimit extends Model
+class EisOfflineLimit extends Model
 {
-    protected $table = 'offline_limits';
+    protected $table = 'eis_offline_limits';
 
     protected $fillable = [
         'terminal_configuration_id',
@@ -28,7 +28,7 @@ class OfflineLimit extends Model
      */
     public function terminalConfiguration(): BelongsTo
     {
-        return $this->belongsTo(TerminalConfiguration::class, 'terminal_configuration_id');
+        return $this->belongsTo(EisTerminalConfiguration::class, 'terminal_configuration_id');
     }
 
     /**

@@ -5,9 +5,9 @@ namespace Modules\EIS\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class TerminalSite extends Model
+class EisTerminalSite extends Model
 {
-    protected $table = 'terminal_sites';
+    protected $table = 'eis_terminal_sites';
 
     protected $fillable = [
         'terminal_configuration_id',
@@ -26,7 +26,7 @@ class TerminalSite extends Model
      */
     public function terminalConfiguration(): BelongsTo
     {
-        return $this->belongsTo(TerminalConfiguration::class, 'terminal_configuration_id');
+        return $this->belongsTo(EisTerminalConfiguration::class, 'terminal_configuration_id');
     }
 
     /**
