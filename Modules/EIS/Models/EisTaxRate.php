@@ -17,6 +17,7 @@ class EisTaxRate extends Model
         'charge_mode',
         'ordinal',
         'rate',
+        'amount',
         'is_activated',
         'activation_id',
     ];

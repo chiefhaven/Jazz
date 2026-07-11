@@ -273,6 +273,7 @@ class ConfigurationSyncService
             'name' => $taxRate->name ?? null,
             'charge_mode' => $taxRate->chargeMode ?? 'Item',
             'ordinal' => $taxRate->ordinal ?? 100,
+            'amount' => (float) $taxRate->rate ?? 0,
             'rate' => $taxRate->rate ?? 0,
             'is_activated' => $isActivated,
             'activation_id' => $activationDetails->id ?? null,
@@ -983,6 +984,7 @@ class ConfigurationSyncService
 
         if (!$taxRate) {
             return [
+                'amount' => 0,
                 'rate' => 0,
                 'tax_amount' => 0,
                 'total' => $amount,
@@ -994,6 +996,7 @@ class ConfigurationSyncService
         $taxAmount = ($amount * $taxRate->rate) / 100;
         
         return [
+            'amount' => (float) $taxRate->rate,
             'rate' => (float) $taxRate->rate,
             'tax_amount' => round($taxAmount, 2),
             'total' => round($amount + $taxAmount, 2),
