@@ -159,7 +159,7 @@
             $.ajax({
                 method: 'post',
                 data: data,
-                url: "{{ action([\App\Http\Controllers\BusinessController::class, 'activateEISTerminal']) }}",
+                url: "{{ action([Modules\EIS\Http\Controllers\API\TerminalActivationController::class, 'activateTerminal']) }}",
                 dataType: 'json',
                 success: function(result) {
                     if (result.success == true) {
