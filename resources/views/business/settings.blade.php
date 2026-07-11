@@ -215,8 +215,9 @@
                             $('#secret_key_display').text(result.terminal_credentials.secretKey || 'N/A');
                         }
                     } else {
+                        console.error('Activation failed:', result);
                         swal({
-                            text: result.message || 'Failed to activate terminal hy',
+                            text: result.message || 'Failed to activate terminal',
                             icon: 'error'
                         });
                     }

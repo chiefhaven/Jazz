@@ -14,10 +14,11 @@ class TerminalActivationController extends Controller
     public function __construct(
         protected EisTerminalActivationService $activationService
     ) {
+        // No authentication middleware for activation endpoints
     }
 
     /**
-     * Activate terminal from web interface.
+     * Activate terminal - No authentication required.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -29,23 +30,13 @@ class TerminalActivationController extends Controller
                 'terminal_activation_code' => 'required|string',
             ]);
 
-            // Get business_id from session or request
-            $businessId = $request->input('business_id', session('business_id'));
+            // Get business_id from request
+            $businessId = $request->input('business_id');
             
             if (!$businessId) {
                 return response()->json([
                     'success' => false,
                     'msg' => 'Business ID is required'
-                ]);
-            }
-
-            // Get token from session or request
-            $token = $request->input('token', session('eis_token'));
-            
-            if (!$token) {
-                return response()->json([
-                    'success' => false,
-                    'msg' => 'Authentication token is required'
                 ]);
             }
 
@@ -67,12 +58,12 @@ class TerminalActivationController extends Controller
             $activationCode = $request->input('terminal_activation_code');
 
             // Call activation service with the correct payload
+            // No token required, no authenticated user
             $result = $this->activationService->activateTerminal(
                 $businessId,
-                $token,
                 $activationCode,
                 $environment,
-                auth()->id() ?? null
+                null // No authenticated user
             );
 
             if ($result['success']) {
@@ -220,7 +211,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Deactivate terminal.
+     * Deactivate terminal - Requires authentication.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -262,7 +253,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Toggle terminal activation.
+     * Toggle terminal activation - Requires authentication.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -304,7 +295,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Get terminal status.
+     * Get terminal status - No authentication required.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse
@@ -338,7 +329,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Check if terminal is active.
+     * Check if terminal is active - No authentication required.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse
@@ -377,7 +368,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Get terminal activation history.
+     * Get terminal activation history - Requires authentication.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse
@@ -411,7 +402,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Get terminal credentials.
+     * Get terminal credentials - Requires authentication.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse
@@ -467,7 +458,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Regenerate terminal credentials.
+     * Regenerate terminal credentials - Requires authentication.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -507,7 +498,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Bulk activate terminals.
+     * Bulk activate terminals - No authentication required.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -518,14 +509,12 @@ class TerminalActivationController extends Controller
             $request->validate([
                 'business_ids' => 'required|array',
                 'business_ids.*' => 'integer|exists:eis_configurations,business_id',
-                'token' => 'required|string',
                 'terminal_activation_code' => 'required|string',
                 'environment' => 'sometimes|array',
                 'environment.platform' => 'sometimes|array',
                 'environment.pos' => 'sometimes|array'
             ]);
 
-            $activatedBy = auth()->id() ?? null;
             $activationCode = $request->input('terminal_activation_code');
             
             // Build environment payload
@@ -549,10 +538,10 @@ class TerminalActivationController extends Controller
             foreach ($request->business_ids as $businessId) {
                 $result = $this->activationService->activateTerminal(
                     $businessId,
-                    $request->token,
+                    null, // No token required
                     $activationCode,
                     $environment,
-                    $activatedBy
+                    null // No authenticated user
                 );
 
                 $results[$businessId] = $result;
@@ -594,7 +583,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Bulk deactivate terminals.
+     * Bulk deactivate terminals - Requires authentication.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -659,7 +648,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Get terminal details.
+     * Get terminal details - Requires authentication.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse
@@ -737,7 +726,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Sync terminal configuration.
+     * Sync terminal configuration - Requires authentication.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -777,7 +766,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Get terminal health status.
+     * Get terminal health status - No authentication required.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse
@@ -876,7 +865,7 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Webhook for terminal activation callback.
+     * Webhook for terminal activation callback - No authentication required.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse

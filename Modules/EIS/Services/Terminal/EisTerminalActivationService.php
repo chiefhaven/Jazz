@@ -26,7 +26,6 @@ class EisTerminalActivationService
      * Activate terminal via EIS API.
      *
      * @param int $businessId
-     * @param string $token
      * @param string $activationCode
      * @param array $environment
      * @param int|null $activatedBy
@@ -34,7 +33,6 @@ class EisTerminalActivationService
      */
     public function activateTerminal(
         int $businessId,
-        string $token,
         string $activationCode,
         array $environment = [],
         ?int $activatedBy = null
@@ -47,7 +45,7 @@ class EisTerminalActivationService
             ]);
 
             // Call EIS API to activate terminal
-            $activationResponse = $this->callActivationAPI($businessId, $token, $activationCode, $environment);
+            $activationResponse = $this->callActivationAPI($businessId, $activationCode, $environment);
 
             // Process the activation response
             return $this->processActivationResponse(
@@ -77,13 +75,12 @@ class EisTerminalActivationService
      * Call EIS activation API with correct payload structure.
      *
      * @param int $businessId
-     * @param string $token
      * @param string $activationCode
      * @param array $environment
      * @return object
      * @throws \Exception
      */
-    private function callActivationAPI(int $businessId, string $token, string $activationCode, array $environment): object
+    private function callActivationAPI(int $businessId, string $activationCode, array $environment): object
     {
         $url = $this->apiBaseUrl . '/api/v1/onboarding/activate-terminal';
 
@@ -110,8 +107,7 @@ class EisTerminalActivationService
             'payload' => $payload
         ]);
 
-        $response = Http::withToken($token)
-            ->acceptJson()
+        $response = Http::acceptJson()
             ->timeout(60)
             ->post($url, $payload);
 
@@ -590,7 +586,7 @@ class EisTerminalActivationService
      * @param int|null $toggledBy
      * @return array
      */
-    public function toggle(int $businessId, string $token, ?int $toggledBy = null): array
+    public function toggle(int $businessId, ?int $toggledBy = null): array
     {
         try {
             Log::info('Terminal activation toggle requested', [
@@ -820,7 +816,7 @@ class EisTerminalActivationService
             }
 
             // Call API to regenerate credentials
-            $url = $this->apiBaseUrl . '/api/v1/onboarding/regenerate-credentials';
+            $url = $this->apiBaseUrl . '/api/v1/configuration/request-new-terminal-token';
             
             $response = Http::withToken($token)
                 ->acceptJson()
