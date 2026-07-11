@@ -313,7 +313,7 @@ class ConfigurationSyncService
      */
     private function cleanupTaxRates(EisConfiguration $configuration, array $keepIds): void
     {
-        $deleted = TaxRate::where('configuration_id', $configuration->id)
+        $deleted = EisTaxRate::where('configuration_id', $configuration->id)
             ->whereNotIn('id', $keepIds)
             ->delete();
 
@@ -889,8 +889,8 @@ class ConfigurationSyncService
         }
 
         // Get tax rates count
-        $taxRatesCount = TaxRate::where('configuration_id', $configuration->id)->count();
-        $activatedTaxRates = TaxRate::where('configuration_id', $configuration->id)
+        $taxRatesCount = EisTaxRate::where('configuration_id', $configuration->id)->count();
+        $activatedTaxRates = EisTaxRate::where('configuration_id', $configuration->id)
             ->where('is_activated', true)
             ->count();
         
@@ -943,7 +943,7 @@ class ConfigurationSyncService
      */
     public function getTaxRates(EisConfiguration $configuration, bool $onlyActivated = false)
     {
-        $query = TaxRate::where('configuration_id', $configuration->id);
+        $query = EisTaxRate::where('configuration_id', $configuration->id);
         
         if ($onlyActivated) {
             $query->where('is_activated', true);
@@ -960,7 +960,7 @@ class ConfigurationSyncService
      */
     public function getActivatedTaxRateIds(EisConfiguration $configuration): array
     {
-        return TaxRate::where('configuration_id', $configuration->id)
+        return EisTaxRate::where('configuration_id', $configuration->id)
             ->where('is_activated', true)
             ->pluck('tax_rate_id')
             ->toArray();
@@ -975,7 +975,7 @@ class ConfigurationSyncService
      */
     public function getTaxRateById(int $configurationId, string $taxRateId): ?TaxRate
     {
-        return TaxRate::where('configuration_id', $configurationId)
+        return EisTaxRate::where('configuration_id', $configurationId)
             ->where('tax_rate_id', $taxRateId)
             ->first();
     }
@@ -1036,12 +1036,12 @@ class ConfigurationSyncService
      */
     public function getTaxRatesSummary(EisConfiguration $configuration): array
     {
-        $total = TaxRate::where('configuration_id', $configuration->id)->count();
-        $activated = TaxRate::where('configuration_id', $configuration->id)
+        $total = EisTaxRate::where('configuration_id', $configuration->id)->count();
+        $activated = EisTaxRate::where('configuration_id', $configuration->id)
             ->where('is_activated', true)
             ->count();
         
-        $rates = TaxRate::where('configuration_id', $configuration->id)
+        $rates = EisTaxRate::where('configuration_id', $configuration->id)
             ->orderBy('rate')
             ->get(['tax_rate_id', 'name', 'rate', 'is_activated']);
 
@@ -1049,10 +1049,10 @@ class ConfigurationSyncService
             'total' => $total,
             'activated' => $activated,
             'inactive' => $total - $activated,
-            'highest_rate' => TaxRate::where('configuration_id', $configuration->id)
+            'highest_rate' => EisTaxRate::where('configuration_id', $configuration->id)
                 ->where('is_activated', true)
                 ->max('rate'),
-            'lowest_rate' => TaxRate::where('configuration_id', $configuration->id)
+            'lowest_rate' => EisTaxRate::where('configuration_id', $configuration->id)
                 ->where('is_activated', true)
                 ->min('rate'),
             'rates' => $rates->toArray()
