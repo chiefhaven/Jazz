@@ -120,9 +120,11 @@ class ConfigurationSyncService
                 $configuration = $this->saveConfiguration($businessId, $configurationData);
 
                 // Sync tax rates
+                Log::info('Starting tax rate sync...');
                 $this->syncTaxRates($configuration, $data);
 
                 // Sync terminal configuration
+                Log::info('Starting terminal configuration sync...');
                 $this->syncTerminalConfiguration($configuration, $data);
 
                 Log::info('Configuration sync completed successfully', [
@@ -163,13 +165,24 @@ class ConfigurationSyncService
     private function syncTaxRates(EisConfiguration $configuration, object $data): void
     {
         try {
+            Log::debug('Entering syncTaxRates method', [
+                'configuration_id' => $configuration->id,
+                'business_id' => $configuration->business_id
+            ]);
+
             // Get tax rates from global configuration
             $taxRates = $data->globalConfiguration->taxrates ?? [];
+            
+            Log::debug('Tax rates from response', [
+                'tax_rates_count' => count($taxRates),
+                'tax_rates' => $taxRates
+            ]);
             
             if (empty($taxRates)) {
                 Log::warning('No tax rates found in EIS configuration', [
                     'configuration_id' => $configuration->id,
-                    'business_id' => $configuration->business_id
+                    'business_id' => $configuration->business_id,
+                    'data_keys' => array_keys((array)$data->globalConfiguration ?? [])
                 ]);
                 return;
             }
@@ -182,12 +195,23 @@ class ConfigurationSyncService
                 'configuration_id' => $configuration->id,
                 'business_id' => $configuration->business_id,
                 'total_tax_rates' => count($taxRates),
-                'activated_count' => count($activatedTaxRateIds)
+                'activated_count' => count($activatedTaxRateIds),
+                'activated_tax_rates' => $activatedTaxRateIds
             ]);
 
             // Process each tax rate
             $syncedIds = [];
+            $taxRateCount = 0;
+            
             foreach ($taxRates as $taxRate) {
+                $taxRateCount++;
+                Log::debug('Processing tax rate', [
+                    'index' => $taxRateCount,
+                    'id' => $taxRate->id ?? 'null',
+                    'name' => $taxRate->name ?? 'null',
+                    'rate' => $taxRate->rate ?? 'null'
+                ]);
+                
                 $syncedRate = $this->syncTaxRate(
                     $configuration,
                     $taxRate,
@@ -195,6 +219,12 @@ class ConfigurationSyncService
                     $activatedTaxRates
                 );
                 $syncedIds[] = $syncedRate->id;
+                
+                Log::debug('Tax rate synced', [
+                    'tax_rate_id' => $taxRate->id,
+                    'synced_rate_id' => $syncedRate->id,
+                    'is_activated' => $syncedRate->is_activated
+                ]);
             }
 
             // Delete tax rates that are no longer in the response
@@ -203,13 +233,16 @@ class ConfigurationSyncService
             Log::info('Tax rates synced successfully', [
                 'configuration_id' => $configuration->id,
                 'business_id' => $configuration->business_id,
-                'synced_count' => count($syncedIds)
+                'synced_count' => count($syncedIds),
+                'tax_rate_ids' => $syncedIds
             ]);
+            
         } catch (\Exception $e) {
             Log::error('Failed to sync tax rates', [
                 'configuration_id' => $configuration->id,
                 'business_id' => $configuration->business_id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             
             // Re-throw to be handled by parent
@@ -255,6 +288,11 @@ class ConfigurationSyncService
             'is_activated' => $isActivated,
             'activation_id' => $activationDetails->id ?? null,
         ];
+
+        Log::debug('Saving tax rate data', [
+            'tax_rate_id' => $taxRate->id,
+            'data' => $data
+        ]);
 
         // Update or create
         return TaxRate::updateOrCreate(
@@ -904,15 +942,30 @@ class ConfigurationSyncService
     }
 
     /**
-     * Get terminal configuration.
+     * Get activated tax rate IDs.
      *
      * @param EisConfiguration $configuration
-     * @return TerminalConfiguration|null
+     * @return array
      */
-    public function getTerminalConfiguration(EisConfiguration $configuration): ?TerminalConfiguration
+    public function getActivatedTaxRateIds(EisConfiguration $configuration): array
     {
-        return TerminalConfiguration::where('configuration_id', $configuration->id)
-            ->with(['terminalSite', 'offlineLimit'])
+        return TaxRate::where('configuration_id', $configuration->id)
+            ->where('is_activated', true)
+            ->pluck('tax_rate_id')
+            ->toArray();
+    }
+
+    /**
+     * Get tax rate by ID.
+     *
+     * @param int $configurationId
+     * @param string $taxRateId
+     * @return TaxRate|null
+     */
+    public function getTaxRateById(int $configurationId, string $taxRateId): ?TaxRate
+    {
+        return TaxRate::where('configuration_id', $configurationId)
+            ->where('tax_rate_id', $taxRateId)
             ->first();
     }
 
@@ -926,9 +979,7 @@ class ConfigurationSyncService
      */
     public function calculateTax(string $taxRateId, float $amount, int $configurationId): array
     {
-        $taxRate = TaxRate::where('configuration_id', $configurationId)
-            ->where('tax_rate_id', $taxRateId)
-            ->first();
+        $taxRate = $this->getTaxRateById($configurationId, $taxRateId);
 
         if (!$taxRate) {
             return [
@@ -948,7 +999,52 @@ class ConfigurationSyncService
             'total' => round($amount + $taxAmount, 2),
             'tax_rate_id' => $taxRateId,
             'name' => $taxRate->name,
-            'is_activated' => $taxRate->is_activated
+            'is_activated' => $taxRate->is_activated,
+            'charge_mode' => $taxRate->charge_mode
+        ];
+    }
+
+    /**
+     * Get terminal configuration.
+     *
+     * @param EisConfiguration $configuration
+     * @return TerminalConfiguration|null
+     */
+    public function getTerminalConfiguration(EisConfiguration $configuration): ?TerminalConfiguration
+    {
+        return TerminalConfiguration::where('configuration_id', $configuration->id)
+            ->with(['terminalSite', 'offlineLimit'])
+            ->first();
+    }
+
+    /**
+     * Get tax rates summary.
+     *
+     * @param EisConfiguration $configuration
+     * @return array
+     */
+    public function getTaxRatesSummary(EisConfiguration $configuration): array
+    {
+        $total = TaxRate::where('configuration_id', $configuration->id)->count();
+        $activated = TaxRate::where('configuration_id', $configuration->id)
+            ->where('is_activated', true)
+            ->count();
+        
+        $rates = TaxRate::where('configuration_id', $configuration->id)
+            ->orderBy('rate')
+            ->get(['tax_rate_id', 'name', 'rate', 'is_activated']);
+
+        return [
+            'total' => $total,
+            'activated' => $activated,
+            'inactive' => $total - $activated,
+            'highest_rate' => TaxRate::where('configuration_id', $configuration->id)
+                ->where('is_activated', true)
+                ->max('rate'),
+            'lowest_rate' => TaxRate::where('configuration_id', $configuration->id)
+                ->where('is_activated', true)
+                ->min('rate'),
+            'rates' => $rates->toArray()
         ];
     }
 }
