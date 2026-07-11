@@ -5,7 +5,7 @@ namespace Modules\EIS\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class TaxRate extends Model
+class EisTaxRate extends Model
 {
     protected $table = 'tax_rates';
 
