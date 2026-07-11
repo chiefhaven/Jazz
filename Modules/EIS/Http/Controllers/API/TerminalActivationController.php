@@ -78,7 +78,7 @@ class TerminalActivationController extends Controller
             } else {
                 return response()->json([
                     'success' => false,
-                    'msg' => $result['message'] ?? 'Failed to activate terminal',
+                    'message' => $result['message'] ?? 'Failed to activate terminal',
                     'status_code' => $result['status_code'] ?? 400
                 ]);
             }
@@ -97,7 +97,7 @@ class TerminalActivationController extends Controller
 
             return response()->json([
                 'success' => false,
-                'msg' => 'Failed to activate terminal: ' . $e->getMessage()
+                'message' => 'Failed to activate terminal: ' . $e->getMessage()
             ], 500);
         }
     }
