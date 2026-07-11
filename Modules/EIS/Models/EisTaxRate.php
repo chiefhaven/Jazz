@@ -10,6 +10,7 @@ class EisTaxRate extends Model
     protected $table = 'tax_rates';
 
     protected $fillable = [
+        'business_id',
         'configuration_id',
         'tax_rate_id',
         'name',
