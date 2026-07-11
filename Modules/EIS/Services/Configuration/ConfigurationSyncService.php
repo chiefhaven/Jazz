@@ -285,7 +285,7 @@ class ConfigurationSyncService
 
         // Update or create
         return EisTaxRate::updateOrCreate(
-            [
+            [   'business_id' => $configuration->business_id,
                 'configuration_id' => $configuration->id,
                 'tax_rate_id' => $taxRate->id
             ],
