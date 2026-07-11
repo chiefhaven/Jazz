@@ -5,7 +5,7 @@ namespace Modules\EIS\Http\Controllers\API;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
-use Modules\EIS\Models\TerminalConfiguration;
+use Modules\EIS\Models\EisTerminalConfiguration;
 use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Services\Terminal\EisTerminalActivationService;
 
@@ -17,38 +17,206 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Activate terminal with environment details.
+     * Activate terminal from web interface.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function activateTerminal(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|integer|exists:eis_configurations,business_id',
-            'token' => 'required|string',
-            'environment' => 'sometimes|array',
-            'environment.platform' => 'sometimes|array',
-            'environment.platform.osName' => 'sometimes|string|max:255',
-            'environment.platform.osVersion' => 'sometimes|string|max:255',
-            'environment.platform.osBuild' => 'sometimes|string|max:255',
-            'environment.platform.macAddress' => 'sometimes|string|max:255',
-            'environment.pos' => 'sometimes|array',
-            'environment.pos.productID' => 'sometimes|string|max:255',
-            'environment.pos.productVersion' => 'sometimes|string|max:255'
-        ]);
+        try {
+            $request->validate([
+                'terminal_activation_code' => 'required|string',
+            ]);
 
-        $activatedBy = auth()->id() ?? null;
-        $environment = $request->input('environment', []);
+            // Get business_id from session or request
+            $businessId = $request->input('business_id', session('business_id'));
+            
+            if (!$businessId) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => 'Business ID is required'
+                ]);
+            }
 
-        $result = $this->activationService->activateTerminal(
-            $request->business_id,
-            $request->token,
-            $environment,
-            $activatedBy
-        );
+            // Get token from session or request
+            $token = $request->input('token', session('eis_token'));
+            
+            if (!$token) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => 'Authentication token is required'
+                ]);
+            }
 
-        return response()->json($result, $result['success'] ? 200 : 400);
+            // Build the correct environment payload structure
+            $environment = [
+                'platform' => [
+                    'osName' => $request->input('environment.platform.osName', $this->getOSName()),
+                    'osVersion' => $request->input('environment.platform.osVersion', $this->getOSVersion()),
+                    'osBuild' => $request->input('environment.platform.osBuild', ''),
+                    'macAddress' => $request->input('environment.platform.macAddress', $this->getMacAddress())
+                ],
+                'pos' => [
+                    'productID' => $request->input('environment.pos.productID', config('app.name', 'POS System')),
+                    'productVersion' => $request->input('environment.pos.productVersion', config('app.version', '1.0.0'))
+                ]
+            ];
+
+            // Get activation code from request
+            $activationCode = $request->input('terminal_activation_code');
+
+            // Call activation service with the correct payload
+            $result = $this->activationService->activateTerminal(
+                $businessId,
+                $token,
+                $activationCode,
+                $environment,
+                auth()->id() ?? null
+            );
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'msg' => $result['message'] ?? 'Terminal activated successfully',
+                    'data' => $result['data'] ?? null,
+                    'activation_code' => $result['activation_code'] ?? $activationCode,
+                    'terminal_credentials' => $result['terminal_credentials'] ?? null
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'msg' => $result['message'] ?? 'Failed to activate terminal',
+                    'status_code' => $result['status_code'] ?? 400
+                ]);
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Terminal activation error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'msg' => 'Failed to activate terminal: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get environment data from request or browser.
+     *
+     * @return array
+     */
+    private function getEnvironmentData(): array
+    {
+        return [
+            'platform' => [
+                'osName' => request()->input('environment.platform.osName', $this->getOSName()),
+                'osVersion' => request()->input('environment.platform.osVersion', $this->getOSVersion()),
+                'osBuild' => request()->input('environment.platform.osBuild', ''),
+                'macAddress' => request()->input('environment.platform.macAddress', $this->getMacAddress())
+            ],
+            'pos' => [
+                'productID' => request()->input('environment.pos.productID', config('app.name', 'POS System')),
+                'productVersion' => request()->input('environment.pos.productVersion', config('app.version', '1.0.0'))
+            ]
+        ];
+    }
+
+    /**
+     * Get OS name from user agent.
+     *
+     * @return string
+     */
+    private function getOSName(): string
+    {
+        $userAgent = request()->header('User-Agent');
+        
+        if (strpos($userAgent, 'Windows') !== false) return 'Windows';
+        if (strpos($userAgent, 'Mac') !== false) return 'MacOS';
+        if (strpos($userAgent, 'Linux') !== false) return 'Linux';
+        if (strpos($userAgent, 'Android') !== false) return 'Android';
+        if (strpos($userAgent, 'iOS') !== false) return 'iOS';
+        
+        return 'Unknown';
+    }
+
+    /**
+     * Get OS version from user agent.
+     *
+     * @return string
+     */
+    private function getOSVersion(): string
+    {
+        $userAgent = request()->header('User-Agent');
+        
+        if (preg_match('/Windows NT (\d+\.\d+)/', $userAgent, $matches)) {
+            return $matches[1];
+        }
+        if (preg_match('/Mac OS X (\d+[._]\d+[._]\d+)/', $userAgent, $matches)) {
+            return str_replace('_', '.', $matches[1]);
+        }
+        if (preg_match('/Android (\d+\.\d+)/', $userAgent, $matches)) {
+            return $matches[1];
+        }
+        if (preg_match('/OS (\d+[._]\d+)/', $userAgent, $matches)) {
+            return str_replace('_', '.', $matches[1]);
+        }
+        
+        return 'Unknown';
+    }
+
+    /**
+     * Get browser information.
+     *
+     * @return string
+     */
+    private function getBrowser(): string
+    {
+        $userAgent = request()->header('User-Agent');
+        
+        if (strpos($userAgent, 'Chrome') !== false && strpos($userAgent, 'Edge') === false) return 'Chrome';
+        if (strpos($userAgent, 'Firefox') !== false) return 'Firefox';
+        if (strpos($userAgent, 'Safari') !== false && strpos($userAgent, 'Chrome') === false) return 'Safari';
+        if (strpos($userAgent, 'Edge') !== false) return 'Edge';
+        if (strpos($userAgent, 'Opera') !== false) return 'Opera';
+        
+        return 'Unknown';
+    }
+
+    /**
+     * Get browser version.
+     *
+     * @return string
+     */
+    private function getBrowserVersion(): string
+    {
+        $userAgent = request()->header('User-Agent');
+        
+        if (preg_match('/(Chrome|Firefox|Safari|Edge|Opera)\/(\d+\.\d+)/', $userAgent, $matches)) {
+            return $matches[2];
+        }
+        
+        return 'Unknown';
+    }
+
+    /**
+     * Get MAC address (simulated).
+     *
+     * @return string
+     */
+    private function getMacAddress(): string
+    {
+        // Generate a unique identifier for web clients
+        return 'web-' . md5(request()->ip() . request()->header('User-Agent'));
     }
 
     /**
@@ -59,20 +227,38 @@ class TerminalActivationController extends Controller
      */
     public function deactivate(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|integer|exists:eis_configurations,business_id',
-            'reason' => 'nullable|string|max:500'
-        ]);
+        try {
+            $request->validate([
+                'business_id' => 'required|integer|exists:eis_configurations,business_id',
+                'reason' => 'nullable|string|max:500'
+            ]);
 
-        $deactivatedBy = auth()->id() ?? null;
+            $deactivatedBy = auth()->id() ?? null;
 
-        $result = $this->activationService->deactivate(
-            $request->business_id,
-            $request->reason,
-            $deactivatedBy
-        );
+            $result = $this->activationService->deactivate(
+                $request->business_id,
+                $request->reason,
+                $deactivatedBy
+            );
 
-        return response()->json($result, $result['success'] ? 200 : 400);
+            return response()->json($result, $result['success'] ? 200 : 400);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Terminal deactivation error', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'msg' => 'Failed to deactivate terminal: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -83,20 +269,38 @@ class TerminalActivationController extends Controller
      */
     public function toggle(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|integer|exists:eis_configurations,business_id',
-            'token' => 'required|string'
-        ]);
+        try {
+            $request->validate([
+                'business_id' => 'required|integer|exists:eis_configurations,business_id',
+                'token' => 'required|string'
+            ]);
 
-        $toggledBy = auth()->id() ?? null;
+            $toggledBy = auth()->id() ?? null;
 
-        $result = $this->activationService->toggle(
-            $request->business_id,
-            $request->token,
-            $toggledBy
-        );
+            $result = $this->activationService->toggle(
+                $request->business_id,
+                $request->token,
+                $toggledBy
+            );
 
-        return response()->json($result, $result['success'] ? 200 : 400);
+            return response()->json($result, $result['success'] ? 200 : 400);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Terminal toggle error', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'msg' => 'Failed to toggle terminal: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -107,17 +311,30 @@ class TerminalActivationController extends Controller
      */
     public function status(int $businessId)
     {
-        // Validate business exists
-        if (!EisConfiguration::where('business_id', $businessId)->exists()) {
+        try {
+            // Validate business exists
+            if (!EisConfiguration::where('business_id', $businessId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Business configuration not found'
+                ], 404);
+            }
+
+            $result = $this->activationService->getStatus($businessId);
+
+            return response()->json($result, $result['success'] ? 200 : 404);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get terminal status', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Business configuration not found'
-            ], 404);
+                'message' => 'Failed to get terminal status: ' . $e->getMessage()
+            ], 500);
         }
-
-        $result = $this->activationService->getStatus($businessId);
-
-        return response()->json($result, $result['success'] ? 200 : 404);
     }
 
     /**
@@ -128,22 +345,35 @@ class TerminalActivationController extends Controller
      */
     public function isActive(int $businessId)
     {
-        // Validate business exists
-        if (!EisConfiguration::where('business_id', $businessId)->exists()) {
+        try {
+            // Validate business exists
+            if (!EisConfiguration::where('business_id', $businessId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Business configuration not found',
+                    'is_active' => false
+                ], 404);
+            }
+
+            $isActive = $this->activationService->isActive($businessId);
+
+            return response()->json([
+                'success' => true,
+                'business_id' => $businessId,
+                'is_active' => $isActive
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to check terminal active status', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Business configuration not found',
-                'is_active' => false
-            ], 404);
+                'message' => 'Failed to check terminal status: ' . $e->getMessage()
+            ], 500);
         }
-
-        $isActive = $this->activationService->isActive($businessId);
-
-        return response()->json([
-            'success' => true,
-            'business_id' => $businessId,
-            'is_active' => $isActive
-        ]);
     }
 
     /**
@@ -154,17 +384,30 @@ class TerminalActivationController extends Controller
      */
     public function history(int $businessId)
     {
-        // Validate business exists
-        if (!EisConfiguration::where('business_id', $businessId)->exists()) {
+        try {
+            // Validate business exists
+            if (!EisConfiguration::where('business_id', $businessId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Business configuration not found'
+                ], 404);
+            }
+
+            $result = $this->activationService->getActivationHistory($businessId);
+
+            return response()->json($result, $result['success'] ? 200 : 404);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get activation history', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Business configuration not found'
-            ], 404);
+                'message' => 'Failed to get activation history: ' . $e->getMessage()
+            ], 500);
         }
-
-        $result = $this->activationService->getActivationHistory($businessId);
-
-        return response()->json($result, $result['success'] ? 200 : 404);
     }
 
     /**
@@ -185,7 +428,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return response()->json([
@@ -231,32 +474,12 @@ class TerminalActivationController extends Controller
      */
     public function regenerateCredentials(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|integer|exists:eis_configurations,business_id',
-            'token' => 'required|string'
-        ]);
-
         try {
-            $configuration = EisConfiguration::where('business_id', $request->business_id)->first();
-            
-            if (!$configuration) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Configuration not found'
-                ], 404);
-            }
+            $request->validate([
+                'business_id' => 'required|integer|exists:eis_configurations,business_id',
+                'token' => 'required|string'
+            ]);
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
-            
-            if (!$terminal) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Terminal configuration not found'
-                ], 404);
-            }
-
-            // Call API to regenerate credentials
-            // This would be implemented in the service
             $result = $this->activationService->regenerateCredentials(
                 $request->business_id,
                 $request->token
@@ -264,6 +487,12 @@ class TerminalActivationController extends Controller
 
             return response()->json($result, $result['success'] ? 200 : 400);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to regenerate credentials', [
                 'business_id' => $request->business_id,
@@ -285,46 +514,83 @@ class TerminalActivationController extends Controller
      */
     public function bulkActivate(Request $request)
     {
-        $request->validate([
-            'business_ids' => 'required|array',
-            'business_ids.*' => 'integer|exists:eis_configurations,business_id',
-            'token' => 'required|string',
-            'environment' => 'sometimes|array'
-        ]);
+        try {
+            $request->validate([
+                'business_ids' => 'required|array',
+                'business_ids.*' => 'integer|exists:eis_configurations,business_id',
+                'token' => 'required|string',
+                'terminal_activation_code' => 'required|string',
+                'environment' => 'sometimes|array',
+                'environment.platform' => 'sometimes|array',
+                'environment.pos' => 'sometimes|array'
+            ]);
 
-        $activatedBy = auth()->id() ?? null;
-        $environment = $request->input('environment', []);
-        $results = [];
-        $successCount = 0;
-        $failureCount = 0;
-
-        foreach ($request->business_ids as $businessId) {
-            $result = $this->activationService->activateTerminal(
-                $businessId,
-                $request->token,
-                $environment,
-                $activatedBy
-            );
-
-            $results[$businessId] = $result;
+            $activatedBy = auth()->id() ?? null;
+            $activationCode = $request->input('terminal_activation_code');
             
-            if ($result['success']) {
-                $successCount++;
-            } else {
-                $failureCount++;
-            }
-        }
+            // Build environment payload
+            $environment = [
+                'platform' => [
+                    'osName' => $request->input('environment.platform.osName', $this->getOSName()),
+                    'osVersion' => $request->input('environment.platform.osVersion', $this->getOSVersion()),
+                    'osBuild' => $request->input('environment.platform.osBuild', ''),
+                    'macAddress' => $request->input('environment.platform.macAddress', $this->getMacAddress())
+                ],
+                'pos' => [
+                    'productID' => $request->input('environment.pos.productID', config('app.name', 'POS System')),
+                    'productVersion' => $request->input('environment.pos.productVersion', config('app.version', '1.0.0'))
+                ]
+            ];
+            
+            $results = [];
+            $successCount = 0;
+            $failureCount = 0;
 
-        return response()->json([
-            'success' => true,
-            'message' => "Bulk activation completed: {$successCount} succeeded, {$failureCount} failed",
-            'data' => $results,
-            'summary' => [
-                'total' => count($request->business_ids),
-                'successful' => $successCount,
-                'failed' => $failureCount
-            ]
-        ]);
+            foreach ($request->business_ids as $businessId) {
+                $result = $this->activationService->activateTerminal(
+                    $businessId,
+                    $request->token,
+                    $activationCode,
+                    $environment,
+                    $activatedBy
+                );
+
+                $results[$businessId] = $result;
+                
+                if ($result['success']) {
+                    $successCount++;
+                } else {
+                    $failureCount++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Bulk activation completed: {$successCount} succeeded, {$failureCount} failed",
+                'data' => $results,
+                'summary' => [
+                    'total' => count($request->business_ids),
+                    'successful' => $successCount,
+                    'failed' => $failureCount
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Bulk activation failed', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Bulk activation failed: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -335,43 +601,61 @@ class TerminalActivationController extends Controller
      */
     public function bulkDeactivate(Request $request)
     {
-        $request->validate([
-            'business_ids' => 'required|array',
-            'business_ids.*' => 'integer|exists:eis_configurations,business_id',
-            'reason' => 'nullable|string|max:500'
-        ]);
+        try {
+            $request->validate([
+                'business_ids' => 'required|array',
+                'business_ids.*' => 'integer|exists:eis_configurations,business_id',
+                'reason' => 'nullable|string|max:500'
+            ]);
 
-        $deactivatedBy = auth()->id() ?? null;
-        $results = [];
-        $successCount = 0;
-        $failureCount = 0;
+            $deactivatedBy = auth()->id() ?? null;
+            $results = [];
+            $successCount = 0;
+            $failureCount = 0;
 
-        foreach ($request->business_ids as $businessId) {
-            $result = $this->activationService->deactivate(
-                $businessId,
-                $request->reason,
-                $deactivatedBy
-            );
+            foreach ($request->business_ids as $businessId) {
+                $result = $this->activationService->deactivate(
+                    $businessId,
+                    $request->reason,
+                    $deactivatedBy
+                );
 
-            $results[$businessId] = $result;
-            
-            if ($result['success']) {
-                $successCount++;
-            } else {
-                $failureCount++;
+                $results[$businessId] = $result;
+                
+                if ($result['success']) {
+                    $successCount++;
+                } else {
+                    $failureCount++;
+                }
             }
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => "Bulk deactivation completed: {$successCount} succeeded, {$failureCount} failed",
-            'data' => $results,
-            'summary' => [
-                'total' => count($request->business_ids),
-                'successful' => $successCount,
-                'failed' => $failureCount
-            ]
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => "Bulk deactivation completed: {$successCount} succeeded, {$failureCount} failed",
+                'data' => $results,
+                'summary' => [
+                    'total' => count($request->business_ids),
+                    'successful' => $successCount,
+                    'failed' => $failureCount
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Bulk deactivation failed', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Bulk deactivation failed: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -392,7 +676,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
                 ->with(['terminalSite', 'offlineLimit'])
                 ->first();
 
@@ -460,12 +744,12 @@ class TerminalActivationController extends Controller
      */
     public function syncTerminal(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|integer|exists:eis_configurations,business_id',
-            'token' => 'required|string'
-        ]);
-
         try {
+            $request->validate([
+                'business_id' => 'required|integer|exists:eis_configurations,business_id',
+                'token' => 'required|string'
+            ]);
+
             $result = $this->activationService->syncTerminal(
                 $request->business_id,
                 $request->token
@@ -473,6 +757,12 @@ class TerminalActivationController extends Controller
 
             return response()->json($result, $result['success'] ? 200 : 400);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to sync terminal', [
                 'business_id' => $request->business_id,
@@ -505,7 +795,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return response()->json([
@@ -597,9 +887,6 @@ class TerminalActivationController extends Controller
             Log::info('Terminal activation callback received', [
                 'payload' => $request->all()
             ]);
-
-            // Verify webhook signature if needed
-            // $this->verifyWebhookSignature($request);
 
             $businessId = $request->input('business_id');
             $activationCode = $request->input('activation_code');

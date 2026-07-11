@@ -2,6 +2,7 @@
 
 namespace Modules\EIS\Services\Configuration;
 
+use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisTerminalConfiguration;
 
 

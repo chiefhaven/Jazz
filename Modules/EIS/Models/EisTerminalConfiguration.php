@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class TerminalConfiguration extends Model
+class EisTerminalConfiguration extends Model
 {
     protected $table = 'terminal_configurations';
 

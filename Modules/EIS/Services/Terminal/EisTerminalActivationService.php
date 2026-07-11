@@ -6,8 +6,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Modules\EIS\Models\EisConfiguration;
+use Modules\EIS\Models\EisTerminalConfiguration;
+use Modules\EIS\Models\EisTerminalSite;
+use Modules\EIS\Models\EisOfflineLimit;
 use Modules\EIS\Models\EisTaxRate;
-use Modules\EIS\Models\TerminalConfiguration;
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
 
 class EisTerminalActivationService
@@ -25,6 +27,7 @@ class EisTerminalActivationService
      *
      * @param int $businessId
      * @param string $token
+     * @param string $activationCode
      * @param array $environment
      * @param int|null $activatedBy
      * @return array
@@ -32,22 +35,25 @@ class EisTerminalActivationService
     public function activateTerminal(
         int $businessId,
         string $token,
+        string $activationCode,
         array $environment = [],
         ?int $activatedBy = null
     ): array {
         try {
             Log::info('Terminal activation API request started', [
                 'business_id' => $businessId,
+                'activation_code' => $activationCode,
                 'environment' => $environment
             ]);
 
             // Call EIS API to activate terminal
-            $activationResponse = $this->callActivationAPI($businessId, $token, $environment);
+            $activationResponse = $this->callActivationAPI($businessId, $token, $activationCode, $environment);
 
             // Process the activation response
             return $this->processActivationResponse(
                 $businessId,
                 $activationResponse,
+                $activationCode,
                 $environment,
                 $activatedBy
             );
@@ -68,21 +74,34 @@ class EisTerminalActivationService
     }
 
     /**
-     * Call EIS activation API.
+     * Call EIS activation API with correct payload structure.
      *
      * @param int $businessId
      * @param string $token
+     * @param string $activationCode
      * @param array $environment
      * @return object
      * @throws \Exception
      */
-    private function callActivationAPI(int $businessId, string $token, array $environment): object
+    private function callActivationAPI(int $businessId, string $token, string $activationCode, array $environment): object
     {
         $url = $this->apiBaseUrl . '/api/v1/onboarding/activate-terminal';
 
+        // Build the correct payload structure
         $payload = [
-            'terminalActivationCode' => $this->generateActivationCode($businessId),
-            'environment' => $environment
+            'terminalActivationCode' => $activationCode,
+            'environment' => [
+                'platform' => [
+                    'osName' => $environment['platform']['osName'] ?? 'Unknown',
+                    'osVersion' => $environment['platform']['osVersion'] ?? 'Unknown',
+                    'osBuild' => $environment['platform']['osBuild'] ?? '',
+                    'macAddress' => $environment['platform']['macAddress'] ?? '00:00:00:00:00:00'
+                ],
+                'pos' => [
+                    'productID' => $environment['pos']['productID'] ?? config('app.name', 'POS System'),
+                    'productVersion' => $environment['pos']['productVersion'] ?? config('app.version', '1.0.0')
+                ]
+            ]
         ];
 
         Log::debug('Calling EIS activation API', [
@@ -113,7 +132,7 @@ class EisTerminalActivationService
             'response' => $responseData
         ]);
 
-        // Check if response has error status
+        // Check if response has error (statusCode: 0 = success, other = error)
         if (isset($responseData->statusCode) && $responseData->statusCode !== 0) {
             $errorMessage = $responseData->remark ?? 'Unknown error';
             
@@ -136,6 +155,7 @@ class EisTerminalActivationService
      *
      * @param int $businessId
      * @param object $response
+     * @param string $activationCode
      * @param array $environment
      * @param int|null $activatedBy
      * @return array
@@ -143,11 +163,12 @@ class EisTerminalActivationService
     private function processActivationResponse(
         int $businessId,
         object $response,
+        string $activationCode,
         array $environment,
         ?int $activatedBy
     ): array {
         try {
-            return DB::transaction(function () use ($businessId, $response, $environment, $activatedBy) {
+            return DB::transaction(function () use ($businessId, $response, $activationCode, $environment, $activatedBy) {
                 // Get activated terminal data
                 $activatedTerminal = $response->data->activatedTerminal ?? null;
                 $configurationData = $response->data->configuration ?? null;
@@ -168,6 +189,7 @@ class EisTerminalActivationService
                     $configuration,
                     $configurationData->terminalConfiguration ?? null,
                     $activatedTerminal,
+                    $activationCode,
                     $environment,
                     $activatedBy
                 );
@@ -190,6 +212,7 @@ class EisTerminalActivationService
                     'message' => 'Terminal activated successfully',
                     'data' => $this->getTerminalDetails($terminal, $activatedTerminal),
                     'terminal_credentials' => $activatedTerminal->terminalCredentials ?? null,
+                    'activation_code' => $activationCode,
                     'status_code' => $response->statusCode ?? 0
                 ];
             });
@@ -202,6 +225,17 @@ class EisTerminalActivationService
 
             throw $e;
         }
+    }
+
+    /**
+     * Generate activation code.
+     *
+     * @param int $businessId
+     * @return string
+     */
+    private function generateActivationCode(int $businessId): string
+    {
+        return 'TAC-' . strtoupper(uniqid() . '-' . $businessId);
     }
 
     /**
@@ -242,17 +276,19 @@ class EisTerminalActivationService
      * @param EisConfiguration $configuration
      * @param object|null $terminalData
      * @param object $activatedTerminal
+     * @param string $activationCode
      * @param array $environment
      * @param int|null $activatedBy
-     * @return TerminalConfiguration
+     * @return EisTerminalConfiguration
      */
     private function saveTerminalConfiguration(
         EisConfiguration $configuration,
         ?object $terminalData,
         object $activatedTerminal,
+        string $activationCode,
         array $environment,
         ?int $activatedBy
-    ): TerminalConfiguration {
+    ): EisTerminalConfiguration {
         // Prepare terminal configuration data
         $data = [
             'configuration_id' => $configuration->id,
@@ -275,7 +311,7 @@ class EisTerminalActivationService
             'deactivation_reason' => null,
             'toggled_at' => now(),
             'toggled_by' => $activatedBy,
-            'activation_code' => $activatedTerminal->terminalId ?? $this->generateActivationCode($configuration->business_id),
+            'activation_code' => $activationCode,
             'activation_environment' => json_encode($environment),
             // Terminal details from response
             'terminal_id' => $activatedTerminal->terminalId ?? null,
@@ -287,7 +323,7 @@ class EisTerminalActivationService
         ];
 
         // Update or create terminal configuration
-        return TerminalConfiguration::updateOrCreate(
+        return EisTerminalConfiguration::updateOrCreate(
             ['configuration_id' => $configuration->id],
             $data
         );
@@ -361,14 +397,64 @@ class EisTerminalActivationService
     }
 
     /**
-     * Generate activation code.
+     * Get terminal details.
      *
-     * @param int $businessId
-     * @return string
+     * @param EisTerminalConfiguration $terminal
+     * @param object|null $activatedTerminal
+     * @return array
      */
-    private function generateActivationCode(int $businessId): string
+    private function getTerminalDetails(EisTerminalConfiguration $terminal, ?object $activatedTerminal = null): array
     {
-        return 'TAC-' . strtoupper(uniqid() . '-' . $businessId);
+        $details = [
+            'id' => $terminal->id,
+            'configuration_id' => $terminal->configuration_id,
+            'terminal_label' => $terminal->terminal_label,
+            'is_active' => $terminal->is_active,
+            'status' => $terminal->is_active ? 'Active' : 'Inactive',
+            'trading_name' => $terminal->trading_name,
+            'email_address' => $terminal->email_address,
+            'phone_number' => $terminal->phone_number,
+            'version' => $terminal->version,
+            'address' => $terminal->full_address ?? '',
+            'activated_at' => $terminal->activated_at,
+            'activated_by' => $terminal->activated_by,
+            'deactivated_at' => $terminal->deactivated_at,
+            'deactivated_by' => $terminal->deactivated_by,
+            'deactivation_reason' => $terminal->deactivation_reason,
+            'toggled_at' => $terminal->toggled_at,
+            'toggled_by' => $terminal->toggled_by,
+            'last_synced_at' => $terminal->last_synced_at,
+            'activation_code' => $terminal->activation_code,
+            'activation_environment' => $terminal->activation_environment ? 
+                json_decode($terminal->activation_environment, true) : null,
+            'terminal_id' => $terminal->terminal_id,
+            'terminal_position' => $terminal->terminal_position,
+            'taxpayer_id' => $terminal->taxpayer_id,
+            'activation_date' => $terminal->activation_date,
+            'site' => $terminal->terminalSite ? [
+                'site_id' => $terminal->terminalSite->site_id,
+                'site_name' => $terminal->terminalSite->site_name
+            ] : null,
+            'offline_limit' => $terminal->offlineLimit ? [
+                'max_transaction_age_hours' => $terminal->offlineLimit->max_transaction_age_hours,
+                'max_cumulative_amount' => $terminal->offlineLimit->max_cumulative_amount
+            ] : null
+        ];
+
+        // Add terminal credentials if available
+        if ($activatedTerminal && isset($activatedTerminal->terminalCredentials)) {
+            $details['terminal_credentials'] = [
+                'jwt_token' => $activatedTerminal->terminalCredentials->jwtToken ?? null,
+                'secret_key' => $activatedTerminal->terminalCredentials->secretKey ?? null
+            ];
+        } elseif ($terminal->jwt_token || $terminal->secret_key) {
+            $details['terminal_credentials'] = [
+                'jwt_token' => $terminal->jwt_token,
+                'secret_key' => $terminal->secret_key
+            ];
+        }
+
+        return $details;
     }
 
     /**
@@ -397,7 +483,7 @@ class EisTerminalActivationService
                 ];
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return [
@@ -492,6 +578,7 @@ class EisTerminalActivationService
                 'business_id' => $businessId,
                 'error' => $e->getMessage()
             ]);
+            // Don't throw - deactivation can continue even if API fails
         }
     }
 
@@ -520,7 +607,7 @@ class EisTerminalActivationService
                 ];
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return [
@@ -596,7 +683,7 @@ class EisTerminalActivationService
                 ];
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return [
@@ -656,7 +743,7 @@ class EisTerminalActivationService
                 ];
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return [
@@ -701,67 +788,6 @@ class EisTerminalActivationService
     }
 
     /**
-     * Get terminal details.
-     *
-     * @param TerminalConfiguration $terminal
-     * @param object|null $activatedTerminal
-     * @return array
-     */
-    private function getTerminalDetails(TerminalConfiguration $terminal, ?object $activatedTerminal = null): array
-    {
-        $details = [
-            'id' => $terminal->id,
-            'configuration_id' => $terminal->configuration_id,
-            'terminal_label' => $terminal->terminal_label,
-            'is_active' => $terminal->is_active,
-            'status' => $terminal->is_active ? 'Active' : 'Inactive',
-            'trading_name' => $terminal->trading_name,
-            'email_address' => $terminal->email_address,
-            'phone_number' => $terminal->phone_number,
-            'version' => $terminal->version,
-            'address' => $terminal->full_address,
-            'activated_at' => $terminal->activated_at,
-            'activated_by' => $terminal->activated_by,
-            'deactivated_at' => $terminal->deactivated_at,
-            'deactivated_by' => $terminal->deactivated_by,
-            'deactivation_reason' => $terminal->deactivation_reason,
-            'toggled_at' => $terminal->toggled_at,
-            'toggled_by' => $terminal->toggled_by,
-            'last_synced_at' => $terminal->last_synced_at,
-            'activation_code' => $terminal->activation_code,
-            'activation_environment' => $terminal->activation_environment ? 
-                json_decode($terminal->activation_environment, true) : null,
-            'terminal_id' => $terminal->terminal_id,
-            'terminal_position' => $terminal->terminal_position,
-            'taxpayer_id' => $terminal->taxpayer_id,
-            'activation_date' => $terminal->activation_date,
-            'site' => $terminal->terminalSite ? [
-                'site_id' => $terminal->terminalSite->site_id,
-                'site_name' => $terminal->terminalSite->site_name
-            ] : null,
-            'offline_limit' => $terminal->offlineLimit ? [
-                'max_transaction_age_hours' => $terminal->offlineLimit->max_transaction_age_hours,
-                'max_cumulative_amount' => $terminal->offlineLimit->max_cumulative_amount
-            ] : null
-        ];
-
-        // Add terminal credentials if available
-        if ($activatedTerminal && isset($activatedTerminal->terminalCredentials)) {
-            $details['terminal_credentials'] = [
-                'jwt_token' => $activatedTerminal->terminalCredentials->jwtToken ?? null,
-                'secret_key' => $activatedTerminal->terminalCredentials->secretKey ?? null
-            ];
-        } elseif ($terminal->jwt_token || $terminal->secret_key) {
-            $details['terminal_credentials'] = [
-                'jwt_token' => $terminal->jwt_token,
-                'secret_key' => $terminal->secret_key
-            ];
-        }
-
-        return $details;
-    }
-
-    /**
      * Regenerate terminal credentials.
      *
      * @param int $businessId
@@ -784,7 +810,7 @@ class EisTerminalActivationService
                 ];
             }
 
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             if (!$terminal) {
                 return [
@@ -870,14 +896,14 @@ class EisTerminalActivationService
 
             $configuration = $this->syncService->sync($businessId, $token);
             
-            $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
                 ->with(['terminalSite', 'offlineLimit'])
                 ->first();
 
             return [
                 'success' => true,
                 'message' => 'Terminal synced successfully',
-                'data' => $this->getTerminalDetails($terminal)
+                'data' => $terminal ? $this->getTerminalDetails($terminal) : null
             ];
 
         } catch (\Exception $e) {
@@ -911,7 +937,7 @@ class EisTerminalActivationService
                 'status' => $status
             ]);
 
-            $terminal = TerminalConfiguration::where('activation_code', $activationCode)
+            $terminal = EisTerminalConfiguration::where('activation_code', $activationCode)
                 ->whereHas('configuration', function ($query) use ($businessId) {
                     $query->where('business_id', $businessId);
                 })
