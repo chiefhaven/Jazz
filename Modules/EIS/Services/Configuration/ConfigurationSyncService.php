@@ -893,6 +893,17 @@ class ConfigurationSyncService
         $activatedTaxRates = TaxRate::where('configuration_id', $configuration->id)
             ->where('is_activated', true)
             ->count();
+        
+            Log::debug('Sync status retrieved', [
+                'business_id' => $businessId,
+                'configuration_id' => $configuration->id,
+                'last_synced_at' => $configuration->last_synced_at,
+                'global_version' => $configuration->global_version,
+                'terminal_version' => $configuration->terminal_version,
+                'taxpayer_version' => $configuration->taxpayer_version,
+                'tax_rates_count' => $taxRatesCount,
+                'activated_tax_rates' => $activatedTaxRates
+            ]);
 
         // Get terminal info
         $terminal = TerminalConfiguration::where('configuration_id', $configuration->id)->first();
