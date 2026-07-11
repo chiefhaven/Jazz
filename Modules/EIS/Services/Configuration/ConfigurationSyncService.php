@@ -264,7 +264,7 @@ class ConfigurationSyncService
         object $taxRate,
         array $activatedTaxRateIds,
         array $activatedTaxRates
-    ): TaxRate {
+    ): EisTaxRate {
         // Check if this tax rate is activated
         $isActivated = in_array($taxRate->id, $activatedTaxRateIds);
         
