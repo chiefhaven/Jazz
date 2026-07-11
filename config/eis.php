@@ -14,8 +14,6 @@ return [
     | Authentication
     |--------------------------------------------------------------------------
     */
-    'username' => env('EIS_USERNAME'),
-    'password' => env('EIS_PASSWORD'),
     'terminal_id' => env('EIS_TERMINAL_ID'),
 
     /*
@@ -35,5 +33,15 @@ return [
     'retry' => [
         'times' => 3,
         'sleep' => 1000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | EIS Activation Settings
+    |--------------------------------------------------------------------------
+    */
+    'activation' => [
+        'generate_code' => env('EIS_GENERATE_ACTIVATION_CODE', true),
+        'code_prefix' => env('EIS_ACTIVATION_CODE_PREFIX', 'TAC-'),
     ],
 ];

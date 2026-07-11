@@ -4,12 +4,12 @@ namespace Modules\EIS\Services\Sales;
 
 use App\Transaction;
 use Modules\EIS\Models\EisSetting;
-use Modules\EIS\Services\Tax\TaxMappingService;
+use Modules\EIS\Models\EisTaxRate;
 
 class SaleTransformer
 {
     public function __construct(
-        protected TaxMappingService $taxMapper
+        protected EisTaxRate $taxRates
     ) {}
 
     public function transform(Transaction $transaction, EisSetting $settings): array
@@ -28,7 +28,7 @@ class SaleTransformer
 
         foreach ($transaction->sell_lines as $index => $line) {
 
-            $taxRateId = $this->taxMapper->resolve(
+            $taxRateId = $this->taxRates->resolve(
                 $settings->business_id,
                 $line->tax_id
             );

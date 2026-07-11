@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class EisTerminalConfiguration extends Model
+class TerminalConfiguration extends Model
 {
     protected $table = 'terminal_configurations';
 
@@ -20,12 +20,35 @@ class EisTerminalConfiguration extends Model
         'trading_name',
         'address_lines',
         'raw_data',
-        'last_synced_at'
+        'last_synced_at',
+        // Activation fields
+        'activated_at',
+        'activated_by',
+        'deactivated_at',
+        'deactivated_by',
+        'deactivation_reason',
+        'toggled_at',
+        'toggled_by',
+        'activation_code',
+        'activation_environment',
+        // Terminal details from API response
+        'terminal_id',
+        'terminal_position',
+        'taxpayer_id',
+        'activation_date',
+        'jwt_token',
+        'secret_key'
     ];
 
     protected $casts = [
         'version' => 'integer',
         'is_active' => 'boolean',
+        'terminal_position' => 'integer',
+        'taxpayer_id' => 'integer',
+        'activated_at' => 'datetime',
+        'deactivated_at' => 'datetime',
+        'toggled_at' => 'datetime',
+        'activation_date' => 'datetime',
         'last_synced_at' => 'datetime'
     ];
 
@@ -70,6 +93,22 @@ class EisTerminalConfiguration extends Model
     }
 
     /**
+     * Get activation environment as array.
+     */
+    public function getActivationEnvironmentAttribute($value): ?array
+    {
+        return $value ? json_decode($value, true) : null;
+    }
+
+    /**
+     * Check if terminal has valid credentials.
+     */
+    public function hasCredentials(): bool
+    {
+        return !empty($this->jwt_token) && !empty($this->secret_key);
+    }
+
+    /**
      * Check if terminal has site.
      */
     public function hasSite(): bool
@@ -83,6 +122,14 @@ class EisTerminalConfiguration extends Model
     public function hasOfflineLimit(): bool
     {
         return $this->offlineLimit !== null;
+    }
+
+    /**
+     * Check if terminal is activated.
+     */
+    public function isActivated(): bool
+    {
+        return $this->is_active && $this->activated_at !== null;
     }
 
     /**
@@ -102,27 +149,19 @@ class EisTerminalConfiguration extends Model
     }
 
     /**
-     * Scope for terminals by trading name.
+     * Scope for terminals with activation code.
      */
-    public function scopeByTradingName($query, string $name)
+    public function scopeWithActivationCode($query)
     {
-        return $query->where('trading_name', 'like', "%{$name}%");
+        return $query->whereNotNull('activation_code');
     }
 
     /**
-     * Scope for terminals by email.
+     * Scope for terminals with credentials.
      */
-    public function scopeByEmail($query, string $email)
+    public function scopeWithCredentials($query)
     {
-        return $query->where('email_address', $email);
-    }
-
-    /**
-     * Scope for terminals synced recently.
-     */
-    public function scopeSyncedRecently($query, int $hours = 24)
-    {
-        return $query->where('last_synced_at', '>=', now()->subHours($hours));
+        return $query->whereNotNull('jwt_token')->whereNotNull('secret_key');
     }
 
     /**
@@ -142,52 +181,23 @@ class EisTerminalConfiguration extends Model
     }
 
     /**
-     * Get terminal status with badge color.
+     * Get activation duration in days.
      */
-    public function getStatusBadgeAttribute(): string
+    public function getActivationDurationAttribute(): ?int
     {
-        return $this->is_active 
-            ? '<span class="badge badge-success">Active</span>'
-            : '<span class="badge badge-danger">Inactive</span>';
+        if (!$this->activation_date) {
+            return null;
+        }
+
+        $endDate = $this->deactivated_at ?? now();
+        return $this->activation_date->diffInDays($endDate);
     }
 
     /**
-     * Check if terminal has valid email.
+     * Check if terminal was recently activated.
      */
-    public function hasValidEmail(): bool
+    public function wasRecentlyActivated(int $hours = 24): bool
     {
-        return !empty($this->email_address) && filter_var($this->email_address, FILTER_VALIDATE_EMAIL);
-    }
-
-    /**
-     * Check if terminal has valid phone number.
-     */
-    public function hasValidPhone(): bool
-    {
-        return !empty($this->phone_number) && preg_match('/^[0-9+\-\s()]{10,15}$/', $this->phone_number);
-    }
-
-    /**
-     * Get terminal summary.
-     */
-    public function getSummary(): array
-    {
-        return [
-            'id' => $this->id,
-            'configuration_id' => $this->configuration_id,
-            'display_name' => $this->display_name,
-            'is_active' => $this->is_active,
-            'status' => $this->status,
-            'trading_name' => $this->trading_name,
-            'email_address' => $this->email_address,
-            'phone_number' => $this->phone_number,
-            'address' => $this->full_address,
-            'version' => $this->version,
-            'has_site' => $this->hasSite(),
-            'has_offline_limit' => $this->hasOfflineLimit(),
-            'last_synced_at' => $this->last_synced_at,
-            'site' => $this->terminalSite ? $this->terminalSite->toArray() : null,
-            'offline_limit' => $this->offlineLimit ? $this->offlineLimit->toArray() : null
-        ];
+        return $this->activation_date && $this->activation_date->diffInHours(now()) <= $hours;
     }
 }

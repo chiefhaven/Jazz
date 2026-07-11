@@ -6,6 +6,10 @@ use Illuminate\Support\ServiceProvider;
 use Modules\EIS\Services\Http\EisHttpClient;
 use Illuminate\Console\Scheduling\Schedule;
 use Modules\EIS\Console\Commands\SyncEisConfiguration;
+use Modules\EIS\Services\Configuration\ConfigurationSyncService;
+use Modules\EIS\Services\Configuration\EisConfigurationClient;
+use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
+use Modules\EIS\Services\Terminal\EisTerminalActivationService;
 
 class EISServiceProvider extends ServiceProvider
 {
@@ -41,6 +45,15 @@ class EISServiceProvider extends ServiceProvider
             ->dailyAt('00:10');
 
         });
+
+        // Load routes
+        $this->loadRoutesFrom(__DIR__ . '/../Routes/api.php');
+        
+        // Load migrations
+        $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
+        
+        // Load views (if any)
+        $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'eis');
     }
 
     /**
@@ -56,6 +69,32 @@ class EISServiceProvider extends ServiceProvider
             EisHttpClient::class,
             EisHttpClient::class
         );
+
+        // Client
+        $this->app->singleton(EisConfigurationClient::class, function ($app) {
+            return new EisConfigurationClient();
+        });
+
+        // Validator
+        $this->app->singleton(ConfigurationValidator::class, function ($app) {
+            return new ConfigurationValidator();
+        });
+
+        // Sync Service
+        $this->app->singleton(ConfigurationSyncService::class, function ($app) {
+            return new ConfigurationSyncService(
+                $app->make(EisConfigurationClient::class),
+                $app->make(ConfigurationValidator::class)
+            );
+        });
+
+        // Terminal Activation Service
+        $this->app->singleton(EisTerminalActivationService::class, function ($app) {
+            return new EisTerminalActivationService(
+                $app->make(ConfigurationSyncService::class)
+            );
+        });
+
     }
 
     /**
