@@ -216,7 +216,7 @@
                         }
                     } else {
                         swal({
-                            text: result.message || 'Failed to activate terminal',
+                            text: result.message || 'Failed to activate terminal hy',
                             icon: 'error'
                         });
                     }
