@@ -5,8 +5,8 @@ namespace Modules\EIS\Services\Configuration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisConfiguration;
-use Modules\EIS\Models\OfflineLimit;
 use Modules\EIS\Exceptions\SyncException;
+use Modules\EIS\Models\EisOfflineLimit;
 use Modules\EIS\Models\EisTaxRate;
 use Modules\EIS\Models\EisTerminalConfiguration;
 use Modules\EIS\Models\EisTerminalSite;
@@ -448,7 +448,7 @@ class ConfigurationSyncService
             'last_synced_at' => now()
         ];
 
-        OfflineLimit::updateOrCreate(
+        EisOfflineLimit::updateOrCreate(
             ['terminal_configuration_id' => $terminalConfig->id],
             $limitData
         );
