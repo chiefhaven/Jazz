@@ -205,12 +205,6 @@ class ConfigurationSyncService
             
             foreach ($taxRates as $taxRate) {
                 $taxRateCount++;
-                Log::debug('Processing tax rate', [
-                    'index' => $taxRateCount,
-                    'id' => $taxRate->id ?? 'null',
-                    'name' => $taxRate->name ?? 'null',
-                    'rate' => $taxRate->rate ?? 'null'
-                ]);
                 
                 $syncedRate = $this->syncTaxRate(
                     $configuration,
@@ -219,12 +213,6 @@ class ConfigurationSyncService
                     $activatedTaxRates
                 );
                 $syncedIds[] = $syncedRate->id;
-                
-                Log::debug('Tax rate synced', [
-                    'tax_rate_id' => $taxRate->id,
-                    'synced_rate_id' => $syncedRate->id,
-                    'is_activated' => $syncedRate->is_activated
-                ]);
             }
 
             // Delete tax rates that are no longer in the response
@@ -279,6 +267,7 @@ class ConfigurationSyncService
 
         // Prepare data for storage
         $data = [
+            'business_id' => $configuration->business_id,
             'configuration_id' => $configuration->id,
             'tax_rate_id' => $taxRate->id,
             'name' => $taxRate->name ?? null,
