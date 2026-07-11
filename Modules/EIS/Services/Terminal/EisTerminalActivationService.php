@@ -23,9 +23,10 @@ class EisTerminalActivationService
     }
 
     /**
-     * Activate terminal via EIS API.
+     * Activate terminal via EIS API - No token required.
      *
      * @param int $businessId
+     * @param string|null $token
      * @param string $activationCode
      * @param array $environment
      * @param int|null $activatedBy
@@ -44,7 +45,7 @@ class EisTerminalActivationService
                 'environment' => $environment
             ]);
 
-            // Call EIS API to activate terminal
+            // Call EIS API to activate terminal (no token needed)
             $activationResponse = $this->callActivationAPI($businessId, $activationCode, $environment);
 
             // Process the activation response
@@ -107,6 +108,7 @@ class EisTerminalActivationService
             'payload' => $payload
         ]);
 
+        // No authentication token required
         $response = Http::acceptJson()
             ->timeout(60)
             ->post($url, $payload);
@@ -170,12 +172,27 @@ class EisTerminalActivationService
                 $configurationData = $response->data->configuration ?? null;
 
                 if (!$activatedTerminal) {
+                    Log::error('No activated terminal data in response', [
+                        'business_id' => $businessId,
+                        'response' => json_encode($response)
+                    ]);
                     throw new \Exception('No activated terminal data in response');
                 }
 
                 if (!$configurationData) {
+                    Log::error('No configuration data in response', [
+                        'business_id' => $businessId,
+                        'response' => json_encode($response)
+                    ]);
                     throw new \Exception('No configuration data in response');
                 }
+
+                Log::info('Processing activation response', [
+                    'business_id' => $businessId,
+                    'terminal_id' => $activatedTerminal->terminalId ?? null,
+                    'taxpayer_id' => $activatedTerminal->taxpayerId ?? null,
+                    'activation_date' => $activatedTerminal->activationDate ?? null
+                ]);
 
                 // Save or update main configuration
                 $configuration = $this->saveConfiguration($businessId, $configurationData);
@@ -205,7 +222,7 @@ class EisTerminalActivationService
 
                 return [
                     'success' => true,
-                    'message' => 'Terminal activated successfully',
+                    'message' => $response->remark ?? 'Terminal activated successfully',
                     'data' => $this->getTerminalDetails($terminal, $activatedTerminal),
                     'terminal_credentials' => $activatedTerminal->terminalCredentials ?? null,
                     'activation_code' => $activationCode,
@@ -221,17 +238,6 @@ class EisTerminalActivationService
 
             throw $e;
         }
-    }
-
-    /**
-     * Generate activation code.
-     *
-     * @param int $businessId
-     * @return string
-     */
-    private function generateActivationCode(int $businessId): string
-    {
-        return 'TAC-' . strtoupper(uniqid() . '-' . $businessId);
     }
 
     /**
@@ -427,15 +433,27 @@ class EisTerminalActivationService
             'terminal_position' => $terminal->terminal_position,
             'taxpayer_id' => $terminal->taxpayer_id,
             'activation_date' => $terminal->activation_date,
-            'site' => $terminal->terminalSite ? [
+        ];
+
+        // Add site details
+        if ($terminal->terminalSite) {
+            $details['site'] = [
                 'site_id' => $terminal->terminalSite->site_id,
                 'site_name' => $terminal->terminalSite->site_name
-            ] : null,
-            'offline_limit' => $terminal->offlineLimit ? [
+            ];
+        } else {
+            $details['site'] = null;
+        }
+
+        // Add offline limit details
+        if ($terminal->offlineLimit) {
+            $details['offline_limit'] = [
                 'max_transaction_age_hours' => $terminal->offlineLimit->max_transaction_age_hours,
                 'max_cumulative_amount' => $terminal->offlineLimit->max_cumulative_amount
-            ] : null
-        ];
+            ];
+        } else {
+            $details['offline_limit'] = null;
+        }
 
         // Add terminal credentials if available
         if ($activatedTerminal && isset($activatedTerminal->terminalCredentials)) {
@@ -496,9 +514,6 @@ class EisTerminalActivationService
                 ];
             }
 
-            // Call deactivation API if needed
-            $this->callDeactivationAPI($businessId, $terminal->activation_code ?? null);
-
             // Deactivate the terminal
             $terminal->update([
                 'is_active' => false,
@@ -538,47 +553,6 @@ class EisTerminalActivationService
     }
 
     /**
-     * Call deactivation API.
-     *
-     * @param int $businessId
-     * @param string|null $activationCode
-     * @return void
-     */
-    private function callDeactivationAPI(int $businessId, ?string $activationCode): void
-    {
-        if (!$activationCode) {
-            return;
-        }
-
-        try {
-            $url = $this->apiBaseUrl . '/onboarding/deactivate-terminal';
-
-            $response = Http::acceptJson()
-                ->timeout(30)
-                ->post($url, [
-                    'business_id' => $businessId,
-                    'activation_code' => $activationCode,
-                    'deactivated_at' => now()->toISOString()
-                ]);
-
-            if (!$response->successful()) {
-                Log::warning('EIS deactivation API warning', [
-                    'business_id' => $businessId,
-                    'status' => $response->status(),
-                    'response' => $response->body()
-                ]);
-            }
-
-        } catch (\Exception $e) {
-            Log::warning('EIS deactivation API error', [
-                'business_id' => $businessId,
-                'error' => $e->getMessage()
-            ]);
-            // Don't throw - deactivation can continue even if API fails
-        }
-    }
-
-    /**
      * Toggle terminal activation status.
      *
      * @param int $businessId
@@ -586,7 +560,7 @@ class EisTerminalActivationService
      * @param int|null $toggledBy
      * @return array
      */
-    public function toggle(int $businessId, ?int $toggledBy = null): array
+    public function toggle(int $businessId, string $token, ?int $toggledBy = null): array
     {
         try {
             Log::info('Terminal activation toggle requested', [
@@ -816,7 +790,7 @@ class EisTerminalActivationService
             }
 
             // Call API to regenerate credentials
-            $url = $this->apiBaseUrl . '/api/v1/configuration/request-new-terminal-token';
+            $url = $this->apiBaseUrl . '/onboarding/regenerate-credentials';
             
             $response = Http::withToken($token)
                 ->acceptJson()
