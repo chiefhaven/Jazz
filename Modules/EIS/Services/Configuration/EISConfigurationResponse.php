@@ -10,7 +10,7 @@ class EISConfigurationResponse
     private array $errors;
     private ?array $rawResponse;
 
-    // Success status code - API uses 1 for success
+    // Success status code - API uses 1 for success (left as-is)
     private const SUCCESS_STATUS_CODE = 1;
 
     public function __construct(object $response)
@@ -345,7 +345,7 @@ class EISConfigurationResponse
     public function getTIN(): ?string
     {
         $taxpayerConfig = $this->getTaxpayerConfiguration();
-        return $taxpayerConfig->tpin ?? null;
+        return $taxpayerConfig->tin ?? null;
     }
 
     /**
@@ -438,7 +438,7 @@ class EISConfigurationResponse
             'has_errors' => $this->hasErrors(),
             'error_count' => count($this->errors),
             'versions' => $this->getVersions(),
-            'tpin' => $this->getTIN(),
+            'tin' => $this->getTIN(),
             'is_vat_registered' => $this->isVATRegistered(),
             'is_terminal_active' => $this->isTerminalActive(),
             'tax_rates_count' => count($this->getTaxRates()),

@@ -63,7 +63,15 @@ class TaxRate extends Model
      */
     public function scopeZeroRated($query)
     {
-        return $query->where('rate', 0);
+        return $query->where('rate', 0)->where('is_activated', true);
+    }
+
+    /**
+     * Scope for exempt tax rates.
+     */
+    public function scopeExempt($query)
+    {
+        return $query->where('rate', 0)->where('is_activated', false);
     }
 
     /**
@@ -111,12 +119,13 @@ class TaxRate extends Model
             'total' => round($amount + $taxAmount, 2),
             'tax_rate_id' => $this->tax_rate_id,
             'name' => $this->name,
-            'charge_mode' => $this->charge_mode
+            'charge_mode' => $this->charge_mode,
+            'is_activated' => $this->is_activated
         ];
     }
 
     /**
-     * Get the tax rate details as an array.
+     * Get the tax rate details as an object.
      */
     public function toTaxRateObject(): object
     {
@@ -127,6 +136,22 @@ class TaxRate extends Model
             'ordinal' => $this->ordinal,
             'rate' => (float) $this->rate,
             'isActivated' => (bool) $this->is_activated
+        ];
+    }
+
+    /**
+     * Get tax rate for API response.
+     */
+    public function toApiResponse(): array
+    {
+        return [
+            'id' => $this->tax_rate_id,
+            'name' => $this->name,
+            'chargeMode' => $this->charge_mode,
+            'ordinal' => $this->ordinal,
+            'rate' => (float) $this->rate,
+            'isActivated' => (bool) $this->is_activated,
+            'formattedRate' => $this->formatted_rate
         ];
     }
 }
