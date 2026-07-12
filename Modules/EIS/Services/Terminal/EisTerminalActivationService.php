@@ -181,6 +181,7 @@ class EisTerminalActivationService
     private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal): void
     {
         try {
+            
             $businessId = $terminal->configuration->business_id;
             
             // Find or create eis_setting record
@@ -208,8 +209,8 @@ class EisTerminalActivationService
                 $setting = EisSetting::create([
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'secret_key' => $secretKey,
-                    'jwt_token' => $terminal->jwtToken ?? null,
+                    'secret_key' => $terminal->secrete_key,
+                    'jwt_token' => $terminal->jwt_token ?? null,
                     'tpin' => $terminal->taxpayer_id ?? null,
                     'status' => true,
                     'sync_status' => 'success',
