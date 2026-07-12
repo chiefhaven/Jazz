@@ -4,6 +4,7 @@ namespace Modules\EIS\Services\Sales;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisInvoiceSequence;
 use Modules\EIS\Models\EisSale;
 use Modules\EIS\Models\EisSetting;
@@ -34,14 +35,20 @@ class InvoiceNumberGenerator
                     throw new \Exception('EIS settings not found for business: ' . $businessId);
                 }
 
+                // Get configuration ID
+                $configuration = EisConfiguration::where('business_id', $businessId)->first();
+                if (!$configuration) {
+                    throw new \Exception('EIS configuration not found for business: ' . $businessId);
+                }
+
                 // Get terminal configuration for position
                 $terminal = null;
                 if ($terminalPosition) {
-                    $terminal = EisTerminalConfiguration::where('configuration_id', $businessId)
+                    $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
                         ->where('terminal_position', $terminalPosition)
                         ->first();
                 } else {
-                    $terminal = EisTerminalConfiguration::where('configuration_id', $businessId)
+                    $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
                         ->orderBy('id')
                         ->first();
                 }
@@ -50,7 +57,8 @@ class InvoiceNumberGenerator
                     throw new \Exception('Terminal configuration not found for business: ' . $businessId);
                 }
 
-                $count =EisSale::where('business_id', $businessId)
+                // Get count for today
+                $count = EisSale::where('business_id', $businessId)
                     ->whereDate('created_at', now()->toDateString())
                     ->count() + 1;
 
@@ -96,7 +104,62 @@ class InvoiceNumberGenerator
                 'trace' => $e->getTraceAsString()
             ]);
 
-            throw new \Exception('Failed to generate invoice number: ' . $e->getMessage());
+            // Generate fallback invoice number
+            return $this->generateFallbackInvoiceNumber($businessId);
+        }
+    }
+
+    /**
+     * Generate fallback invoice number.
+     *
+     * @param int $businessId
+     * @return string
+     */
+    private function generateFallbackInvoiceNumber(int $businessId): string
+    {
+        $setting = EisSetting::where('business_id', $businessId)->first();
+        $tpin = $setting->tpin ?? '000000';
+        $date = now()->format('Ymd');
+        $timestamp = now()->format('His');
+        $random = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        
+        return 'FALLBACK-' . $tpin . '-' . $date . '-' . $timestamp . '-' . $random;
+    }
+
+    /**
+     * Get terminal position from terminal configuration.
+     *
+     * @param int $businessId
+     * @param int|null $terminalPosition
+     * @return int
+     */
+    public function getTerminalPosition(int $businessId, ?int $terminalPosition = null): int
+    {
+        try {
+            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            if (!$configuration) {
+                return $terminalPosition ?? 1;
+            }
+
+            $terminal = null;
+            if ($terminalPosition) {
+                $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
+                    ->where('terminal_position', $terminalPosition)
+                    ->first();
+            } else {
+                $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
+                    ->orderBy('id')
+                    ->first();
+            }
+
+            return $terminal->terminal_position ?? $terminalPosition ?? 1;
+
+        } catch (\Exception $e) {
+            Log::warning('Failed to get terminal position, using default', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage()
+            ]);
+            return $terminalPosition ?? 1;
         }
     }
 
@@ -233,5 +296,18 @@ class InvoiceNumberGenerator
         }
 
         return true;
+    }
+
+    /**
+     * Get daily transaction count.
+     *
+     * @param int $businessId
+     * @return int
+     */
+    public function getDailyCount(int $businessId): int
+    {
+        return EisSale::where('business_id', $businessId)
+            ->whereDate('created_at', now()->toDateString())
+            ->count();
     }
 }
