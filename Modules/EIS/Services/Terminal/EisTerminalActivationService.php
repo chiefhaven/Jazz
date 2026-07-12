@@ -203,6 +203,7 @@ class EisTerminalActivationService
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
                     'secret_key' => $secretKey,
+                    'jwt_token' => $jwtToken ?? null,
                     'tpin' => $terminal->taxpayer_id ?? null,
                     'status' => true,
                     'sync_status' => 'success',
