@@ -193,8 +193,8 @@ class EisTerminalActivationService
                 // Update existing record
                 $setting->update([
                     'device_id' => $terminalId,
-                    'secret_key' => $secretKey,
-                    'jwt_token' => $terminal->jwtToken,
+                    'secret_key' => $terminal->secret_key,
+                    'jwt_token' => $terminal->jwt_token,
                     'tpin' => $terminal->taxpayer_id ?? $setting->tpin,
                     'last_sync_at' => now(),
                     'sync_status' => 'success',
@@ -212,7 +212,7 @@ class EisTerminalActivationService
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
                     'secret_key' => $terminal->secrete_key,
-                    'jwt_token' => $terminal->jwt_token ?? null,
+                    'jwt_token' => $terminal->jwt_token,
                     'tpin' => $terminal->taxpayer_id ?? null,
                     'status' => true,
                     'sync_status' => 'success',

@@ -12,6 +12,7 @@ class EisSetting extends Model
     protected $fillable = [
         'business_id',
         'jwt_token',
+        'secret_key',
         'status',
         'last_sync_at',
         'sync_status',
