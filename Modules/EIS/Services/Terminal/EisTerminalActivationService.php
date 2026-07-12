@@ -60,9 +60,10 @@ class EisTerminalActivationService
             if ($result['success']) {
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
+                $jwtToken = $result['terminal_credentials']['jwt_token'];
                 
                 if ($terminalId && $secretKey) {
-                    $this->sendActivationConfirmation($terminalId, $activationCode, $secretKey);
+                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
                 } else {
                     Log::warning('Missing terminal ID or secret key for confirmation', [
                         'terminal_id' => $terminalId,
@@ -97,7 +98,7 @@ class EisTerminalActivationService
      * @param string $secretKey
      * @return bool
      */
-    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $secretKey): bool
+    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $jwtToken, string $secretKey): bool
     {
         try {
             $url = $this->apiBaseUrl . '/onboarding/terminal-activated-confirmation';
@@ -120,7 +121,9 @@ class EisTerminalActivationService
 
             $response = Http::acceptJson()
                 ->withHeaders([
-                    'X-Signature' => $signature
+                    'Authorization' => 'Bearer ' . $jwtToken,
+                    'X-Signature' => $signature,
+                    'accept' => 'text/plain',
                 ])
                 ->timeout(30)
                 ->post($url, $payload);
