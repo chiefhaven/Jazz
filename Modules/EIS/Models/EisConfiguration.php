@@ -3,6 +3,7 @@
 namespace Modules\EIS\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -115,5 +116,10 @@ class EisConfiguration extends Model
         }
 
         return $this->raw_response['data']['taxpayerConfiguration'] ?? null;
+    }
+
+    public function terminalConfiguraion(): HasOne
+    {
+        return $this->hasOne(EisTerminalConfiguration::class, 'configuration_id');
     }
 }

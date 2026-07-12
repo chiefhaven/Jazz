@@ -10,6 +10,7 @@ use Modules\EIS\Models\EisTerminalConfiguration;
 use Modules\EIS\Models\EisTerminalSite;
 use Modules\EIS\Models\EisOfflineLimit;
 use Modules\EIS\Models\EisTaxRate;
+use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
 
 class EisTerminalActivationService
@@ -148,6 +149,9 @@ class EisTerminalActivationService
                 ]);
             }
 
+            // Update eis_settings with terminal_id and secret_key
+            $this->updateEisSettings($terminalId, $secretKey, $terminal);
+
             return true;
 
         } catch (\Exception $e) {
@@ -157,6 +161,48 @@ class EisTerminalActivationService
                 'trace' => $e->getTraceAsString()
             ]);
             return false;
+        }
+    }
+
+    /**
+     * Update eis_settings table with terminal details.
+     *
+     * @param string $terminalId
+     * @param string $secretKey
+     * @param EisTerminalConfiguration $terminal
+     * @return void
+     */
+    private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal): void
+    {
+        try {
+            // Find the eis_setting record for this business
+            $setting = EisSetting::where('business_id', $terminal->configuration->business_id)->first();
+            
+            if ($setting) {
+                $setting->update([
+                    'device_id' => $terminalId,
+                    'secret_key' => $secretKey,
+                    'tpin' => $terminal->taxpayer_id ?? $setting->tpin,
+                    'last_sync_at' => now(),
+                    'sync_status' => 'success',
+                    'sync_error' => null,
+                ]);
+                
+                Log::info('EIS settings updated after activation', [
+                    'business_id' => $terminal->configuration->business_id,
+                    'device_id' => $terminalId,
+                    'has_secret_key' => !empty($secretKey)
+                ]);
+            } else {
+                Log::warning('EIS setting not found for business', [
+                    'business_id' => $terminal->configuration->business_id
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to update EIS settings', [
+                'business_id' => $terminal->configuration->business_id,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 
@@ -562,7 +608,7 @@ class EisTerminalActivationService
             'toggled_by' => $terminal->toggled_by,
             'last_synced_at' => $terminal->last_synced_at,
             'activation_code' => $terminal->activation_code,
-            'activation_environment' => "",
+            'activation_environment' => null,
             'terminal_id' => $terminal->terminal_id,
             'terminal_position' => $terminal->terminal_position,
             'taxpayer_id' => $terminal->taxpayer_id,
@@ -944,6 +990,14 @@ class EisTerminalActivationService
                     'jwt_token' => $responseData['data']['jwtToken'],
                     'secret_key' => $responseData['data']['secretKey']
                 ]);
+                
+                // Update eis_settings with new secret_key
+                $setting = EisSetting::where('business_id', $businessId)->first();
+                if ($setting) {
+                    $setting->update([
+                        'secret_key' => $responseData['data']['secretKey']
+                    ]);
+                }
             }
 
             Log::info('Terminal credentials regenerated successfully', [
