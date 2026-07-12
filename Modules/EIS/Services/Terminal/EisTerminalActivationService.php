@@ -628,8 +628,7 @@ class EisTerminalActivationService
             'toggled_by' => $terminal->toggled_by,
             'last_synced_at' => $terminal->last_synced_at,
             'activation_code' => $terminal->activation_code,
-            'activation_environment' => $terminal->activation_environment ? 
-                json_decode($terminal->activation_environment, true) : null,
+            'activation_environment' => null,
             'terminal_id' => $terminal->terminal_id,
             'terminal_position' => $terminal->terminal_position,
             'taxpayer_id' => $terminal->taxpayer_id,
