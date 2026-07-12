@@ -181,8 +181,10 @@ class EisTerminalActivationService
     private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal): void
     {
         try {
-            
+
             $businessId = $terminal->configuration->business_id;
+
+            Log::info($terminal);
             
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
