@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\EIS\Services\Invoice;
+namespace Modules\EIS\Services\Sales;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;

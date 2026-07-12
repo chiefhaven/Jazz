@@ -9,7 +9,7 @@ use Modules\EIS\Models\EisSale;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Http\EisSaleClient;
 use Modules\EIS\Exceptions\EisSaleException;
-use Modules\EIS\Services\Invoice\InvoiceNumberGenerator;
+use Modules\EIS\Services\Sales\InvoiceNumberGenerator;
 use Modules\EIS\Services\Sales\SaleResponseService;
 
 class SaleSubmissionService
