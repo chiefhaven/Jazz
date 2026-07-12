@@ -60,7 +60,7 @@ class EisTerminalActivationService
             if ($result['success']) {
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
-                $jwtToken = $result['terminal_credentials']['jwt_token'];
+                $jwtToken = $result['terminal_credentials']['jwtToken'];
                 
                 if ($terminalId && $secretKey) {
                     $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
