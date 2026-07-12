@@ -35,6 +35,8 @@ class SubmitSaleJob implements ShouldQueue
             return;
         }
 
+        Log::info($transaction);
+
         $settings = EisSetting::where('business_id', $transaction->business_id)->first();
 
         if (!$settings) {
