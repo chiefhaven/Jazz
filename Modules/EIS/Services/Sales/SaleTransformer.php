@@ -12,7 +12,7 @@ class SaleTransformer
         protected EisTaxRate $taxRates
     ) {}
 
-    public function transform(Transaction $transaction, EisSetting $settings): array
+    public function transform(Transaction $transaction, EisSetting $settings, string $eisInvoiceNumber): array
     {
         $transaction->loadMissing([
             'business',
@@ -83,7 +83,7 @@ class SaleTransformer
 
             'invoiceHeader' => [
 
-                'invoiceNumber' => (string) $transaction->invoice_no,
+                'invoiceNumber' => (string) $eisInvoiceNumber,
 
                 'invoiceDateTime' => $transaction->transaction_date
                     ? \Carbon\Carbon::parse($transaction->transaction_date)
