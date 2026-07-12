@@ -634,8 +634,7 @@ class EisTerminalActivationService
             'taxpayer_id' => $terminal->taxpayer_id,
             'activation_date' => $terminal->activation_date,
             'confirmed_at' => $terminal->confirmed_at,
-            'confirmation_response' => $terminal->confirmation_response ? 
-                json_decode($terminal->confirmation_response, true) : null,
+            'confirmation_response' => $terminal->confirmation_response ? $terminal->confirmation_response : null,
         ];
 
         // Add site details
