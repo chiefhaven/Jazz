@@ -166,6 +166,7 @@ class EisTerminalActivationService
 
     /**
      * Update eis_settings table with terminal details.
+     * Creates new record if not exists.
      *
      * @param string $terminalId
      * @param string $secretKey
@@ -175,10 +176,13 @@ class EisTerminalActivationService
     private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal): void
     {
         try {
-            // Find the eis_setting record for this business
-            $setting = EisSetting::where('business_id', $terminal->configuration->business_id)->first();
+            $businessId = $terminal->configuration->business_id;
+            
+            // Find or create eis_setting record
+            $setting = EisSetting::where('business_id', $businessId)->first();
             
             if ($setting) {
+                // Update existing record
                 $setting->update([
                     'device_id' => $terminalId,
                     'secret_key' => $secretKey,
@@ -189,19 +193,35 @@ class EisTerminalActivationService
                 ]);
                 
                 Log::info('EIS settings updated after activation', [
-                    'business_id' => $terminal->configuration->business_id,
+                    'business_id' => $businessId,
                     'device_id' => $terminalId,
                     'has_secret_key' => !empty($secretKey)
                 ]);
             } else {
-                Log::warning('EIS setting not found for business', [
-                    'business_id' => $terminal->configuration->business_id
+                // Create new record if not exists
+                $setting = EisSetting::create([
+                    'business_id' => $businessId,
+                    'device_id' => $terminalId,
+                    'secret_key' => $secretKey,
+                    'tpin' => $terminal->taxpayer_id ?? null,
+                    'status' => true,
+                    'sync_status' => 'success',
+                    'last_sync_at' => now(),
+                    'successful_syncs' => 1,
+                    'failed_syncs' => 0,
+                ]);
+                
+                Log::info('EIS settings created after activation', [
+                    'business_id' => $businessId,
+                    'device_id' => $terminalId,
+                    'has_secret_key' => !empty($secretKey)
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Failed to update EIS settings', [
+            Log::error('Failed to update/create EIS settings', [
                 'business_id' => $terminal->configuration->business_id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -608,7 +628,8 @@ class EisTerminalActivationService
             'toggled_by' => $terminal->toggled_by,
             'last_synced_at' => $terminal->last_synced_at,
             'activation_code' => $terminal->activation_code,
-            'activation_environment' => null,
+            'activation_environment' => $terminal->activation_environment ? 
+                json_decode($terminal->activation_environment, true) : null,
             'terminal_id' => $terminal->terminal_id,
             'terminal_position' => $terminal->terminal_position,
             'taxpayer_id' => $terminal->taxpayer_id,
@@ -996,6 +1017,19 @@ class EisTerminalActivationService
                 if ($setting) {
                     $setting->update([
                         'secret_key' => $responseData['data']['secretKey']
+                    ]);
+                } else {
+                    // Create new setting if not exists
+                    EisSetting::create([
+                        'business_id' => $businessId,
+                        'device_id' => $terminal->terminal_id,
+                        'secret_key' => $responseData['data']['secretKey'],
+                        'tpin' => $terminal->taxpayer_id ?? null,
+                        'status' => true,
+                        'sync_status' => 'success',
+                        'last_sync_at' => now(),
+                        'successful_syncs' => 1,
+                        'failed_syncs' => 0,
                     ]);
                 }
             }
