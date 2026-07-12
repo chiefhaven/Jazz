@@ -113,7 +113,9 @@ class EisTerminalActivationService
                 'url' => $url,
                 'terminal_id' => $terminalId,
                 'signature' => $signature,
-                'payload' => $payload
+                'payload' => $payload,
+                'activationCode' => $activationCode,
+                'secreteKey' => $secretKey,
             ]);
 
             $response = Http::acceptJson()
@@ -239,7 +241,6 @@ class EisTerminalActivationService
     {
         // HMAC-SHA512 hash of the activation code using the secret key
         $hash = hash_hmac('sha512', $activationCode, $secretKey, true);
-        // Base64 encode the hash
         return base64_encode($hash);
     }
 
