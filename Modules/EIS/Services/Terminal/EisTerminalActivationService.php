@@ -171,23 +171,28 @@ class EisTerminalActivationService
      * Update eis_settings table with terminal details.
      * Creates new record if not exists.
      *
-     * @param string $terminalId
-     * @param string $secretKey
-     * @param EisTerminalConfiguration $terminal
+     * @param object $data
+     * @param int $businessId
      * @return void
      */
-    private function updateEisSettings(object $data, $businessId): void
+    private function updateEisSettings(object $data, int $businessId): void
     {
         try {
-
-
-            $terminalId = $data->configuration->terminalId;
-            $secret_key = $data->activatedTerminal->terminalCredentials->secretKey ?? null;
-            $jwt_token = $data->activatedTerminal->terminalCredentials->jwtToken ?? null;
+            // Extract values from the data object with proper null checking
+            $terminalId = $data->activatedTerminal->terminalId ?? null;
+            $secretKey = $data->activatedTerminal->terminalCredentials->secretKey ?? null;
+            $jwtToken = $data->activatedTerminal->terminalCredentials->jwtToken ?? null;
             $tpin = $data->configuration->taxpayerConfiguration->tin ?? null;
             $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId ?? null;
 
-            Log::info('Data',[$data->configuration->taxpayerConfiguration]);
+            Log::info('Extracted EIS data for settings update', [
+                'business_id' => $businessId,
+                'terminal_id' => $terminalId,
+                'has_secret_key' => !empty($secretKey),
+                'has_jwt_token' => !empty($jwtToken),
+                'tpin' => $tpin,
+                'site_id' => $siteId
+            ]);
 
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
@@ -196,8 +201,8 @@ class EisTerminalActivationService
                 // Update existing record
                 $setting->update([
                     'device_id' => $terminalId,
-                    'secret_key' => $secret_key,
-                    'jwt_token' => $jwt_token,
+                    'secret_key' => $secretKey,
+                    'jwt_token' => $jwtToken,
                     'branch_id' => $siteId,
                     'tpin' => $tpin,
                     'last_sync_at' => now(),
@@ -208,20 +213,36 @@ class EisTerminalActivationService
                 Log::info('EIS settings updated after activation', [
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'has_secret_key' => !empty($secret_key),
+                    'has_secret_key' => !empty($secretKey),
+                    'has_jwt_token' => !empty($jwtToken),
                     'tpin' => $tpin,
-                    'siteId' => $siteId,
+                    'site_id' => $siteId
                 ]);
+
+                // Sync configurations after activation
+                if ($jwtToken) {
+                    try {
+                        app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
+                        Log::info('Configurations synced after activation', [
+                            'business_id' => $businessId
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to sync configurations after activation', [
+                            'business_id' => $businessId,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
             } else {
                 // Create new record if not exists
                 $setting = EisSetting::create([
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'secret_key' => $secret_key,
-                    'jwt_token' => $jwt_token,
+                    'secret_key' => $secretKey,
+                    'jwt_token' => $jwtToken,
                     'branch_id' => $siteId,
                     'tpin' => $tpin,
-                    'status' => true,
+                    'status' => 1,
                     'sync_status' => 'success',
                     'last_sync_at' => now(),
                     'successful_syncs' => 1,
@@ -232,15 +253,29 @@ class EisTerminalActivationService
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
                     'has_secret_key' => !empty($secretKey),
+                    'has_jwt_token' => !empty($jwtToken),
                     'tpin' => $tpin,
-                    'siteId' => $siteId,
+                    'site_id' => $siteId
                 ]);
 
-                app(ConfigurationSyncService::class)->sync($businessId, $jwt_token);
+                // Sync configurations after activation
+                if ($jwtToken) {
+                    try {
+                        app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
+                        Log::info('Configurations synced after activation', [
+                            'business_id' => $businessId
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to sync configurations after activation', [
+                            'business_id' => $businessId,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
             }
         } catch (\Exception $e) {
             Log::error('Failed to update/create EIS settings', [
-                'business_id' => $jwt_token,
+                'business_id' => $businessId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
