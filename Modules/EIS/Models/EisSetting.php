@@ -24,6 +24,9 @@ class EisSetting extends Model
         'global_version',
         'terminal_version',
         'taxpayer_version',
+        'tpin',
+        'branch_id',
+        'device_id'
     ];
     
     protected $casts = [
