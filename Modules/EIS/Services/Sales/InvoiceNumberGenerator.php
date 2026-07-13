@@ -35,19 +35,21 @@ class InvoiceNumberGenerator
                     throw new \Exception('EIS settings not found for business: ' . $businessId);
                 }
 
-                // Get configuration ID
-                $configuration = EisConfiguration::where('business_id', $businessId)->first();
-                if (!$configuration) {
-                    throw new \Exception('EIS configuration not found for business: ' . $businessId);
-                }
+                // Get configuration ID with terminal relationship
+$configuration = EisConfiguration::with('terminalConfiguration')
+    ->where('business_id', $businessId)
+    ->first();
 
-                // Get terminal configuration for position
-                $configuration = EisConfiguration::where('business_id', $businessId)->first();
+if (!$configuration) {
+    throw new \Exception('EIS configuration not found for business: ' . $businessId);
+}
 
-                if (!$configuration->terminal) {
-                    throw new \Exception('Terminal configuration not found for business: ' . $businessId);
-                }
+// Get terminal configuration for position
+$terminal = $configuration->terminalConfiguration;
 
+if (!$terminal) {
+    throw new \Exception('Terminal configuration not found for business: ' . $businessId);
+}
                 // Get count for today
                 $count = EisSale::where('business_id', $businessId)
                     ->whereDate('created_at', now()->toDateString())
