@@ -99,7 +99,7 @@ class EisTerminalActivationService
      * @param string $secretKey
      * @return bool
      */
-    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $jwtToken, string $secretKey, string $siteId): bool
+    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $jwtToken, string $secretKey): bool
     {
         try {
             $url = $this->apiBaseUrl . '/onboarding/terminal-activated-confirmation';
