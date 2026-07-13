@@ -41,15 +41,16 @@ class InvoiceNumberGenerator
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
                 }
 
-                Log::info($configuration);
-
                 // Get terminal configuration for position
                 $terminal = null;
+
                 if ($terminalPosition) {
+                    // If terminal position is provided, find by position
                     $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
                         ->where('terminal_position', $terminalPosition)
                         ->first();
                 } else {
+                    // Otherwise get the first terminal
                     $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
                         ->orderBy('id')
                         ->first();
@@ -200,6 +201,19 @@ class InvoiceNumberGenerator
     }
 
     /**
+     * Get daily transaction count.
+     *
+     * @param int $businessId
+     * @return int
+     */
+    public function getDailyCount(int $businessId): int
+    {
+        return EisSale::where('business_id', $businessId)
+            ->whereDate('created_at', now()->toDateString())
+            ->count();
+    }
+
+    /**
      * Get Julian date.
      * Format: YYDDD (Year + Day of year)
      *
@@ -298,18 +312,5 @@ class InvoiceNumberGenerator
         }
 
         return true;
-    }
-
-    /**
-     * Get daily transaction count.
-     *
-     * @param int $businessId
-     * @return int
-     */
-    public function getDailyCount(int $businessId): int
-    {
-        return EisSale::where('business_id', $businessId)
-            ->whereDate('created_at', now()->toDateString())
-            ->count();
     }
 }
