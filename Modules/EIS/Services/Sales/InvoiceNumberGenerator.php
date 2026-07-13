@@ -40,6 +40,8 @@ class InvoiceNumberGenerator
                     ->where('business_id', $businessId)
                     ->first();
 
+                    Log::info($configuration);
+
                 if (!$configuration) {
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
                 }
