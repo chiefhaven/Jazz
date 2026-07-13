@@ -212,7 +212,7 @@ class EisTerminalActivationService
                 $setting = EisSetting::create([
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'secret_key' => $terminal->secrete_key,
+                    'secret_key' => $terminal->secret_key,
                     'jwt_token' => $terminal->jwt_token,
                     'tpin' => $terminal->tpin ?? null,
                     'branch_id' => $terminal->siteId,
