@@ -5,13 +5,100 @@ namespace Modules\EIS\Services\Sales;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisConfiguration;
-use Modules\EIS\Models\EisInvoiceSequence;
 use Modules\EIS\Models\EisSale;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Models\EisTerminalConfiguration;
 
 class InvoiceNumberGenerator
 {
+    /**
+     * Base64 character set for encoding.
+     */
+    protected const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+    /**
+     * Convert base10 number to Base64.
+     * 
+     * @param int|string $number
+     * @return string
+     */
+    public function base10ToBase64($number): string
+    {
+        $number = (int) $number;
+        
+        if ($number == 0) {
+            return 'A';
+        }
+        
+        $result = '';
+        $base64Chars = self::BASE64_CHARS;
+        
+        while ($number > 0) {
+            $remainder = $number % 64;
+            $result = $base64Chars[$remainder] . $result;
+            $number = (int) ($number / 64);
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Convert Base64 back to base10 number.
+     * 
+     * @param string $base64
+     * @return int
+     */
+    public function base64ToBase10(string $base64): int
+    {
+        $base64Chars = self::BASE64_CHARS;
+        $result = 0;
+        $length = strlen($base64);
+        
+        for ($i = 0; $i < $length; $i++) {
+            $char = $base64[$i];
+            $value = strpos($base64Chars, $char);
+            if ($value === false) {
+                return 0;
+            }
+            $result = ($result * 64) + $value;
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Convert date to astronomical Julian Date (JD).
+     * This matches the C# implementation exactly.
+     * 
+     * @param \DateTime $date
+     * @return int
+     */
+    public function toJulianDate(\DateTime $date): int
+    {
+        $date = clone $date;
+        $date->setTime(0, 0, 0);
+        
+        $year = (int) $date->format('Y');
+        $month = (int) $date->format('m');
+        $day = (int) $date->format('d');
+        
+        // Adjust for Julian calendar
+        if ($month <= 2) {
+            $year -= 1;
+            $month += 12;
+        }
+        
+        $A = (int) ($year / 100);
+        $B = 2 - $A + (int) ($A / 4);
+        
+        // Calculate Julian Date
+        $JD = (int) (floor(365.25 * ($year + 4716)) 
+            + floor(30.6001 * ($month + 1)) 
+            + $day + $B - 1524);
+        
+        return $JD;
+    }
+
     /**
      * Generate EIS compliant invoice number.
      * Format: Base64(TaxpayerID) - Base64(TerminalPosition) - Base64(JulianDate) - Base64(Count)
@@ -28,44 +115,54 @@ class InvoiceNumberGenerator
                 'terminal_position' => $terminalPosition
             ]);
 
-            return DB::transaction(function () use ($businessId) {
+            return DB::transaction(function () use ($businessId, $terminalPosition) {
                 // Get EIS settings
                 $setting = EisSetting::where('business_id', $businessId)->first();
                 if (!$setting) {
                     throw new \Exception('EIS settings not found for business: ' . $businessId);
                 }
 
-                // Get configuration ID with terminal relationship
-                $configuration = EisConfiguration::
-                    where('business_id', $businessId)
+                // Get configuration with terminal relationship
+                $configuration = EisConfiguration::with('terminalConfiguration')
+                    ->where('business_id', $businessId)
                     ->first();
-
-                $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
-
-                    Log::info('Terminal available: '.$terminal);
-
+                    
                 if (!$configuration) {
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
                 }
 
+                // Get terminal configuration
+                $terminal = $configuration->terminalConfiguration;
+
                 if (!$terminal) {
-                    throw new \Exception('Terminal configuration not found for business: ' . $businessId);
+                    Log::warning('Terminal configuration not found, using defaults', [
+                        'business_id' => $businessId,
+                        'configuration_id' => $configuration->id
+                    ]);
+
+                    $terminalPosition = $terminalPosition ?? $setting->terminal_position ?? 1;
+                    $terminal = $this->createDefaultTerminal($configuration, $terminalPosition);
                 }
+
+                // Get terminal position
+                $terminalPos = $terminal->terminal_position ?? $terminalPosition ?? 1;
+
                 // Get count for today
                 $count = EisSale::where('business_id', $businessId)
                     ->whereDate('created_at', now()->toDateString())
                     ->count() + 1;
 
                 // Get components
-                $taxpayerId = $terminal->taxpayer_id;
-                $terminalPos = $terminal->terminal_position;
-                $julianDate = $this->getJulianDate(now());
+                $taxpayerId = $setting->tpin ?? '000000';
+                
+                // Use full astronomical Julian Date
+                $julianDate = $this->toJulianDate(now());
                 
                 // Encode each component to Base64
-                $encodedTaxpayerId = $this->base64Encode($taxpayerId);
-                $encodedTerminalPos = $this->base64Encode((string)$terminalPos);
-                $encodedJulianDate = $this->base64Encode($julianDate);
-                $encodedCount = $this->base64Encode((string)$count);
+                $encodedTaxpayerId = $this->base10ToBase64($taxpayerId);
+                $encodedTerminalPos = $this->base10ToBase64($terminalPos);
+                $encodedJulianDate = $this->base10ToBase64($julianDate);
+                $encodedCount = $this->base10ToBase64($count);
 
                 // Build invoice number
                 $invoiceNumber = $encodedTaxpayerId . '-' . 
@@ -98,8 +195,50 @@ class InvoiceNumberGenerator
                 'trace' => $e->getTraceAsString()
             ]);
 
-            // Generate fallback invoice number
             return $this->generateFallbackInvoiceNumber($businessId);
+        }
+    }
+
+    /**
+     * Create default terminal configuration.
+     *
+     * @param EisConfiguration $configuration
+     * @param int $terminalPosition
+     * @return EisTerminalConfiguration
+     */
+    protected function createDefaultTerminal(EisConfiguration $configuration, int $terminalPosition): EisTerminalConfiguration
+    {
+        try {
+            $terminal = EisTerminalConfiguration::create([
+                'configuration_id' => $configuration->id,
+                'terminal_position' => $terminalPosition,
+                'terminal_label' => 'Default Terminal',
+                'is_active' => true,
+                'is_confirmed' => true,
+                'version' => 1,
+                'last_synced_at' => now(),
+            ]);
+
+            Log::info('Default terminal created', [
+                'configuration_id' => $configuration->id,
+                'terminal_position' => $terminalPosition,
+                'terminal_id' => $terminal->id
+            ]);
+
+            return $terminal;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create default terminal', [
+                'configuration_id' => $configuration->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return new EisTerminalConfiguration([
+                'configuration_id' => $configuration->id,
+                'terminal_position' => $terminalPosition,
+                'terminal_label' => 'Default Terminal',
+                'is_active' => true,
+            ]);
         }
     }
 
@@ -130,23 +269,26 @@ class InvoiceNumberGenerator
     public function getTerminalPosition(int $businessId, ?int $terminalPosition = null): int
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = EisConfiguration::with('terminalConfiguration')
+                ->where('business_id', $businessId)
+                ->first();
+                
             if (!$configuration) {
                 return $terminalPosition ?? 1;
             }
 
-            $terminal = null;
-            if ($terminalPosition) {
-                $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                    ->where('terminal_position', $terminalPosition)
-                    ->first();
-            } else {
-                $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                    ->orderBy('id')
-                    ->first();
+            $terminal = $configuration->terminalConfiguration;
+
+            if ($terminal) {
+                return $terminal->terminal_position ?? $terminalPosition ?? 1;
             }
 
-            return $terminal->terminal_position ?? $terminalPosition ?? 1;
+            $setting = EisSetting::where('business_id', $businessId)->first();
+            if ($setting && $setting->terminal_position) {
+                return $setting->terminal_position;
+            }
+
+            return $terminalPosition ?? 1;
 
         } catch (\Exception $e) {
             Log::warning('Failed to get terminal position, using default', [
@@ -154,6 +296,50 @@ class InvoiceNumberGenerator
                 'error' => $e->getMessage()
             ]);
             return $terminalPosition ?? 1;
+        }
+    }
+
+    /**
+     * Get or create terminal configuration.
+     *
+     * @param int $businessId
+     * @param int|null $terminalPosition
+     * @return EisTerminalConfiguration
+     */
+    public function getOrCreateTerminal(int $businessId, ?int $terminalPosition = null): EisTerminalConfiguration
+    {
+        try {
+            $configuration = EisConfiguration::with('terminalConfiguration')
+                ->where('business_id', $businessId)
+                ->first();
+
+            if (!$configuration) {
+                throw new \Exception('Configuration not found for business: ' . $businessId);
+            }
+
+            $terminal = $configuration->terminalConfiguration;
+
+            if (!$terminal) {
+                $terminal = $this->createDefaultTerminal(
+                    $configuration,
+                    $terminalPosition ?? 1
+                );
+            }
+
+            return $terminal;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get or create terminal', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage()
+            ]);
+
+            return new EisTerminalConfiguration([
+                'configuration_id' => $businessId,
+                'terminal_position' => $terminalPosition ?? 1,
+                'terminal_label' => 'Default Terminal',
+                'is_active' => true,
+            ]);
         }
     }
 
@@ -205,45 +391,6 @@ class InvoiceNumberGenerator
     }
 
     /**
-     * Get Julian date.
-     * Format: YYDDD (Year + Day of year)
-     *
-     * @param \DateTime $date
-     * @return string
-     */
-    private function getJulianDate(\DateTime $date): string
-    {
-        // Get last two digits of year
-        $year = $date->format('y');
-        // Get day of year (001-366)
-        $dayOfYear = str_pad($date->format('z') + 1, 3, '0', STR_PAD_LEFT);
-        
-        return $year . $dayOfYear;
-    }
-
-    /**
-     * Base64 encode a string.
-     *
-     * @param string $value
-     * @return string
-     */
-    private function base64Encode(string $value): string
-    {
-        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
-    }
-
-    /**
-     * Decode a Base64 encoded string.
-     *
-     * @param string $encoded
-     * @return string
-     */
-    private function base64Decode(string $encoded): string
-    {
-        return base64_decode(strtr($encoded, '-_', '+/'));
-    }
-
-    /**
      * Parse invoice number to get components.
      *
      * @param string $invoiceNumber
@@ -259,10 +406,10 @@ class InvoiceNumberGenerator
             }
 
             return [
-                'taxpayer_id' => $this->base64Decode($parts[0]),
-                'terminal_position' => $this->base64Decode($parts[1]),
-                'julian_date' => $this->base64Decode($parts[2]),
-                'count' => (int) $this->base64Decode($parts[3]),
+                'taxpayer_id' => $this->base64ToBase10($parts[0]),
+                'terminal_position' => (int) $this->base64ToBase10($parts[1]),
+                'julian_date' => (int) $this->base64ToBase10($parts[2]),
+                'count' => (int) $this->base64ToBase10($parts[3]),
                 'encoded_taxpayer_id' => $parts[0],
                 'encoded_terminal_position' => $parts[1],
                 'encoded_julian_date' => $parts[2],
@@ -292,12 +439,10 @@ class InvoiceNumberGenerator
             return false;
         }
 
-        // Validate count is numeric
         if (!is_numeric($parsed['count'])) {
             return false;
         }
 
-        // Validate components are not empty
         if (empty($parsed['taxpayer_id']) || empty($parsed['terminal_position'])) {
             return false;
         }
