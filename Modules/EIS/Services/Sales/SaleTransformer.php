@@ -169,7 +169,7 @@ class SaleTransformer
             // Prepare request data for signature
             $requestData = [
                 'transactiondate' => $transaction->transaction_date 
-                    ? $transaction->transaction_date->toISOString() 
+                    ? $transaction->transaction_date
                     : now()->toISOString(),
                 'transactionCount' => $transactionCount,
                 'NumItems' => $totalItems,
