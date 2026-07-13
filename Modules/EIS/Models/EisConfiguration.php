@@ -119,7 +119,7 @@ class EisConfiguration extends Model
         return $this->raw_response['data']['taxpayerConfiguration'] ?? null;
     }
 
-    public function terminalConfiguraion(): HasOne
+    public function terminalConfiguration(): HasOne
     {
         return $this->hasOne(EisTerminalConfiguration::class, 'configuration_id');
     }
