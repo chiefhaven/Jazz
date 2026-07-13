@@ -195,6 +195,7 @@ class EisTerminalActivationService
                     'device_id' => $terminalId,
                     'secret_key' => $terminal->secret_key,
                     'jwt_token' => $terminal->jwt_token,
+                    'branch_id' => $terminal->siteId,
                     'tpin' => $terminal->taxpayer_id ?? $setting->tpin,
                     'last_sync_at' => now(),
                     'sync_status' => 'success',
@@ -213,7 +214,8 @@ class EisTerminalActivationService
                     'device_id' => $terminalId,
                     'secret_key' => $terminal->secrete_key,
                     'jwt_token' => $terminal->jwt_token,
-                    'tpin' => $terminal->taxpayer_id ?? null,
+                    'tpin' => $terminal->tpin ?? null,
+                    'branch_id' => $terminal->siteId,
                     'status' => true,
                     'sync_status' => 'success',
                     'last_sync_at' => now(),
@@ -226,6 +228,8 @@ class EisTerminalActivationService
                     'device_id' => $terminalId,
                     'has_secret_key' => !empty($secretKey)
                 ]);
+
+                app(ConfigurationSyncService::class)->sync($businessId, $terminal->jwt_token);
             }
         } catch (\Exception $e) {
             Log::error('Failed to update/create EIS settings', [
