@@ -40,7 +40,7 @@ class InvoiceNumberGenerator
                     ->where('business_id', $businessId)
                     ->first();
 
-                    Log::info('Terminala available: '.$$configuration->terminalConfiguration);
+                    Log::info('Terminal available: '.$configuration->terminalConfiguration);
 
                 if (!$configuration) {
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
