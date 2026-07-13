@@ -136,7 +136,7 @@ class SaleTransformer
             ],
             'invoiceLineItems' => $invoiceItems,
             'invoiceSummary' => $invoiceSummary,
-            'offlineSignatureData' => $offlineSignatureData,
+            'offlineSignatureData' => '',
         ];
     }
 
