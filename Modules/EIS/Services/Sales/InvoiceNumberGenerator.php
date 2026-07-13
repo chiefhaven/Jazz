@@ -41,6 +41,8 @@ class InvoiceNumberGenerator
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
                 }
 
+                Log::info($terminalPosition, $configuration);
+
                 // Get terminal configuration for position
                 $terminal = null;
                 if ($terminalPosition) {
