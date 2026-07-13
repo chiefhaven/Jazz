@@ -2,6 +2,7 @@
 
 namespace Modules\EIS\Models;
 
+use App\Business;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -121,5 +122,10 @@ class EisConfiguration extends Model
     public function terminalConfiguraion(): HasOne
     {
         return $this->hasOne(EisTerminalConfiguration::class, 'configuration_id');
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
     }
 }
