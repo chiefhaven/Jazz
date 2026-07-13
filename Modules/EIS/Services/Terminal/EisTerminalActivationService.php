@@ -230,10 +230,11 @@ class EisTerminalActivationService
                     'has_secret_key' => !empty($secretKey)
                 ]);
 
+                app(ConfigurationSyncService::class)->sync($businessId, $jwt_token);
             }
         } catch (\Exception $e) {
             Log::error('Failed to update/create EIS settings', [
-                'business_id' => null,
+                'business_id' => $jwt_token,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
