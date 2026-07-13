@@ -7,8 +7,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisTerminalConfiguration;
-use Modules\EIS\Models\EisTerminalSite;
-use Modules\EIS\Models\EisOfflineLimit;
 use Modules\EIS\Models\EisTaxRate;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
@@ -56,12 +54,14 @@ class EisTerminalActivationService
                 $activatedBy
             );
 
+            Log::info('Result: ', [$result]);
+
             // Step 3: After successful activation and database sync, send confirmation
             if ($result['success']) {
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
                 $jwtToken = $result['terminal_credentials']['jwtToken'];
-                $siteId = $result['terminalSite']['siteId'];
+                $siteId = $result['configuration']['terminalSite']['siteId'];
                 
                 if ($terminalId && $secretKey) {
                     $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey, $siteId);
@@ -155,9 +155,6 @@ class EisTerminalActivationService
                 ]);
             }
 
-            // Update eis_settings with terminal_id and secret_key
-            $this->updateEisSettings($terminalId, $secretKey, $terminal, $siteId);
-
             return true;
 
         } catch (\Exception $e) {
@@ -179,14 +176,17 @@ class EisTerminalActivationService
      * @param EisTerminalConfiguration $terminal
      * @return void
      */
-    private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal, string $siteId): void
+    private function updateEisSettings($data, $businessId): void
     {
         try {
 
-            $businessId = $terminal->configuration->business_id;
 
-            Log::info('Terminal config: '. $terminal->secret_key);
-            
+            $terminalId = $data->configuration->terminalId;
+            $secret_key = $data['activatedTerminal']['terminalCredentials']['secretKey'];
+            $jwt_token = $data['activatedTerminal']['terminalCredentials']['jwtToken'];
+            $tpin = $data['configuration']['taxpayerConfiguration']['tin'];
+            $siteId = $data['configuration']['terminalConfiguration']['terminalSite']['siteId'];
+
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
             
@@ -194,10 +194,10 @@ class EisTerminalActivationService
                 // Update existing record
                 $setting->update([
                     'device_id' => $terminalId,
-                    'secret_key' => $terminal->secret_key,
-                    'jwt_token' => $terminal->jwt_token,
+                    'secret_key' => $secret_key,
+                    'jwt_token' => $jwt_token,
                     'branch_id' => $siteId,
-                    'tpin' => $terminal->taxpayer_id ?? $setting->tpin,
+                    'tpin' => $tpin,
                     'last_sync_at' => now(),
                     'sync_status' => 'success',
                     'sync_error' => null,
@@ -213,10 +213,10 @@ class EisTerminalActivationService
                 $setting = EisSetting::create([
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'secret_key' => $terminal->secret_key,
-                    'jwt_token' => $terminal->jwt_token,
-                    'tpin' => $terminal->tpin ?? null,
+                    'secret_key' => $secret_key,
+                    'jwt_token' => $jwt_token,
                     'branch_id' => $siteId,
+                    'tpin' => $tpin,
                     'status' => true,
                     'sync_status' => 'success',
                     'last_sync_at' => now(),
@@ -390,6 +390,9 @@ class EisTerminalActivationService
 
                 // Save or update main configuration
                 $configuration = $this->saveConfiguration($businessId, $configurationData);
+
+                // Update eis_settings with terminal_id and secret_key
+                $this->updateEisSettings($response->data, $businessId);
 
                 // Save or update terminal configuration
                 $terminal = $this->saveTerminalConfiguration(
