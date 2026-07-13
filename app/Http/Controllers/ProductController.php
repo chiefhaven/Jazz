@@ -73,7 +73,7 @@ class ProductController extends Controller
 
         try{
             dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
-            ->onQueue('eis-products');
+            ->onQueue('eis-products');;;
         }
         catch(\Exception $e){
             Log::error('EIS SyncProductsJob failed: '.$e->getMessage());
