@@ -28,7 +28,7 @@ class InvoiceNumberGenerator
                 'terminal_position' => $terminalPosition
             ]);
 
-            return DB::transaction(function () use ($businessId, $terminalPosition) {
+            return DB::transaction(function () use ($businessId) {
                 // Get EIS settings
                 $setting = EisSetting::where('business_id', $businessId)->first();
                 if (!$setting) {
@@ -42,19 +42,7 @@ class InvoiceNumberGenerator
                 }
 
                 // Get terminal configuration for position
-                $terminal = null;
-
-                if ($terminalPosition) {
-                    // If terminal position is provided, find by position
-                    $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                        ->where('terminal_position', $terminalPosition)
-                        ->first();
-                } else {
-                    // Otherwise get the first terminal
-                    $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                        ->orderBy('id')
-                        ->first();
-                }
+                $terminal = EisTerminalConfiguration::where('business_id', $businessId)->first();
 
                 if (!$terminal) {
                     throw new \Exception('Terminal configuration not found for business: ' . $businessId);
@@ -66,7 +54,7 @@ class InvoiceNumberGenerator
                     ->count() + 1;
 
                 // Get components
-                $taxpayerId = $setting->tpin ?? null;
+                $taxpayerId = $terminal->taxpayer_id ?? null;
                 $terminalPos = $terminal->terminal_position ?? $terminalPosition ?? 1;
                 $julianDate = $this->getJulianDate(now());
                 
