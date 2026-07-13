@@ -72,7 +72,7 @@ class ProductController extends Controller
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
 
         try{
-            Log::info('Product syncing')
+            Log::info('Product syncing');
             dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
             ->onQueue('eis-products');
         }
