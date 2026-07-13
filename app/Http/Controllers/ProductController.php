@@ -72,7 +72,8 @@ class ProductController extends Controller
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
 
         try {
-            dispatch_sync(new \Modules\EIS\Jobs\SyncProductsJob($business_id));
+            dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
+                ->onQueue('eis-products');
         } catch (\Exception $e) {
             Log::error('EIS SyncProductsJob failed: ' . $e->getMessage());
         } 
