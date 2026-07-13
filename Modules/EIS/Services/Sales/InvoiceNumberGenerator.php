@@ -126,7 +126,7 @@ class InvoiceNumberGenerator
                     ->count() + 1;
 
                 // Get components
-                $taxpayerId = $setting->tpin ?? '000000';
+                $taxpayerId = $setting->taxpayer_id ?? '000000';
                 $julianDate = $this->getJulianDate(now());
                 
                 // Encode each component to Base64 using the new method
