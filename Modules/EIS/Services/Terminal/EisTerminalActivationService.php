@@ -61,9 +61,10 @@ class EisTerminalActivationService
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
                 $jwtToken = $result['terminal_credentials']['jwtToken'];
+                $siteId = $result['terminalSite']['siteId'];
                 
                 if ($terminalId && $secretKey) {
-                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
+                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey, $siteId);
                 } else {
                     Log::warning('Missing terminal ID or secret key for confirmation', [
                         'terminal_id' => $terminalId,
@@ -98,7 +99,7 @@ class EisTerminalActivationService
      * @param string $secretKey
      * @return bool
      */
-    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $jwtToken, string $secretKey): bool
+    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $jwtToken, string $secretKey, string $siteId): bool
     {
         try {
             $url = $this->apiBaseUrl . '/onboarding/terminal-activated-confirmation';
@@ -155,7 +156,7 @@ class EisTerminalActivationService
             }
 
             // Update eis_settings with terminal_id and secret_key
-            $this->updateEisSettings($terminalId, $secretKey, $terminal);
+            $this->updateEisSettings($terminalId, $secretKey, $terminal, $siteId);
 
             return true;
 
@@ -178,7 +179,7 @@ class EisTerminalActivationService
      * @param EisTerminalConfiguration $terminal
      * @return void
      */
-    private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal): void
+    private function updateEisSettings(string $terminalId, string $secretKey, EisTerminalConfiguration $terminal, string $siteId): void
     {
         try {
 
@@ -195,7 +196,7 @@ class EisTerminalActivationService
                     'device_id' => $terminalId,
                     'secret_key' => $terminal->secret_key,
                     'jwt_token' => $terminal->jwt_token,
-                    'branch_id' => $terminal->siteId,
+                    'branch_id' => $siteId,
                     'tpin' => $terminal->taxpayer_id ?? $setting->tpin,
                     'last_sync_at' => now(),
                     'sync_status' => 'success',
@@ -215,7 +216,7 @@ class EisTerminalActivationService
                     'secret_key' => $terminal->secret_key,
                     'jwt_token' => $terminal->jwt_token,
                     'tpin' => $terminal->tpin ?? null,
-                    'branch_id' => $terminal->siteId,
+                    'branch_id' => $siteId,
                     'status' => true,
                     'sync_status' => 'success',
                     'last_sync_at' => now(),
