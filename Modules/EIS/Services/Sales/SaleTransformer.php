@@ -3,6 +3,7 @@
 namespace Modules\EIS\Services\Sales;
 
 use App\Transaction;
+use App\TransactionSellLine;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Models\EisTaxRate;
@@ -23,12 +24,15 @@ class SaleTransformer
      */
     public function transform(Transaction $transaction, EisSetting $settings, string $eisInvoiceNumber): array
     {
+        // Load relationships - remove 'tax' if it doesn't exist
         $transaction->loadMissing([
             'business',
             'location',
             'contact',
+            'sell_lines',
             'sell_lines.product',
-            'sell_lines.tax',
+            'sell_lines.variations',
+            'sell_lines.modifiers',
         ]);
 
         $invoiceItems = [];
@@ -40,17 +44,17 @@ class SaleTransformer
             // Get tax rate ID from EIS tax rates
             $taxRateId = $this->getTaxRateId($settings->business_id, $line);
 
-            $unitPrice = (float) $line->unit_price_inc_tax;
-            $quantity = (float) $line->quantity;
-            $vat = (float) $line->item_tax;
+            // Calculate values
+            $unitPrice = (float) ($line->unit_price_inc_tax ?? $line->unit_price ?? 0);
+            $quantity = (float) ($line->quantity ?? 1);
+            $vat = (float) ($line->item_tax ?? 0);
             $discount = (float) ($line->line_discount_amount ?? 0);
-
             $lineTotal = $unitPrice * $quantity;
             $subtotal += $lineTotal;
 
             // Get product details
-            $productCode = $line->product->sku ?? $line->product->id ?? 'N/A';
-            $productName = $line->product->name ?? $line->product_name ?? 'Unknown Product';
+            $productCode = $this->getProductCode($line);
+            $productName = $this->getProductName($line);
 
             $invoiceItems[] = [
                 'id' => $index + 1,
@@ -82,16 +86,19 @@ class SaleTransformer
         // Get site ID from settings
         $siteId = $settings->branch_id ?? $settings->site_id ?? $settings->device_id ?? '00';
 
+        // Get buyer information
+        $buyerInfo = $this->getBuyerInfo($transaction);
+
         return [
             'invoiceHeader' => [
                 'invoiceNumber' => (string) $eisInvoiceNumber,
                 'invoiceDateTime' => $transaction->transaction_date
                     ? \Carbon\Carbon::parse($transaction->transaction_date)->toIso8601String()
                     : now()->toIso8601String(),
-                'sellerTIN' => (string) $settings->tpin,
-                'buyerTIN' => (string) optional($transaction->contact)->tax_number,
-                'buyerName' => (string) optional($transaction->contact)->name,
-                'buyerAuthorizationCode' => '',
+                'sellerTIN' => (string) ($settings->tpin ?? ''),
+                'buyerTIN' => (string) ($buyerInfo['tpin'] ?? ''),
+                'buyerName' => (string) ($buyerInfo['name'] ?? ''),
+                'buyerAuthorizationCode' => (string) ($buyerInfo['authorization_code'] ?? ''),
                 'siteId' => (string) $siteId,
                 'globalConfigVersion' => (int) ($settings->global_version ?? 0),
                 'taxpayerConfigVersion' => (int) ($settings->taxpayer_version ?? 0),
@@ -107,9 +114,75 @@ class SaleTransformer
                 'levyBreakDown' => [],
                 'totalVAT' => (float) $totalVat,
                 'offlineSignature' => '',
-                'invoiceTotal' => (float) $transaction->final_total,
-                'amountTendered' => (float) $transaction->final_total,
+                'invoiceTotal' => (float) ($transaction->final_total ?? $transaction->total ?? 0),
+                'amountTendered' => (float) ($transaction->final_total ?? $transaction->total ?? 0),
             ],
+        ];
+    }
+
+    /**
+     * Get product code from sell line.
+     *
+     * @param TransactionSellLine $line
+     * @return string
+     */
+    protected function getProductCode(TransactionSellLine $line): string
+    {
+        try {
+            if ($line->product) {
+                return $line->product->sku ?? $line->product->id ?? 'N/A';
+            }
+            return $line->product_id ?? 'N/A';
+        } catch (\Exception $e) {
+            return $line->product_id ?? 'N/A';
+        }
+    }
+
+    /**
+     * Get product name from sell line.
+     *
+     * @param TransactionSellLine $line
+     * @return string
+     */
+    protected function getProductName(TransactionSellLine $line): string
+    {
+        try {
+            if ($line->product) {
+                return $line->product->name ?? $line->product_name ?? 'Unknown Product';
+            }
+            return $line->product_name ?? 'Unknown Product';
+        } catch (\Exception $e) {
+            return $line->product_name ?? 'Unknown Product';
+        }
+    }
+
+    /**
+     * Get buyer information from transaction.
+     *
+     * @param Transaction $transaction
+     * @return array
+     */
+    protected function getBuyerInfo(Transaction $transaction): array
+    {
+        try {
+            if ($transaction->contact) {
+                return [
+                    'name' => $transaction->contact->name ?? 'Walk-in Customer',
+                    'tpin' => $transaction->contact->tax_number ?? '',
+                    'authorization_code' => $transaction->contact->authorization_code ?? '',
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get buyer info', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return [
+            'name' => $transaction->customer_name ?? 'Walk-in Customer',
+            'tpin' => $transaction->customer_tpin ?? '',
+            'authorization_code' => '',
         ];
     }
 
@@ -117,13 +190,13 @@ class SaleTransformer
      * Get EIS tax rate ID from transaction line.
      *
      * @param int $businessId
-     * @param mixed $line
+     * @param TransactionSellLine $line
      * @return string
      */
-    protected function getTaxRateId(int $businessId, $line): string
+    protected function getTaxRateId(int $businessId, TransactionSellLine $line): string
     {
         try {
-            // If line has tax_id, try to map it
+            // Try to find tax rate by tax_id if available
             if (!empty($line->tax_id)) {
                 $taxRate = $this->taxRateModel
                     ->where('business_id', $businessId)
@@ -135,21 +208,41 @@ class SaleTransformer
                 }
             }
 
-            // Try to find by rate
-            $rate = (float) $line->item_tax / max(1, $line->unit_price_inc_tax * $line->quantity) * 100;
+            // Try to find by tax rate value
+            $unitPrice = (float) ($line->unit_price_inc_tax ?? $line->unit_price ?? 0);
+            $quantity = (float) ($line->quantity ?? 1);
+            $vat = (float) ($line->item_tax ?? 0);
             
-            $taxRate = $this->taxRateModel
-                ->where('business_id', $businessId)
-                ->where('is_activated', true)
-                ->where('rate', '>=', $rate - 0.01)
-                ->where('rate', '<=', $rate + 0.01)
-                ->first();
+            if ($unitPrice > 0 && $quantity > 0) {
+                $calculatedRate = ($vat / ($unitPrice * $quantity)) * 100;
+                
+                if ($calculatedRate > 0) {
+                    $taxRate = $this->taxRateModel
+                        ->where('business_id', $businessId)
+                        ->where('is_activated', true)
+                        ->where('rate', '>=', $calculatedRate - 0.01)
+                        ->where('rate', '<=', $calculatedRate + 0.01)
+                        ->first();
 
-            if ($taxRate) {
-                return $taxRate->tax_rate_id;
+                    if ($taxRate) {
+                        return $taxRate->tax_rate_id;
+                    }
+                }
             }
 
-            // Default to standard rate or 'A'
+            // Try to find by product tax
+            if (!empty($line->product_tax)) {
+                $taxRate = $this->taxRateModel
+                    ->where('business_id', $businessId)
+                    ->where('tax_rate_id', $line->product_tax)
+                    ->first();
+
+                if ($taxRate) {
+                    return $taxRate->tax_rate_id;
+                }
+            }
+
+            // Default to standard rate or first activated rate
             $defaultRate = $this->taxRateModel
                 ->where('business_id', $businessId)
                 ->where('is_activated', true)
@@ -162,7 +255,7 @@ class SaleTransformer
         } catch (\Exception $e) {
             Log::warning('Failed to resolve tax rate ID', [
                 'business_id' => $businessId,
-                'tax_id' => $line->tax_id ?? null,
+                'line_id' => $line->id,
                 'error' => $e->getMessage()
             ]);
             return 'A'; // Default tax rate
@@ -195,53 +288,5 @@ class SaleTransformer
         }
         
         return $transformed;
-    }
-
-    /**
-     * Transform customer data.
-     *
-     * @param Transaction $transaction
-     * @return array
-     */
-    public function transformCustomer(Transaction $transaction): array
-    {
-        return [
-            'name' => $transaction->customer_name ?? $transaction->contact->name ?? 'Walk-in Customer',
-            'phone' => $transaction->customer_phone ?? $transaction->contact->mobile ?? null,
-            'email' => $transaction->customer_email ?? $transaction->contact->email ?? null,
-            'tpin' => $transaction->customer_tpin ?? $transaction->contact->tax_number ?? null,
-        ];
-    }
-
-    /**
-     * Transform totals.
-     *
-     * @param Transaction $transaction
-     * @return array
-     */
-    public function transformTotals(Transaction $transaction): array
-    {
-        return [
-            'subtotal' => (float) ($transaction->subtotal ?? 0),
-            'tax' => (float) ($transaction->tax_amount ?? 0),
-            'discount' => (float) ($transaction->discount_amount ?? 0),
-            'total' => (float) ($transaction->final_total ?? 0),
-        ];
-    }
-
-    /**
-     * Transform payment.
-     *
-     * @param Transaction $transaction
-     * @return array
-     */
-    public function transformPayment(Transaction $transaction): array
-    {
-        return [
-            'method' => $transaction->payment_method ?? 'Cash',
-            'amount' => (float) ($transaction->final_total ?? 0),
-            'reference' => $transaction->payment_reference ?? null,
-            'status' => $transaction->payment_status ?? 'completed',
-        ];
     }
 }

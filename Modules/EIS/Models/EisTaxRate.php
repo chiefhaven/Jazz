@@ -37,14 +37,6 @@ class EisTaxRate extends Model
     }
 
     /**
-     * Get the business that owns the tax rate.
-     */
-    public function business(): BelongsTo
-    {
-        return $this->belongsTo(\App\Business::class, 'business_id');
-    }
-
-    /**
      * Scope for activated tax rates.
      */
     public function scopeActivated($query)
@@ -82,43 +74,6 @@ class EisTaxRate extends Model
     public function scopeExempt($query)
     {
         return $query->where('rate', 0)->where('is_activated', false);
-    }
-
-    /**
-     * Scope by tax rate ID.
-     */
-    public function scopeByTaxRateId($query, string $taxRateId)
-    {
-        return $query->where('tax_rate_id', $taxRateId);
-    }
-
-    /**
-     * Resolve tax rate by business ID and tax ID.
-     *
-     * @param int $businessId
-     * @param string|int|null $taxId
-     * @return string
-     */
-    public function resolve(int $businessId, $taxId): string
-    {
-        if ($taxId) {
-            $rate = $this->where('business_id', $businessId)
-                ->where('tax_rate_id', $taxId)
-                ->first();
-            
-            if ($rate) {
-                return $rate->tax_rate_id;
-            }
-        }
-
-        // Default to first activated rate with rate > 0
-        $default = $this->where('business_id', $businessId)
-            ->where('is_activated', true)
-            ->where('rate', '>', 0)
-            ->orderBy('rate', 'desc')
-            ->first();
-
-        return $default->tax_rate_id ?? 'A';
     }
 
     /**

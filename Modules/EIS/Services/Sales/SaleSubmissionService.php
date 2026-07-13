@@ -54,7 +54,7 @@ class SaleSubmissionService
         $eisInvoiceNumber = $this->generateEISInvoiceNumber($transaction, $eisSetting);
 
         // ----------------------------
-        // CREATE/UPDATE TRACKING
+        // CREATE/UPDATETRACKING
         // ----------------------------
         $eisSale = EisSale::updateOrCreate(
             ['transaction_id' => $transaction->id],
@@ -84,7 +84,7 @@ class SaleSubmissionService
             $response = $this->client->submit($payload, $settings);
 
             // ----------------------------
-            // SINGLE SOURCE OF TRUTH UPDATE
+            // SINGLE SOURCE OF TRUTHUPDAT
             // ----------------------------
             $this->responseService->handle($transaction, $response);
 
