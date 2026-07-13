@@ -53,9 +53,9 @@ class EisSaleClient
             throw new EisSaleException('Missing EIS Secret Key.');
         }
 
-        if (empty($settings->branch_id)) {
-            throw new EisSaleException('Missing EIS Site ID.');
-        }
+        // if (empty($settings->branch_id)) {
+        //     throw new EisSaleException('Missing EIS Site ID.');
+        // }
 
         if (empty($settings->tpin)) {
             throw new EisSaleException('Missing EIS TIN.');
