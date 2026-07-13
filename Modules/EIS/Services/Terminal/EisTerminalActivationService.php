@@ -220,19 +220,25 @@ class EisTerminalActivationService
                 ]);
 
                 // Sync configurations after activation
-                if ($jwtToken) {
-                    try {
-                        app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
-                        Log::info('Configurations synced after activation', [
-                            'business_id' => $businessId
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::warning('Failed to sync configurations after activation', [
-                            'business_id' => $businessId,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
+                $this->syncAfterActivation($businessId, $jwtToken);
+                
+                // Dispatch SyncProductsJob
+                $this->dispatchSyncProductsJob($businessId);
+
+                // Sync configurations after activation
+                // if ($jwtToken) {
+                //     try {
+                //         app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
+                //         Log::info('Configurations synced after activation', [
+                //             'business_id' => $businessId
+                //         ]);
+                //     } catch (\Exception $e) {
+                //         Log::warning('Failed to sync configurations after activation', [
+                //             'business_id' => $businessId,
+                //             'error' => $e->getMessage()
+                //         ]);
+                //     }
+                // }
             } else {
                 // Create new record if not exists
                 $setting = EisSetting::create([
@@ -259,22 +265,82 @@ class EisTerminalActivationService
                 ]);
 
                 // Sync configurations after activation
-                if ($jwtToken) {
-                    try {
-                        app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
-                        Log::info('Configurations synced after activation', [
-                            'business_id' => $businessId
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::warning('Failed to sync configurations after activation', [
-                            'business_id' => $businessId,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
+                $this->syncAfterActivation($businessId, $jwtToken);
+                
+                // Dispatch SyncProductsJob
+                $this->dispatchSyncProductsJob($businessId);
+
+                // Sync configurations after activation
+                // if ($jwtToken) {
+                //     try {
+                //         app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
+                //         Log::info('Configurations synced after activation', [
+                //             'business_id' => $businessId
+                //         ]);
+                //     } catch (\Exception $e) {
+                //         Log::warning('Failed to sync configurations after activation', [
+                //             'business_id' => $businessId,
+                //             'error' => $e->getMessage()
+                //         ]);
+                //     }
+                // }
             }
         } catch (\Exception $e) {
             Log::error('Failed to update/create EIS settings', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Sync configurations after activation.
+     *
+     * @param int $businessId
+     * @param string|null $jwtToken
+     * @return void
+     */
+    private function syncAfterActivation(int $businessId, ?string $jwtToken): void
+    {
+        if (!$jwtToken) {
+            Log::warning('No JWT token available for sync', [
+                'business_id' => $businessId
+            ]);
+            return;
+        }
+
+        try {
+            app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
+            Log::info('Configurations synced after activation', [
+                'business_id' => $businessId
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to sync configurations after activation', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Dispatch SyncProductsJob after activation.
+     *
+     * @param int $businessId
+     * @return void
+     */
+    private function dispatchSyncProductsJob(int $businessId): void
+    {
+        try {
+            dispatch(new \Modules\EIS\Jobs\SyncProductsJob($businessId))
+                ->onQueue('eis-products');
+            
+            Log::info('SyncProductsJob dispatched successfully', [
+                'business_id' => $businessId,
+                'queue' => 'eis-products'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to dispatch SyncProductsJob', [
                 'business_id' => $businessId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
