@@ -118,7 +118,9 @@ class SaleTransformer
         return [
             'invoiceHeader' => [
                 'invoiceNumber' => (string) $eisInvoiceNumber,
-                'invoiceDateTime' => $this->formatFullDateTime($transaction),
+                'invoiceDateTime' => $transaction->transaction_date
+                    ? \Carbon\Carbon::parse($transaction->transaction_date)->toIso8601String()
+                    : now()->toIso8601String(),
                 'sellerTIN' => (string) ($settings->tpin ?? ''),
                 'buyerTIN' => (string) ($buyerInfo['tpin'] ?? ''),
                 'buyerName' => (string) ($buyerInfo['name'] ?? ''),
@@ -136,40 +138,6 @@ class SaleTransformer
             'invoiceSummary' => $invoiceSummary,
             'offlineSignatureData' => $offlineSignatureData,
         ];
-    }
-
-    /**
-     * Format full datetime for invoice.
-     *
-     * @param Transaction $transaction
-     * @return string
-     */
-    protected function formatFullDateTime(Transaction $transaction): string
-    {
-        try {
-            if ($transaction->transaction_date) {
-                // Parse the transaction date and format to ISO 8601 with full datetime
-                $date = $transaction->transaction_date;
-                
-                // If it's a string, parse it
-                if (is_string($date)) {
-                    $date = \Carbon\Carbon::parse($date);
-                }
-                
-                // Return full ISO 8601 datetime format with timezone
-                return $date->toIso8601String();
-            }
-            
-            // Fallback to current datetime
-            return now()->toIso8601String();
-            
-        } catch (\Exception $e) {
-            Log::warning('Failed to format transaction date', [
-                'transaction_id' => $transaction->id,
-                'error' => $e->getMessage()
-            ]);
-            return now()->toIso8601String();
-        }
     }
 
     /**
@@ -198,12 +166,9 @@ class SaleTransformer
             $terminalPosition = (int) ($parsedInvoice['terminal_position'] ?? 1);
             $transactionCount = (int) ($parsedInvoice['count'] ?? 1);
             
-            // Get formatted transaction date
-            $transactionDate = $this->formatFullDateTime($transaction);
-            
             // Prepare request data for signature
             $requestData = [
-                'transactiondate' => $transactionDate,
+                'transactiondate' => now()->toISOString(),
                 'transactionCount' => $transactionCount,
                 'NumItems' => $totalItems,
                 'InvoiceTotal' => (float) ($invoiceSummary['invoiceTotal'] ?? 0),
@@ -221,7 +186,6 @@ class SaleTransformer
             Log::debug('Offline signature generated for transaction', [
                 'transaction_id' => $transaction->id,
                 'invoice_number' => $eisInvoiceNumber,
-                'transaction_date' => $transactionDate,
                 'validation_url' => $result['validationURL'] ?? ''
             ]);
             
