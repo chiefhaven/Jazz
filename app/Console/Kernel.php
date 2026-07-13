@@ -5,6 +5,7 @@ namespace App\Console;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Jobs\SubmitSaleJob;
 use Modules\EIS\Jobs\SyncEISConfigurationJob;
 
 class Kernel extends ConsoleKernel
@@ -42,8 +43,20 @@ class Kernel extends ConsoleKernel
                 ->withoutOverlapping(300)
                 ->onFailure(function () {
                     Log::error('EIS Configuration Sync Job Scheduler Failure');
-                });              
-        }
+            });
+            
+             // Dispatch all unsubmitted sales every 15 minutes
+            $schedule->command('eis:dispatch-unsubmitted')
+                ->everyFifteenMinutes()
+                ->withoutOverlapping(300)
+                ->runInBackground();
+
+            // Retry failed transactions every hour
+            $schedule->command('eis:retry-failed-transactions')
+                ->hourly()
+                ->withoutOverlapping(300)
+                ->runInBackground();    
+                }
 
         if ($env === 'demo') {
             //IMPORTANT NOTE: This command will delete all business details and create dummy business, run only in demo server.

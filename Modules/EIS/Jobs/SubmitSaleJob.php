@@ -16,7 +16,7 @@ class SubmitSaleJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 5;
+    public int $tries = 3;
 
     public int $backoff = 60; // retry after 1 min
 
@@ -57,7 +57,7 @@ class SubmitSaleJob implements ShouldQueue
             ]);
 
             // IMPORTANT: rethrow so Laravel retry system kicks in
-            //throw $e;
+            throw $e;
         }
     }
 
