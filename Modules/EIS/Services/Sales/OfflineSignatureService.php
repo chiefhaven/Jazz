@@ -3,132 +3,12 @@
 namespace Modules\EIS\Services\Sales;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class OfflineSignatureService
 {
     /**
-     * Base64 character set for encoding.
-     */
-    protected const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-    /**
-     * Convert base10 number to Base64.
-     * 
-     * @param int|string $number
-     * @return string
-     */
-    public function base10ToBase64($number): string
-    {
-        // Ensure number is integer
-        $number = (int) $number;
-        
-        if ($number == 0) {
-            return 'A'; // 'A' represents 0 in standard Base64
-        }
-        
-        $result = '';
-        $base64Chars = self::BASE64_CHARS;
-        
-        while ($number > 0) {
-            $remainder = $number % 64;
-            $result = $base64Chars[$remainder] . $result;
-            $number = (int) ($number / 64);
-        }
-        
-        return $result;
-    }
-
-    /**
-     * Convert Base64 back to base10 number.
-     * 
-     * @param string $base64
-     * @return int
-     */
-    public function base64ToBase10(string $base64): int
-    {
-        $base64Chars = self::BASE64_CHARS;
-        $result = 0;
-        $length = strlen($base64);
-        
-        for ($i = 0; $i < $length; $i++) {
-            $char = $base64[$i];
-            $value = strpos($base64Chars, $char);
-            if ($value === false) {
-                return 0;
-            }
-            $result = ($result * 64) + $value;
-        }
-        
-        return $result;
-    }
-
-    /**
-     * Convert date to Julian Date (JD) number.
-     * 
-     * @param \DateTime|string $date
-     * @return int
-     */
-    public function toJulianDate($date): int
-    {
-        // Parse date if string
-        if (is_string($date)) {
-            $date = new \DateTime($date);
-        }
-        
-        // Ensure we only work with date part
-        $date = clone $date;
-        $date->setTime(0, 0, 0);
-        
-        $year = (int) $date->format('Y');
-        $month = (int) $date->format('m');
-        $day = (int) $date->format('d');
-        
-        // Adjust for Julian calendar
-        if ($month <= 2) {
-            $year -= 1;
-            $month += 12;
-        }
-        
-        $A = (int) ($year / 100);
-        $B = 2 - $A + (int) ($A / 4);
-        
-        // Calculate Julian Date
-        $JD = (int) (floor(365.25 * ($year + 4716)) 
-            + floor(30.6001 * ($month + 1)) 
-            + $day + $B - 1524);
-        
-        return $JD;
-    }
-
-    /**
-     * Generate combined string from components.
-     * Format: Base64(TaxpayerID) - Base64(Position) - Base64(JulianDate) - Base64(TransactionCount)
-     *
-     * @param int|string $taxpayerId
-     * @param int $position
-     * @param int $julianDate
-     * @param int $transactionCount
-     * @return string
-     */
-    public function generateCombinedString(
-        $taxpayerId,
-        int $position,
-        int $julianDate,
-        int $transactionCount
-    ): string {
-        $base64TaxpayerNumber = $this->base10ToBase64($taxpayerId);
-        $base64Position = $this->base10ToBase64($position);
-        $julianDateBase64 = $this->base10ToBase64($julianDate);
-        $serialNumberBase64 = $this->base10ToBase64($transactionCount);
-        
-        return $base64TaxpayerNumber . '-' . 
-               $base64Position . '-' . 
-               $julianDateBase64 . '-' . 
-               $serialNumberBase64;
-    }
-
-    /**
-     * Generate offline signature and validation URL.
+     * Generate offline data signature and validation URL.
      *
      * @param string $taxpayerId
      * @param int $position
@@ -143,14 +23,12 @@ class OfflineSignatureService
         string $secretKey
     ): array {
         try {
-            // Get transaction date
+            // Get julian date from transaction date
             $transactionDate = $request['transactiondate'] ?? now()->toISOString();
-            
-            // Convert to Julian Date
             $julianDate = $this->toJulianDate($transactionDate);
             
-            // Convert Julian Date to Base64
-            $julianDateTo64 = $this->base10ToBase64($julianDate);
+            // Convert julian date to Base64
+            $julianDateTo64 = $this->base10ToBase64((string)$julianDate);
             
             // Generate combined string
             $combinedString = $this->generateCombinedString(
@@ -178,8 +56,6 @@ class OfflineSignatureService
             $validationURL = $offlineBaseURL . "?" . $param . "&S=" . $offlineDataSignature;
             
             Log::debug('Offline signature generated', [
-                'taxpayer_id' => $taxpayerId,
-                'position' => $position,
                 'julian_date' => $julianDate,
                 'julian_date_64' => $julianDateTo64,
                 'combined_string' => $combinedString,
@@ -205,6 +81,72 @@ class OfflineSignatureService
             
             throw new \Exception('Failed to generate offline signature: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Convert date to Julian date format (YYDDD).
+     *
+     * @param string $dateString
+     * @return int
+     */
+    public function toJulianDate(string $dateString): int
+    {
+        $date = new \DateTime($dateString);
+        $year = (int) $date->format('y');
+        $dayOfYear = (int) $date->format('z') + 1;
+        
+        // Combine year and day of year
+        return (int) ($year . str_pad($dayOfYear, 3, '0', STR_PAD_LEFT));
+    }
+
+    /**
+     * Convert base10 number to base64.
+     *
+     * @param string $number
+     * @return string
+     */
+    public function base10ToBase64(string $number): string
+    {
+        // Convert to integer
+        $num = (int) $number;
+        
+        // If number is 0, return base64 of 0
+        if ($num === 0) {
+            return 'MA=='; // Base64 of '0'
+        }
+        
+        // Convert to base64
+        return $this->customBase64Encode((string)$num);
+    }
+
+    /**
+     * Custom base64 encoding for numbers.
+     *
+     * @param string $number
+     * @return string
+     */
+    private function customBase64Encode(string $number): string
+    {
+        return rtrim(strtr(base64_encode($number), '+/', '-_'), '=');
+    }
+
+    /**
+     * Generate combined string from components.
+     *
+     * @param string $taxpayerId
+     * @param int $position
+     * @param int $julianDate
+     * @param int $transactionCount
+     * @return string
+     */
+    public function generateCombinedString(
+        string $taxpayerId,
+        int $position,
+        int $julianDate,
+        int $transactionCount
+    ): string {
+        // Format: TAXPAYERID-POSITION-JULIANDATE-COUNT
+        return $taxpayerId . '-' . $position . '-' . $julianDate . '-' . $transactionCount;
     }
 
     /**
@@ -249,18 +191,57 @@ class OfflineSignatureService
     }
 
     /**
-     * Get Julian Date for a specific date (alternative method using date format).
+     * Generate full validation URL.
      *
-     * @param \DateTime $date
-     * @return int
+     * @param string $taxpayerId
+     * @param int $position
+     * @param array $request
+     * @param string $secretKey
+     * @param string $baseURL
+     * @return string
      */
-    public function getJulianDateSimple(\DateTime $date): int
+    public function generateValidationURL(
+        string $taxpayerId,
+        int $position,
+        array $request,
+        string $secretKey,
+        string $baseURL = 'https://dev-eis-portal.mra.mw/ReceiptValidation/Validate/'
+    ): string {
+        $result = $this->generateInvoiceResponse($taxpayerId, $position, $request, $secretKey);
+        return $result['validationURL'];
+    }
+
+    /**
+     * Generate receipt validation QR code data.
+     *
+     * @param string $validationURL
+     * @return string
+     */
+    public function generateQRCodeData(string $validationURL): string
     {
-        // Get last two digits of year
-        $year = (int) $date->format('y');
-        // Get day of year (001-366)
-        $dayOfYear = (int) $date->format('z') + 1;
+        // Base64 encode the validation URL for QR code
+        return base64_encode($validationURL);
+    }
+
+    /**
+     * Parse invoice components from combined string.
+     *
+     * @param string $combinedString
+     * @return array|null
+     */
+    public function parseCombinedString(string $combinedString): ?array
+    {
+        $parts = explode('-', $combinedString);
         
-        return (int) ($year . str_pad($dayOfYear, 3, '0', STR_PAD_LEFT));
+        if (count($parts) !== 4) {
+            return null;
+        }
+        
+        return [
+            'taxpayerId' => $parts[0],
+            'position' => (int) $parts[1],
+            'julianDate' => (int) $parts[2],
+            'transactionCount' => (int) $parts[3],
+        ];
     }
 }

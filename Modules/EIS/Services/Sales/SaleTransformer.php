@@ -92,9 +92,6 @@ class SaleTransformer
         // Get buyer information
         $buyerInfo = $this->getBuyerInfo($transaction);
 
-        // Get transaction date
-        $transactionDate = $this->getTransactionDate($transaction);
-
         // Build invoice summary
         $invoiceSummary = [
             'taxBreakDown' => array_values($taxBreakdown),
@@ -111,8 +108,7 @@ class SaleTransformer
             $transaction,
             $eisInvoiceNumber,
             $invoiceSummary,
-            $totalItems,
-            $transactionDate
+            $totalItems
         );
 
         // Add offline signature to summary
@@ -122,7 +118,9 @@ class SaleTransformer
         return [
             'invoiceHeader' => [
                 'invoiceNumber' => (string) $eisInvoiceNumber,
-                'invoiceDateTime' => $transactionDate->toIso8601String(),
+                'invoiceDateTime' => $transaction->transaction_date
+                    ? \Carbon\Carbon::parse($transaction->transaction_date)->toIso8601String()
+                    : now()->toIso8601String(),
                 'sellerTIN' => (string) ($settings->tpin ?? ''),
                 'buyerTIN' => (string) ($buyerInfo['tpin'] ?? ''),
                 'buyerName' => (string) ($buyerInfo['name'] ?? ''),
@@ -143,28 +141,6 @@ class SaleTransformer
     }
 
     /**
-     * Get transaction date.
-     *
-     * @param Transaction $transaction
-     * @return \Carbon\Carbon
-     */
-    protected function getTransactionDate(Transaction $transaction): \Carbon\Carbon
-    {
-        try {
-            if ($transaction->transaction_date) {
-                return \Carbon\Carbon::parse($transaction->transaction_date);
-            }
-            return now();
-        } catch (\Exception $e) {
-            Log::warning('Failed to parse transaction date', [
-                'transaction_id' => $transaction->id,
-                'error' => $e->getMessage()
-            ]);
-            return now();
-        }
-    }
-
-    /**
      * Generate offline signature data.
      *
      * @param EisSetting $settings
@@ -172,7 +148,6 @@ class SaleTransformer
      * @param string $eisInvoiceNumber
      * @param array $invoiceSummary
      * @param int $totalItems
-     * @param \Carbon\Carbon $transactionDate
      * @return array
      */
     protected function generateOfflineSignature(
@@ -180,8 +155,7 @@ class SaleTransformer
         Transaction $transaction,
         string $eisInvoiceNumber,
         array $invoiceSummary,
-        int $totalItems,
-        \Carbon\Carbon $transactionDate
+        int $totalItems
     ): array {
         try {
             // Parse invoice number to get components
@@ -194,7 +168,7 @@ class SaleTransformer
             
             // Prepare request data for signature
             $requestData = [
-                'transactiondate' => $transactionDate->toIso8601String(),
+                'transactiondate' =>now()->toISOString(),
                 'transactionCount' => $transactionCount,
                 'NumItems' => $totalItems,
                 'InvoiceTotal' => (float) ($invoiceSummary['invoiceTotal'] ?? 0),
@@ -212,7 +186,6 @@ class SaleTransformer
             Log::debug('Offline signature generated for transaction', [
                 'transaction_id' => $transaction->id,
                 'invoice_number' => $eisInvoiceNumber,
-                'transaction_date' => $transactionDate->toIso8601String(),
                 'validation_url' => $result['validationURL'] ?? ''
             ]);
             
