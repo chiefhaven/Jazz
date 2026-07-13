@@ -36,11 +36,13 @@ class InvoiceNumberGenerator
                 }
 
                 // Get configuration ID with terminal relationship
-                $configuration = EisConfiguration::with('terminalConfiguration')
-                    ->where('business_id', $businessId)
+                $configuration = EisConfiguration::
+                    where('business_id', $businessId)
                     ->first();
 
-                    Log::info('Terminal available: '.$configuration->terminalConfiguration);
+                $terminalConfiguration = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
+
+                    Log::info('Terminal available: '.$terminalConfiguration);
 
                 if (!$configuration) {
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
