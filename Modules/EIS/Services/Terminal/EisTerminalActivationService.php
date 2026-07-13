@@ -187,7 +187,7 @@ class EisTerminalActivationService
             $tpin = $data->configuration->taxpayerConfiguration->tin ?? null;
             $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId ?? null;
 
-            Log::info('Data',[$data]);
+            Log::info('Data',[$data->configuration]);
 
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
