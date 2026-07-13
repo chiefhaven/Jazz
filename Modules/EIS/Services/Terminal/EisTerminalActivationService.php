@@ -187,7 +187,7 @@ class EisTerminalActivationService
             $tpin = $data->configuration->taxpayerConfiguration->tin ?? null;
             $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId ?? null;
 
-            Log::info('Data',[$data->configuration]);
+            Log::info('Data',[$data->configuration->taxpayerConfiguration]);
 
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
@@ -208,7 +208,9 @@ class EisTerminalActivationService
                 Log::info('EIS settings updated after activation', [
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'has_secret_key' => !empty($secretKey)
+                    'has_secret_key' => !empty($secret_key),
+                    'tpin' => $tpin,
+                    'siteId' => $siteId,
                 ]);
             } else {
                 // Create new record if not exists
@@ -229,7 +231,9 @@ class EisTerminalActivationService
                 Log::info('EIS settings created after activation', [
                     'business_id' => $businessId,
                     'device_id' => $terminalId,
-                    'has_secret_key' => !empty($secretKey)
+                    'has_secret_key' => !empty($secretKey),
+                    'tpin' => $tpin,
+                    'siteId' => $siteId,
                 ]);
 
                 app(ConfigurationSyncService::class)->sync($businessId, $jwt_token);
