@@ -218,27 +218,10 @@ class EisTerminalActivationService
                     'tpin' => $tpin,
                     'site_id' => $siteId
                 ]);
-
-                // Sync configurations after activation
-                $this->syncAfterActivation($businessId, $jwtToken);
                 
                 // Dispatch SyncProductsJob
                 $this->dispatchSyncProductsJob($businessId);
 
-                // Sync configurations after activation
-                // if ($jwtToken) {
-                //     try {
-                //         app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
-                //         Log::info('Configurations synced after activation', [
-                //             'business_id' => $businessId
-                //         ]);
-                //     } catch (\Exception $e) {
-                //         Log::warning('Failed to sync configurations after activation', [
-                //             'business_id' => $businessId,
-                //             'error' => $e->getMessage()
-                //         ]);
-                //     }
-                // }
             } else {
                 // Create new record if not exists
                 $setting = EisSetting::create([
@@ -263,27 +246,9 @@ class EisTerminalActivationService
                     'tpin' => $tpin,
                     'site_id' => $siteId
                 ]);
-
-                // Sync configurations after activation
-                $this->syncAfterActivation($businessId, $jwtToken);
                 
                 // Dispatch SyncProductsJob
                 $this->dispatchSyncProductsJob($businessId);
-
-                // Sync configurations after activation
-                // if ($jwtToken) {
-                //     try {
-                //         app(ConfigurationSyncService::class)->sync($businessId, $jwtToken);
-                //         Log::info('Configurations synced after activation', [
-                //             'business_id' => $businessId
-                //         ]);
-                //     } catch (\Exception $e) {
-                //         Log::warning('Failed to sync configurations after activation', [
-                //             'business_id' => $businessId,
-                //             'error' => $e->getMessage()
-                //         ]);
-                //     }
-                // }
             }
         } catch (\Exception $e) {
             Log::error('Failed to update/create EIS settings', [
