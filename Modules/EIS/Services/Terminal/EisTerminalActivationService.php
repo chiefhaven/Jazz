@@ -176,16 +176,16 @@ class EisTerminalActivationService
      * @param EisTerminalConfiguration $terminal
      * @return void
      */
-    private function updateEisSettings($data, $businessId): void
+    private function updateEisSettings(object $data, string $businessId): void
     {
         try {
 
 
             $terminalId = $data->configuration->terminalId;
-            $secret_key = $data['activatedTerminal']['terminalCredentials']['secretKey'];
-            $jwt_token = $data['activatedTerminal']['terminalCredentials']['jwtToken'];
-            $tpin = $data['configuration']['taxpayerConfiguration']['tin'];
-            $siteId = $data['configuration']['terminalConfiguration']['terminalSite']['siteId'];
+            $secret_key = $data->activatedTerminal->terminalCredentials->secretKey ?? null;
+            $jwt_token = $data->activatedTerminal->terminalCredentials->jwtToken ?? null;
+            $tpin = $data->configuration->taxpayerConfiguration->tin ?? null;
+            $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId ?? null;
 
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
