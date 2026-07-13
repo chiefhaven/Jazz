@@ -176,7 +176,7 @@ class EisTerminalActivationService
      * @param EisTerminalConfiguration $terminal
      * @return void
      */
-    private function updateEisSettings(object $data, string $businessId): void
+    private function updateEisSettings(object $data, $businessId): void
     {
         try {
 
