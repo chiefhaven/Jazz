@@ -71,10 +71,11 @@ class ProductController extends Controller
         $selling_price_group_count = SellingPriceGroup::countSellingPriceGroups($business_id);
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
 
-        
-            dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
-            ->onQueue('eis-products');
-        
+        try {
+            dispatch_sync(new \Modules\EIS\Jobs\SyncProductsJob($business_id));
+        } catch (\Exception $e) {
+            Log::error('EIS SyncProductsJob failed: ' . $e->getMessage());
+        } 
 
         if (request()->ajax()) {
             //Filter by location
