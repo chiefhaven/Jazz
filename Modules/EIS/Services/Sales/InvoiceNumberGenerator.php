@@ -57,8 +57,8 @@ class InvoiceNumberGenerator
                     ->count() + 1;
 
                 // Get components
-                $taxpayerId = $terminal->taxpayer_id ?? null;
-                $terminalPos = $terminal->terminal_position ?? $terminalPosition ?? 1;
+                $taxpayerId = $terminal->taxpayer_id;
+                $terminalPos = $terminal->terminal_position;
                 $julianDate = $this->getJulianDate(now());
                 
                 // Encode each component to Base64
