@@ -9,6 +9,7 @@ use Modules\EIS\Console\Commands\SyncEisConfiguration;
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
 use Modules\EIS\Services\Configuration\EisConfigurationClient;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
+use Modules\EIS\Services\Sales\OfflineSignatureService;
 use Modules\EIS\Services\Terminal\EisTerminalActivationService;
 
 class EISServiceProvider extends ServiceProvider
@@ -93,6 +94,10 @@ class EISServiceProvider extends ServiceProvider
             return new EisTerminalActivationService(
                 $app->make(ConfigurationSyncService::class)
             );
+        });
+
+        $this->app->singleton(OfflineSignatureService::class, function ($app) {
+            return new OfflineSignatureService();
         });
 
     }

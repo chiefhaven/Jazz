@@ -11,7 +11,8 @@ use Modules\EIS\Models\EisTaxRate;
 class SaleTransformer
 {
     public function __construct(
-        protected EisTaxRate $taxRateModel
+        protected EisTaxRate $taxRateModel,
+        protected OfflineSignatureService $signatureService
     ) {}
 
     /**
@@ -24,7 +25,7 @@ class SaleTransformer
      */
     public function transform(Transaction $transaction, EisSetting $settings, string $eisInvoiceNumber): array
     {
-        // Load relationships - remove 'tax' if it doesn't exist
+        // Load relationships
         $transaction->loadMissing([
             'business',
             'location',
@@ -39,6 +40,7 @@ class SaleTransformer
         $taxBreakdown = [];
         $totalVat = 0;
         $subtotal = 0;
+        $totalItems = 0;
 
         foreach ($transaction->sell_lines as $index => $line) {
             // Get tax rate ID from EIS tax rates
@@ -51,6 +53,7 @@ class SaleTransformer
             $discount = (float) ($line->line_discount_amount ?? 0);
             $lineTotal = $unitPrice * $quantity;
             $subtotal += $lineTotal;
+            $totalItems += $quantity;
 
             // Get product details
             $productCode = $this->getProductCode($line);
@@ -89,6 +92,29 @@ class SaleTransformer
         // Get buyer information
         $buyerInfo = $this->getBuyerInfo($transaction);
 
+        // Build invoice summary
+        $invoiceSummary = [
+            'taxBreakDown' => array_values($taxBreakdown),
+            'levyBreakDown' => [],
+            'totalVAT' => (float) $totalVat,
+            'offlineSignature' => '',
+            'invoiceTotal' => (float) ($transaction->final_total ?? $transaction->total ?? 0),
+            'amountTendered' => (float) ($transaction->final_total ?? $transaction->total ?? 0),
+        ];
+
+        // Generate offline signature
+        $offlineSignatureData = $this->generateOfflineSignature(
+            $settings,
+            $transaction,
+            $eisInvoiceNumber,
+            $invoiceSummary,
+            $totalItems
+        );
+
+        // Add offline signature to summary
+        $invoiceSummary['offlineSignature'] = $offlineSignatureData['offlineDataSignature'] ?? '';
+        $invoiceSummary['validationURL'] = $offlineSignatureData['validationURL'] ?? '';
+
         return [
             'invoiceHeader' => [
                 'invoiceNumber' => (string) $eisInvoiceNumber,
@@ -109,14 +135,105 @@ class SaleTransformer
                 'paymentMethod' => strtoupper($transaction->payment_method ?? 'CASH'),
             ],
             'invoiceLineItems' => $invoiceItems,
-            'invoiceSummary' => [
-                'taxBreakDown' => array_values($taxBreakdown),
-                'levyBreakDown' => [],
-                'totalVAT' => (float) $totalVat,
-                'offlineSignature' => '',
-                'invoiceTotal' => (float) ($transaction->final_total ?? $transaction->total ?? 0),
-                'amountTendered' => (float) ($transaction->final_total ?? $transaction->total ?? 0),
-            ],
+            'invoiceSummary' => $invoiceSummary,
+            'offlineSignatureData' => $offlineSignatureData,
+        ];
+    }
+
+    /**
+     * Generate offline signature data.
+     *
+     * @param EisSetting $settings
+     * @param Transaction $transaction
+     * @param string $eisInvoiceNumber
+     * @param array $invoiceSummary
+     * @param int $totalItems
+     * @return array
+     */
+    protected function generateOfflineSignature(
+        EisSetting $settings,
+        Transaction $transaction,
+        string $eisInvoiceNumber,
+        array $invoiceSummary,
+        int $totalItems
+    ): array {
+        try {
+            // Parse invoice number to get components
+            $parsedInvoice = $this->parseInvoiceNumber($eisInvoiceNumber);
+            
+            // Get taxpayer ID and terminal position
+            $taxpayerId = $settings->tpin ?? '000000';
+            $terminalPosition = (int) ($parsedInvoice['terminal_position'] ?? 1);
+            $transactionCount = (int) ($parsedInvoice['count'] ?? 1);
+            
+            // Prepare request data for signature
+            $requestData = [
+                'transactiondate' => $transaction->transaction_date 
+                    ? $transaction->transaction_date->toISOString() 
+                    : now()->toISOString(),
+                'transactionCount' => $transactionCount,
+                'NumItems' => $totalItems,
+                'InvoiceTotal' => (float) ($invoiceSummary['invoiceTotal'] ?? 0),
+                'VATAmount' => (float) ($invoiceSummary['totalVAT'] ?? 0),
+            ];
+            
+            // Generate offline signature
+            $result = $this->signatureService->generateInvoiceResponse(
+                $taxpayerId,
+                $terminalPosition,
+                $requestData,
+                $settings->secret_key ?? ''
+            );
+            
+            Log::debug('Offline signature generated for transaction', [
+                'transaction_id' => $transaction->id,
+                'invoice_number' => $eisInvoiceNumber,
+                'validation_url' => $result['validationURL'] ?? ''
+            ]);
+            
+            return $result;
+            
+        } catch (\Exception $e) {
+            Log::warning('Failed to generate offline signature', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'offlineDataSignature' => '',
+                'validationURL' => '',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Parse invoice number.
+     *
+     * @param string $invoiceNumber
+     * @return array
+     */
+    protected function parseInvoiceNumber(string $invoiceNumber): array
+    {
+        try {
+            $generator = app(InvoiceNumberGenerator::class);
+            $parsed = $generator->parseInvoiceNumber($invoiceNumber);
+            
+            if ($parsed) {
+                return $parsed;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to parse invoice number', [
+                'invoice_number' => $invoiceNumber,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        return [
+            'taxpayer_id' => '',
+            'terminal_position' => 1,
+            'julian_date' => '',
+            'count' => 1,
         ];
     }
 
