@@ -184,7 +184,7 @@ class EisTerminalActivationService
 
             $businessId = $terminal->configuration->business_id;
 
-            Log::info($terminal);
+            Log::info('Terminal config: '. $terminal->secret_key);
             
             // Find or create eis_setting record
             $setting = EisSetting::where('business_id', $businessId)->first();
