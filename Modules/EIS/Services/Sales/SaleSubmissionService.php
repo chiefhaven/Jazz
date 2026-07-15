@@ -106,7 +106,6 @@ class SaleSubmissionService
             ]);
 
             $eisSale->update([
-                'offline_signature' => $offlineSignature,
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
