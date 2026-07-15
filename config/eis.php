@@ -9,6 +9,8 @@ return [
     */
     'base_url' => env('EIS_BASE_URL', 'https://eis-api.mra.mw'),
 
+    'system_user_id' => env('EIS_SYSTEM_USER_ID', 1),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication
