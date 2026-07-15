@@ -5,6 +5,7 @@ namespace Modules\EIS\Services\Product;
 use Modules\EIS\Models\EisProductMap;
 use App\Product;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProductUpsertService
 {
@@ -24,11 +25,13 @@ class ProductUpsertService
             if ($map?->trashed()) {
                 $map->restore();
                 $map->refresh();
+                Log::info('Map Eis');
             }
 
             $product = null;
 
             if ($map) {
+                Log::info('Map Products');
                 $product = Product::withTrashed()
                     ->with(['variations.variation_location_details'])
                     ->find($map->product_id);
