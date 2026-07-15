@@ -159,7 +159,7 @@ class ProductUpsertService {
             );
 
             if ($unitId) {
-                $product->unit_id = $unitId;
+                $product->unit_id = $unitId ?? 1;
             }
 
             /*
