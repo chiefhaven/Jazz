@@ -64,6 +64,7 @@ class ProductSyncService
             }
 
             if (!($response['has_more'] ?? false)) {
+                Log::info($response);
                 break;
             }
 
