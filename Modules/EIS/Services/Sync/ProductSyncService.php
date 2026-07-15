@@ -27,7 +27,7 @@ class ProductSyncService
 
             Log::info('EIS product page fetched', [
                 'page' => $page,
-                'count' => count($items),
+                'count' => $response
             ]);
 
             if (empty($items)) {
@@ -64,7 +64,6 @@ class ProductSyncService
             }
 
             if (!($response['has_more'] ?? false)) {
-                Log::info($response);
                 break;
             }
 
