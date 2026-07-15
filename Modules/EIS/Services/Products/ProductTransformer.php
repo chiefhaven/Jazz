@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\EIS\Services\Product;
+namespace Modules\EIS\Services\Products;
 
 class ProductTransformer
 {
