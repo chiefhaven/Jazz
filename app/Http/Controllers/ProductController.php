@@ -67,6 +67,7 @@ class ProductController extends Controller
         if (! auth()->user()->can('product.view') && ! auth()->user()->can('product.create')) {
             abort(403, 'Unauthorized action.');
         }
+        
         $business_id = request()->session()->get('user.business_id');
         $selling_price_group_count = SellingPriceGroup::countSellingPriceGroups($business_id);
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
@@ -76,7 +77,7 @@ class ProductController extends Controller
                 ->onQueue('eis-products');
         } catch (\Exception $e) {
             Log::error('EIS SyncProductsJob failed: ' . $e->getMessage());
-        } 
+        }
 
         if (request()->ajax()) {
             //Filter by location
