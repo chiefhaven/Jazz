@@ -11,7 +11,7 @@ class EisProductClient
         return Http::baseUrl(config('eis.base_url'))
             ->withToken($settings->jwt_token)
             ->post('/utilities/get-terminal-site-products', [
-                'tpin'    => $settings->tpin,
+                'tin'    => $settings->tpin,
                 'siteId' => $settings->site_id ?? $settings->branch_id,
                 'page'   => $page,
             ])
