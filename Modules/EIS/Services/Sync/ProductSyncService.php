@@ -3,9 +3,9 @@
 namespace Modules\EIS\Services\Sync;
 
 use Illuminate\Support\Facades\Log;
-use Modules\EIS\Services\Product\EisProductClient;
-use Modules\EIS\Services\Product\ProductTransformer;
-use Modules\EIS\Services\Product\ProductUpsertService;
+use Modules\EIS\Services\Products\EisProductClient;
+use Modules\EIS\Services\Products\ProductTransformer;
+use Modules\EIS\Services\Products\ProductUpsertService;
 
 class ProductSyncService
 {
