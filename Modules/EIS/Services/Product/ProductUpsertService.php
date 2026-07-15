@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\EIS\Services\Product;
+namespace Modules\EIS\Services\Products;
 
 use App\Product;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +68,10 @@ class ProductUpsertService
                         'product_id' => $product->id
                     ]);
                 }
-            } else {
+            }
+
+            // If no product found from map, try to find by SKU
+            if (!$product) {
                 // Look for an existing product by SKU, including deleted ones
                 if (!empty($item['sku'])) {
                     $product = Product::withTrashed()
@@ -82,8 +85,6 @@ class ProductUpsertService
                         'sku' => $item['sku'],
                         'found' => !empty($product)
                     ]);
-                } else {
-                    $product = null;
                 }
 
                 if ($product) {
@@ -114,17 +115,21 @@ class ProductUpsertService
                         'eis_product_id' => $eisId,
                         'product_id' => $product->id
                     ]);
-                } else {
-                    $product = new Product();
-                    Log::debug('Creating new product', [
-                        'business_id' => $businessId,
-                        'eis_product_id' => $eisId
-                    ]);
                 }
             }
 
+            // If still no product found, create a new one
+            if (!$product) {
+                $product = new Product();
+                Log::debug('Creating new product', [
+                    'business_id' => $businessId,
+                    'eis_product_id' => $eisId,
+                    'product_name' => $item['name'] ?? 'Unknown'
+                ]);
+            }
+
             // -----------------------
-            // PRODUCT
+            // PRODUCT (Now $product is guaranteed to exist)
             // -----------------------
             $isNew = !$product->exists;
 
@@ -241,69 +246,80 @@ class ProductUpsertService
             );
 
             if (!$locationId) {
-                $errorMessage = "Business location not found for EIS siteId: " . ($item['site_id'] ?? 'NULL');
-                Log::error($errorMessage, [
+                // Try to get default location
+                $locationId = $this->getDefaultLocation($businessId);
+                
+                if (!$locationId) {
+                    $errorMessage = "Business location not found for EIS siteId: " . ($item['site_id'] ?? 'NULL');
+                    Log::error($errorMessage, [
+                        'business_id' => $businessId,
+                        'site_id' => $item['site_id'] ?? null
+                    ]);
+                    throw new \Exception($errorMessage);
+                }
+                
+                Log::warning('Using default location', [
                     'business_id' => $businessId,
+                    'location_id' => $locationId,
                     'site_id' => $item['site_id'] ?? null
                 ]);
-                throw new \Exception($errorMessage);
             }
 
             // -----------------------
-    // PRODUCT LOCATION
-    // -----------------------
-    DB::table('product_locations')->updateOrInsert(
-        [
-            'product_id' => $product->id,
-            'location_id' => $locationId,
-        ],
-        [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]
-    );
+            // PRODUCT LOCATION
+            // -----------------------
+            DB::table('product_locations')->updateOrInsert(
+                [
+                    'product_id' => $product->id,
+                    'location_id' => $locationId,
+                ],
+                [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
 
-    // -----------------------
-    // VARIATION LOCATION DETAILS
-    // -----------------------
-    DB::table('variation_location_details')->updateOrInsert(
-        [
-            'variation_id' => $variation->id,
-            'location_id' => $locationId,
-        ],
-        [
-            'qty_available' => $item['stock'] ?? 0,
-            'product_id' => $product->id,
-            'product_variation_id' => $productVariationId,
-            'updated_at' => now(),
-            'created_at' => now(),
-        ]
-    );
+            // -----------------------
+            // VARIATION LOCATION DETAILS
+            // -----------------------
+            DB::table('variation_location_details')->updateOrInsert(
+                [
+                    'variation_id' => $variation->id,
+                    'location_id' => $locationId,
+                ],
+                [
+                    'qty_available' => $item['stock'] ?? 0,
+                    'product_id' => $product->id,
+                    'product_variation_id' => $productVariationId,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
 
-    // -----------------------
-    // EIS PRODUCT MAP
-    // -----------------------
-    EisProductMap::updateOrCreate(
-        [
-            'business_id' => $businessId,
-            'eis_product_id' => $eisId,
-        ],
-        [
-            'product_id' => $product->id,
-            'sku' => $item['sku'] ?? null,
-            'last_synced_at' => now(),
-        ]
-    );
+            // -----------------------
+            // EIS PRODUCT MAP
+            // -----------------------
+            EisProductMap::updateOrCreate(
+                [
+                    'business_id' => $businessId,
+                    'eis_product_id' => $eisId,
+                ],
+                [
+                    'product_id' => $product->id,
+                    'sku' => $item['sku'] ?? null,
+                    'last_synced_at' => now(),
+                ]
+            );
 
-    Log::info('Product upsert completed successfully', [
-        'business_id' => $businessId,
-        'product_id' => $product->id,
-        'eis_product_id' => $eisId,
-        'sku' => $product->sku
-    ]);
+            Log::info('Product upsert completed successfully', [
+                'business_id' => $businessId,
+                'product_id' => $product->id,
+                'eis_product_id' => $eisId,
+                'sku' => $product->sku
+            ]);
 
-    return $product;
-});
+            return $product;
+        });
     }
 
     /**
@@ -368,6 +384,20 @@ class ProductUpsertService
     }
 
     /**
+     * Get default location for business.
+     *
+     * @param int $businessId
+     * @return int|null
+     */
+    private function getDefaultLocation(int $businessId): ?int
+    {
+        return DB::table('business_locations')
+            ->where('business_id', $businessId)
+            ->where('is_default', 1)
+            ->value('id');
+    }
+
+    /**
      * Get unit ID from unit name.
      *
      * @param int $businessId
@@ -387,5 +417,26 @@ class ProductUpsertService
                     ->orWhere('actual_name', $unitName);
             })
             ->value('id');
+    }
+
+    /**
+     * Validate required fields.
+     *
+     * @param array $item
+     * @return array
+     */
+    private function validateItem(array $item): array
+    {
+        $errors = [];
+
+        if (empty($item['name'])) {
+            $errors[] = 'Product name is required';
+        }
+
+        if (empty($item['sku'])) {
+            $errors[] = 'Product SKU is required';
+        }
+
+        return $errors;
     }
 }
