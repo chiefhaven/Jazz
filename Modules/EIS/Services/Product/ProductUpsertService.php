@@ -10,6 +10,7 @@ class ProductUpsertService
 {
     public function upsert(int $businessId, array $item, string $eisId)
     {
+        \Log::info('Products Upsert');
         return DB::transaction(function () use ($businessId, $item, $eisId) {
 
             // -----------------------
