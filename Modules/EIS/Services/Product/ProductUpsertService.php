@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\EIS\Services\Products;
+namespace Modules\EIS\Services\Product;
 
 use App\Product;
 use Illuminate\Support\Facades\DB;
