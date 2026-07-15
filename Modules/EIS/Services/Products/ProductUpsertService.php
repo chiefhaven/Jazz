@@ -3,11 +3,13 @@
 namespace Modules\EIS\Services\Products;
 
 use App\Product;
+use App\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisProductMap;
 
-class ProductUpsertService {
+class ProductUpsertService
+{
     /**
      * Sync EIS product into UltimatePOS.
      */
@@ -108,7 +110,7 @@ class ProductUpsertService {
 
             /*
             |--------------------------------------------------------------------------
-            | CREATENEW PRODUCT
+            | CREATE NEW PRODUCT
             |--------------------------------------------------------------------------
             */
             if (!$product) {
@@ -134,8 +136,9 @@ class ProductUpsertService {
 
             if ($isNew) {
                 $product->type = $item['type'] ?? 'single';
-                $product->created_by = config('eis.system_user_id', 1);
+                $product->created_by = $this->getSystemUserId($businessId);
                 $product->enable_stock = false;
+                $product->expiry_period_type = null;
             }
 
             /*
@@ -159,7 +162,7 @@ class ProductUpsertService {
             );
 
             if ($unitId) {
-                $product->unit_id = $unitId ?? 1;
+                $product->unit_id = $unitId;
             }
 
             /*
@@ -179,7 +182,7 @@ class ProductUpsertService {
 
             /*
             |--------------------------------------------------------------------------
-            | CREATEPDATE EIS MAP
+            | CREATE / UPDATE EIS MAP
             |--------------------------------------------------------------------------
             */
             $this->saveProductMap(
@@ -204,6 +207,46 @@ class ProductUpsertService {
                 $item
             );
         });
+    }
+
+    /**
+     * Get system user ID for the business.
+     *
+     * @param int $businessId
+     * @return int
+     */
+    private function getSystemUserId(int $businessId): int
+    {
+        // Try to get the first admin user for this business
+        $userId = DB::table('user_business')
+            ->where('business_id', $businessId)
+            ->where('is_admin', 1)
+            ->value('user_id');
+
+        if (!$userId) {
+            // Fallback to the first user
+            $userId = DB::table('user_business')
+                ->where('business_id', $businessId)
+                ->value('user_id');
+        }
+
+        if (!$userId) {
+            // Fallback to any user with business access
+            $userId = DB::table('user_business')
+                ->value('user_id');
+        }
+
+        // Final fallback to system user ID from config
+        if (!$userId) {
+            $userId = config('eis.system_user_id', 1);
+        }
+
+        Log::debug('System user ID resolved', [
+            'business_id' => $businessId,
+            'user_id' => $userId
+        ]);
+
+        return (int) $userId;
     }
 
     /**
@@ -317,7 +360,7 @@ class ProductUpsertService {
 
         /*
         |--------------------------------------------------------------------------
-        | UPDATEPRICES
+        | UPDATE PRICES
         |--------------------------------------------------------------------------
         */
         $sellPrice = (float) ($item['price'] ?? 0);
@@ -342,9 +385,25 @@ class ProductUpsertService {
         );
 
         if (!$locationId) {
-            throw new \Exception(
-                'EIS location not mapped: ' . ($item['site_id'] ?? 'NULL')
-            );
+            // Try to get default location
+            $locationId = $this->getDefaultLocation($businessId);
+            
+            if (!$locationId) {
+                Log::error('No location found for product', [
+                    'business_id' => $businessId,
+                    'product_id' => $product->id,
+                    'site_id' => $item['site_id'] ?? null
+                ]);
+                throw new \Exception(
+                    'EIS location not mapped: ' . ($item['site_id'] ?? 'NULL')
+                );
+            }
+            
+            Log::warning('Using default location for product', [
+                'business_id' => $businessId,
+                'product_id' => $product->id,
+                'location_id' => $locationId
+            ]);
         }
 
         /*
@@ -356,6 +415,10 @@ class ProductUpsertService {
             [
                 'product_id' => $product->id,
                 'location_id' => $locationId,
+            ],
+            [
+                'created_at' => now(),
+                'updated_at' => now(),
             ]
         );
 
@@ -374,6 +437,7 @@ class ProductUpsertService {
                 'product_variation_id' => $productVariationId,
                 'qty_available' => $item['stock'] ?? 0,
                 'updated_at' => now(),
+                'created_at' => now(),
             ]
         );
 
@@ -427,6 +491,20 @@ class ProductUpsertService {
         ]);
 
         return $locationId;
+    }
+
+    /**
+     * Get default location for business.
+     *
+     * @param int $businessId
+     * @return int|null
+     */
+    private function getDefaultLocation(int $businessId): ?int
+    {
+        return DB::table('business_locations')
+            ->where('business_id', $businessId)
+            ->where('is_default', 1)
+            ->value('id');
     }
 
     /**
