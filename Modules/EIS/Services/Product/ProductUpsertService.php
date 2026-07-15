@@ -349,14 +349,14 @@ class ProductUpsertService
     private function getSystemUserId(int $businessId): int
     {
         // Try to get the first admin user for this business
-        $userId = DB::table('user_business')
+        $userId = DB::table('users')
             ->where('business_id', $businessId)
             ->where('is_admin', 1)
             ->value('user_id');
 
         if (!$userId) {
             // Fallback to the first user
-            $userId = DB::table('user_business')
+            $userId = DB::table('users')
                 ->where('business_id', $businessId)
                 ->value('user_id');
         }
