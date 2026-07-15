@@ -135,7 +135,7 @@ class ProductUpsertService {
             if ($isNew) {
                 $product->type = $item['type'] ?? 'single';
                 $product->created_by = config('eis.system_user_id', 1);
-                $product->enable_stock = $item['isProduct'];
+                $product->enable_stock = false;
             }
 
             /*
@@ -179,7 +179,7 @@ class ProductUpsertService {
 
             /*
             |--------------------------------------------------------------------------
-            | CREATE / UPDATE EIS MAP
+            | CREATEPDATE EIS MAP
             |--------------------------------------------------------------------------
             */
             $this->saveProductMap(
@@ -372,7 +372,7 @@ class ProductUpsertService {
             [
                 'product_id' => $product->id,
                 'product_variation_id' => $productVariationId,
-                'qty_available' => $item['quantity'] ?? 0,
+                'qty_available' => $item['stock'] ?? 0,
                 'updated_at' => now(),
             ]
         );
@@ -381,7 +381,7 @@ class ProductUpsertService {
             'product_id' => $product->id,
             'variation_id' => $variation->id,
             'location_id' => $locationId,
-            'stock' => $item['quantity'] ?? 0,
+            'stock' => $item['stock'] ?? 0,
         ]);
 
         return $product;
