@@ -2,575 +2,814 @@
 
 namespace Modules\EIS\Services\Products;
 
-use Modules\EIS\Models\EisProductMap;
 use App\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisProductMap;
 
 class ProductUpsertService
 {
     /**
-     * Upsert a product from EIS data.
-     *
-     * @param int $businessId
-     * @param array $item
-     * @param string $eisId
-     * @return Product
-     * @throws \Exception
+     * Sync EIS product into UltimatePOS.
      */
-    public function upsert(int $businessId, array $item, string $eisId)
-    {
-        Log::info('ProductUpsertService started', [
-            'business_id' => $businessId,
-            'eis_product_id' => $eisId,
-            'product_sku' => $item['sku'] ?? null,
-            'product_name' => $item['name'] ?? null
-        ]);
+    public function upsert(
+        int $businessId,
+        array $item,
+        string $eisId
+    ): Product {
 
-        return DB::transaction(function () use ($businessId, $item, $eisId) {
-            Log::debug('Transaction started for product upsert', [
+        return DB::transaction(function () use (
+            $businessId,
+            $item,
+            $eisId
+        ) {
+
+            Log::info('EIS product sync started', [
                 'business_id' => $businessId,
-                'eis_product_id' => $eisId
+                'eis_product_id' => $eisId,
+                'sku' => $item['sku'] ?? null,
             ]);
 
-            // -----------------------
-            // MAP CHECK
-            // -----------------------
-            Log::debug('Checking for existing EIS product map', [
-                'business_id' => $businessId,
-                'eis_product_id' => $eisId
-            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | FIND EXISTING EIS MAP
+            |--------------------------------------------------------------------------
+            */
 
             $map = EisProductMap::withTrashed()
                 ->where('business_id', $businessId)
                 ->where('eis_product_id', $eisId)
                 ->first();
 
-            if ($map?->trashed()) {
-                Log::info('Restoring soft-deleted EIS product map', [
-                    'business_id' => $businessId,
-                    'eis_product_id' => $eisId,
-                    'product_id' => $map->product_id,
-                    'deleted_at' => $map->deleted_at
-                ]);
-
-                $map->restore();
-                $map->refresh();
-
-                Log::info('EIS product map restored successfully', [
-                    'business_id' => $businessId,
-                    'eis_product_id' => $eisId,
-                    'product_id' => $map->product_id
-                ]);
-            }
 
             $product = null;
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESTORE EXISTING MAP
+            |--------------------------------------------------------------------------
+            */
+
             if ($map) {
-                Log::info('Found existing EIS product map', [
-                    'business_id' => $businessId,
-                    'eis_product_id' => $eisId,
-                    'product_id' => $map->product_id
-                ]);
+
+                if ($map->trashed()) {
+
+                    Log::info('Restoring deleted EIS map', [
+                        'map_id' => $map->id,
+                        'eis_product_id' => $eisId,
+                    ]);
+
+                    $map->restore();
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | LOAD PRODUCT FROM MAP
+                |--------------------------------------------------------------------------
+                */
 
                 $product = Product::withTrashed()
-                    ->with(['variations.variation_location_details'])
-                    ->find($map->product_id);
+                    ->where('id', $map->product_id)
+                    ->first();
 
-                if ($product?->trashed()) {
-                    Log::info('Product is soft-deleted, restoring', [
-                        'business_id' => $businessId,
-                        'product_id' => $product->id,
-                        'deleted_at' => $product->deleted_at
-                    ]);
 
-                    $product->restore();
-                    $product->refresh();
+                /*
+                |--------------------------------------------------------------------------
+                | PRODUCT WAS PERMANENTLY DELETED
+                |--------------------------------------------------------------------------
+                */
 
-                    $product->load([
-                        'variations.variation_location_details'
-                    ]);
+                if (!$product) {
 
-                    Log::info('Product restored successfully', [
-                        'business_id' => $businessId,
-                        'product_id' => $product->id
-                    ]);
-                }
-
-                Log::debug('Product found from map', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id ?? null,
-                    'product_name' => $product->name ?? null,
-                    'product_sku' => $product->sku ?? null
-                ]);
-            } else {
-                Log::debug('No EIS product map found, searching by SKU', [
-                    'business_id' => $businessId,
-                    'sku' => $item['sku'] ?? null
-                ]);
-
-                // Look for an existing product by SKU, including deleted ones
-                if (!empty($item['sku'])) {
-                    $product = Product::withTrashed()
-                        ->with(['variations.variation_location_details'])
-                        ->where('business_id', $businessId)
-                        ->where('sku', $item['sku'])
-                        ->first();
-
-                    Log::debug('Product search by SKU completed', [
-                        'business_id' => $businessId,
-                        'sku' => $item['sku'],
-                        'found' => !empty($product)
-                    ]);
-                } else {
-                    Log::debug('No SKU provided, skipping SKU search');
-                    $product = null;
-                }
-
-                if ($product) {
-                    Log::info('Found existing product by SKU', [
-                        'business_id' => $businessId,
-                        'product_id' => $product->id,
-                        'sku' => $product->sku,
-                        'is_trashed' => $product->trashed()
-                    ]);
-
-                    if ($product->trashed()) {
-                        Log::info('Product is soft-deleted, restoring', [
-                            'business_id' => $businessId,
-                            'product_id' => $product->id,
-                            'deleted_at' => $product->deleted_at
-                        ]);
-
-                        $product->restore();
-                        $product->refresh();
-
-                        Log::info('Product restored successfully', [
-                            'business_id' => $businessId,
-                            'product_id' => $product->id
-                        ]);
-                    }
-
-                    Log::info('Creating EIS product map for existing product', [
-                        'business_id' => $businessId,
-                        'eis_product_id' => $eisId,
-                        'product_id' => $product->id
-                    ]);
-
-                    EisProductMap::updateOrCreate(
+                    Log::warning(
+                        'Mapped product missing, creating new product',
                         [
-                            'business_id' => $businessId,
+                            'old_product_id' => $map->product_id,
                             'eis_product_id' => $eisId,
-                        ],
-                        [
-                            'product_id' => $product->id,
-                            'sku' => $product->sku,
-                            'last_synced_at' => now(),
                         ]
                     );
 
-                    Log::info('EIS product map created successfully', [
-                        'business_id' => $businessId,
-                        'eis_product_id' => $eisId,
-                        'product_id' => $product->id
-                    ]);
-                } else {
-                    Log::info('No existing product found, creating new product', [
-                        'business_id' => $businessId,
-                        'eis_product_id' => $eisId,
-                        'product_name' => $item['name'] ?? 'Unknown',
-                        'product_sku' => $item['sku'] ?? 'Unknown'
-                    ]);
-
                     $product = new Product();
+                }
 
-                    Log::debug('New Product instance created', [
-                        'business_id' => $businessId,
-                        'eis_product_id' => $eisId
+
+                /*
+                |--------------------------------------------------------------------------
+                | RESTORE SOFT DELETED PRODUCT
+                |--------------------------------------------------------------------------
+                */
+
+                if ($product->exists && $product->trashed()) {
+
+                    Log::info('Restoring deleted product', [
+                        'product_id' => $product->id,
                     ]);
+
+                    $product->restore();
                 }
             }
 
-            // -----------------------
-            // PRODUCT
-            // -----------------------
+
+            /*
+            |--------------------------------------------------------------------------
+            | FIND PRODUCT BY SKU
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$product || !$product->exists) {
+
+                $sku = $item['sku'] ?? null;
+
+
+                if ($sku) {
+
+                    $product = Product::withTrashed()
+                        ->where('business_id', $businessId)
+                        ->where('sku', $sku)
+                        ->first();
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | CREATE NEW PRODUCT
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$product) {
+
+                Log::info('Creating new product', [
+                    'eis_product_id' => $eisId,
+                    'sku' => $item['sku'] ?? null,
+                ]);
+
+                $product = new Product();
+            }
+
+
+            if ($product->trashed()) {
+
+                $product->restore();
+            }
+
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | PRODUCT DATA
+            |--------------------------------------------------------------------------
+            */
+
             $isNew = !$product->exists;
 
-            Log::info('Processing product data', [
-                'business_id' => $businessId,
-                'product_id' => $product->id ?? 'new',
-                'is_new' => $isNew,
-                'product_name' => $item['name'] ?? null,
-                'product_sku' => $item['sku'] ?? null
-            ]);
 
             $product->business_id = $businessId;
 
-            // Only set these fields when creating a new product
-            if ($isNew) {
-                Log::debug('Setting default values for new product', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id ?? 'new'
-                });
 
-                $product->type = 'single';
-                $product->created_by = 10000000;
+            if ($isNew) {
+
+                $product->type = $item['type'] ?? 'single';
+
+                /*
+                 * Configure this in config/eis.php
+                 */
+                $product->created_by =
+                    config('eis.system_user_id', 1);
+
+
                 $product->enable_stock = false;
-                $product->expiry_period_type = null;
             }
 
-            // Update only EIS-controlled fields
-            $product->name = $item['name'] ?? $product->name;
-            $product->sku = $item['sku'] ?? $product->sku;
+
+            /*
+            |--------------------------------------------------------------------------
+            | EIS CONTROLLED FIELDS
+            |--------------------------------------------------------------------------
+            */
+
+            $product->name =
+                $item['name']
+                ?? $product->name
+                ?? 'Unnamed Product';
+
+
+            $product->sku =
+                $item['sku']
+                ?? $product->sku
+                ?? 'EIS-' . $eisId;
+
+
             $product->eis_product_id = $eisId;
+
             $product->eis_last_synced_at = now();
 
-            Log::debug('Product fields set', [
-                'business_id' => $businessId,
-                'product_id' => $product->id ?? 'new',
-                'name' => $product->name,
-                'sku' => $product->sku,
-                'eis_product_id' => $product->eis_product_id
-            ]);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | UNIT MAPPING
+            |--------------------------------------------------------------------------
+            */
 
             $unitId = $this->getUnitId(
                 $businessId,
-                $item['unit_of_measure'] ?? null
+                $item['unit_of_measure']
+                    ?? $item['unit']
+                    ?? null
             );
 
+
             if ($unitId) {
-                Log::debug('Unit found for product', [
-                    'business_id' => $businessId,
-                    'unit_id' => $unitId,
-                    'unit_name' => $item['unit_of_measure']
-                ]);
+
                 $product->unit_id = $unitId;
-            } else {
-                Log::debug('No unit found for product', [
-                    'business_id' => $businessId,
-                    'unit_name' => $item['unit_of_measure'] ?? null
-                ]);
             }
 
-            $product->expiry_period = $item['expiry_period'] ?? $product->expiry_period;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | EXPIRY
+            |--------------------------------------------------------------------------
+            */
+
+            $product->expiry_period =
+                $item['expiry_period']
+                ?? $product->expiry_period;
+
+
 
             $product->save();
 
-            Log::info('Product saved successfully', [
-                'business_id' => $businessId,
+
+
+            Log::info('Product saved', [
                 'product_id' => $product->id,
-                'is_new' => $isNew,
-                'name' => $product->name,
-                'sku' => $product->sku
+                'sku' => $product->sku,
+                'new' => $isNew,
             ]);
 
-            // -----------------------
-            // PRODUCT VARIATION
-            // -----------------------
-            Log::debug('Checking for product variation', [
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | CREATE / UPDATE EIS MAP
+            |--------------------------------------------------------------------------
+            */
+
+            $this->saveProductMap(
+                $businessId,
+                $eisId,
+                $product,
+                $item['sku'] ?? null
+            );
+
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | CONTINUE WITH:
+            | - Product variation
+            | - Variation
+            | - Location
+            | - Stock
+            |--------------------------------------------------------------------------
+            */
+
+            return $this->syncVariationAndLocation(
+                $businessId,
+                $product,
+                $item
+            );
+
+        });
+    }    /**
+     * Save EIS product mapping safely.
+     */
+    private function saveProductMap(
+        int $businessId,
+        string $eisId,
+        Product $product,
+        ?string $sku
+    ): void {
+
+        $map = EisProductMap::withTrashed()
+            ->where('business_id', $businessId)
+            ->where('eis_product_id', $eisId)
+            ->first();
+
+
+        if ($map) {
+
+            if ($map->trashed()) {
+                $map->restore();
+            }
+
+
+            $map->update([
+                'product_id' => $product->id,
+                'sku' => $sku,
+                'last_synced_at' => now(),
+            ]);
+
+        } else {
+
+            EisProductMap::create([
                 'business_id' => $businessId,
-                'product_id' => $product->id
+                'eis_product_id' => $eisId,
+                'product_id' => $product->id,
+                'sku' => $sku,
+                'last_synced_at' => now(),
             ]);
+        }
+    }
 
-            $productVariationId = DB::table('product_variations')
+
+
+    /**
+     * Sync variation and stock details.
+     */
+    private function syncVariationAndLocation(
+        int $businessId,
+        Product $product,
+        array $item
+    ): Product {
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRODUCT VARIATION
+        |--------------------------------------------------------------------------
+        */
+
+        $productVariationId =
+            DB::table('product_variations')
                 ->where('product_id', $product->id)
+                ->lockForUpdate()
                 ->value('id');
 
-            if (!$productVariationId) {
-                Log::info('Creating product variation', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id,
-                    'product_name' => $product->name
-                ]);
 
-                $productVariationId = DB::table('product_variations')
+
+        if (!$productVariationId) {
+
+
+            $productVariationId =
+                DB::table('product_variations')
                     ->insertGetId([
+
                         'variation_template_id' => null,
+
                         'product_id' => $product->id,
+
                         'name' => $product->name,
+
                         'is_dummy' => 1,
+
                         'created_at' => now(),
+
                         'updated_at' => now(),
+
                     ]);
 
-                Log::info('Product variation created', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id,
-                    'product_variation_id' => $productVariationId
-                ]);
-            } else {
-                Log::debug('Product variation found', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id,
-                    'product_variation_id' => $productVariationId
-                ]);
-            }
 
-            // -----------------------
-            // VARIATION
-            // -----------------------
-            Log::debug('Checking for variation', [
-                'business_id' => $businessId,
-                'product_id' => $product->id,
-                'product_variation_id' => $productVariationId
-            ]);
+            Log::info(
+                'Product variation created',
+                [
+                    'product_id'=>$product->id,
+                    'variation_id'=>$productVariationId
+                ]
+            );
+        }
 
-            $variation = $product->variations()
-                ->where('product_variation_id', $productVariationId)
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | VARIATION
+        |--------------------------------------------------------------------------
+        */
+
+        $variation =
+            $product->variations()
+                ->where(
+                    'product_variation_id',
+                    $productVariationId
+                )
                 ->first();
 
-            if (!$variation) {
-                Log::info('Creating variation', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id,
-                    'product_variation_id' => $productVariationId
+
+
+        if (!$variation) {
+
+
+            $variation =
+                $product->variations()->create([
+
+                    'product_variation_id'
+                        => $productVariationId,
+
+
+                    'name'
+                        => $product->name,
+
+
+                    'default_sell_price'
+                        => 0,
+
+
+                    'default_purchase_price'
+                        => 0,
+
+
+                    'sell_price_inc_tax'
+                        => 0,
+
+
+                    'profit_percent'
+                        => 0,
+
                 ]);
 
-                $variation = $product->variations()->create([
-                    'product_variation_id' => $productVariationId,
-                    'name' => $product->name,
-                    'default_sell_price' => 0,
-                    'default_purchase_price' => 0,
-                    'sell_price_inc_tax' => 0,
-                    'profit_percent' => 0,
-                ]);
 
-                Log::info('Variation created', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id,
-                    'variation_id' => $variation->id
-                ]);
-            } else {
-                Log::debug('Variation found', [
-                    'business_id' => $businessId,
-                    'product_id' => $product->id,
-                    'variation_id' => $variation->id
-                ]);
-            }
-
-            $profitPercent = $this->profit($item);
-
-            Log::debug('Updating variation with pricing data', [
-                'business_id' => $businessId,
-                'variation_id' => $variation->id,
-                'price' => $item['price'] ?? 0,
-                'cost' => $item['cost'] ?? 0,
-                'profit_percent' => $profitPercent,
-                'sub_sku' => $item['sku'] ?? null
-            ]);
-
-            $variation->update([
-                'default_sell_price' => $item['price'] ?? 0,
-                'default_purchase_price' => $item['cost'] ?? 0,
-                'sell_price_inc_tax' => $item['price'] ?? 0,
-                'sub_sku' => $item['sku'] ?? null,
-                'profit_percent' => $profitPercent,
-                'product_variation_id' => $productVariationId,
-            ]);
-
-            Log::info('Variation updated successfully', [
-                'business_id' => $businessId,
-                'variation_id' => $variation->id,
-                'price' => $item['price'] ?? 0,
-                'cost' => $item['cost'] ?? 0
-            ]);
-
-            // -----------------------
-            // LOCATION (FROM EIS SITE ID)
-            // -----------------------
-            Log::debug('Looking for location from EIS site ID', [
-                'business_id' => $businessId,
-                'site_id' => $item['site_id'] ?? null
-            ]);
-
-            $locationId = $this->getLocationFromSite(
-                $businessId,
-                $item['site_id'] ?? null
-            );
-
-            if (!$locationId) {
-                Log::error('Business location not found for EIS siteId', [
-                    'business_id' => $businessId,
-                    'site_id' => $item['site_id'] ?? 'NULL'
-                ]);
-
-                throw new \Exception(
-                    "Business location not found for EIS siteId: " . ($item['site_id'] ?? 'NULL')
-                );
-            }
-
-            Log::debug('Location found', [
-                'business_id' => $businessId,
-                'location_id' => $locationId,
-                'site_id' => $item['site_id'] ?? null
-            ]);
-
-            // -----------------------
-            // PRODUCT LOCATION
-            // -----------------------
-            Log::debug('Updating product location', [
-                'business_id' => $businessId,
-                'product_id' => $product->id,
-                'location_id' => $locationId
-            ]);
-
-            DB::table('product_locations')->updateOrInsert(
+            Log::info(
+                'Variation created',
                 [
-                    'product_id' => $product->id,
-                    'location_id' => $locationId,
+                    'variation_id'=>$variation->id
                 ]
             );
+        }
 
-            Log::debug('Product location updated', [
-                'business_id' => $businessId,
-                'product_id' => $product->id,
-                'location_id' => $locationId
-            ]);
 
-            // -----------------------
-            // VARIATION LOCATION DETAILS
-            // -----------------------
-            Log::debug('Updating variation location details', [
-                'business_id' => $businessId,
-                'variation_id' => $variation->id,
-                'location_id' => $locationId,
-                'qty_available' => $item['stock'] ?? 0
-            ]);
 
-            DB::table('variation_location_details')->updateOrInsert(
-                [
-                    'variation_id' => $variation->id,
-                    'location_id' => $locationId,
-                ],
-                [
-                    'qty_available' => $item['stock'] ?? 0,
-                    'product_id' => $product->id,
-                    'product_variation_id' => $productVariationId,
-                    'updated_at' => now(),
-                    'created_at' => now(),
-                ]
-            );
 
-            Log::debug('Variation location details updated', [
-                'business_id' => $businessId,
-                'variation_id' => $variation->id,
-                'location_id' => $locationId,
-                'qty_available' => $item['stock'] ?? 0
-            ]);
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE PRICES
+        |--------------------------------------------------------------------------
+        */
 
-            // -----------------------
-            // EIS PRODUCT MAP
-            // -----------------------
-            Log::debug('Updating EIS product map', [
-                'business_id' => $businessId,
-                'eis_product_id' => $eisId,
-                'product_id' => $product->id,
-                'sku' => $item['sku'] ?? null
-            ]);
+        $sellPrice =
+            (float)($item['price'] ?? 0);
 
-            EisProductMap::updateOrCreate(
-                [
-                    'business_id' => $businessId,
-                    'eis_product_id' => $eisId,
-                ],
-                [
-                    'product_id' => $product->id,
-                    'sku' => $item['sku'] ?? null,
-                    'last_synced_at' => now(),
-                ]
-            );
 
-            Log::info('EIS product map updated successfully', [
-                'business_id' => $businessId,
-                'eis_product_id' => $eisId,
-                'product_id' => $product->id
-            ]);
+        $cost =
+            (float)($item['cost'] ?? 0);
 
-            Log::info('Product upsert completed successfully', [
-                'business_id' => $businessId,
-                'product_id' => $product->id,
-                'eis_product_id' => $eisId,
-                'sku' => $product->sku,
-                'name' => $product->name
-            ]);
 
-            return $product;
-        });
-    }
 
-    // -----------------------
-    // PROFIT
-    // -----------------------
-    private function profit(array $item): float
-    {
-        $price = $item['price'] ?? 0;
-        $cost  = $item['cost'] ?? 0;
+        $variation->update([
 
-        $profitPercent = $price > 0
-            ? (($price - $cost) / $price) * 100
-            : 0;
+            'default_sell_price'
+                => $sellPrice,
 
-        Log::debug('Profit calculated', [
-            'price' => $price,
-            'cost' => $cost,
-            'profit_percent' => $profitPercent
+
+            'default_purchase_price'
+                => $cost,
+
+
+            'sell_price_inc_tax'
+                => $sellPrice,
+
+
+            'sub_sku'
+                => $item['sku']
+                    ?? $product->sku,
+
+
+            'profit_percent'
+                => $this->profit(
+                    $sellPrice,
+                    $cost
+                ),
+
         ]);
 
-        return $profitPercent;
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOCATION FROM EIS SITE ID
+        |--------------------------------------------------------------------------
+        */
+
+        $locationId =
+            $this->getLocationFromSite(
+
+                $businessId,
+
+                $item['site_id']
+                    ?? null
+
+            );
+
+
+
+        if (!$locationId) {
+
+            throw new \Exception(
+                'EIS location not mapped: '
+                .($item['site_id'] ?? 'NULL')
+            );
+        }
+
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRODUCT LOCATION
+        |--------------------------------------------------------------------------
+        */
+
+        DB::table('product_locations')
+            ->updateOrInsert(
+
+                [
+
+                    'product_id'
+                        => $product->id,
+
+
+                    'location_id'
+                        => $locationId,
+
+                ],
+
+                [
+
+                    'created_at'
+                        => now(),
+
+                    'updated_at'
+                        => now(),
+
+                ]
+            );
+
+
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STOCK LOCATION
+        |--------------------------------------------------------------------------
+        */
+
+        DB::table('variation_location_details')
+            ->updateOrInsert(
+
+                [
+
+                    'variation_id'
+                        => $variation->id,
+
+
+                    'location_id'
+                        => $locationId,
+
+                ],
+
+
+                [
+
+                    'product_id'
+                        => $product->id,
+
+
+                    'product_variation_id'
+                        => $productVariationId,
+
+
+                    /*
+                     * EIS is inventory master
+                     */
+                    'qty_available'
+                        => $item['stock'] ?? 0,
+
+
+                    'updated_at'
+                        => now(),
+
+                ]
+            );
+
+
+
+        Log::info(
+            'Product inventory synced',
+            [
+
+                'product_id'
+                    => $product->id,
+
+
+                'variation_id'
+                    => $variation->id,
+
+
+                'location_id'
+                    => $locationId,
+
+
+                'stock'
+                    => $item['stock'] ?? 0,
+
+            ]
+        );
+
+
+
+        return $product;
     }
 
-    // -----------------------
-    // LOCATION LOOKUP
-    // -----------------------
-    private function getLocationFromSite(int $businessId, ?string $siteId): ?int
-    {
+
+
+
+
+    /**
+     * Calculate profit margin.
+     */
+    private function profit(
+        float $price,
+        float $cost
+    ): float {
+
+
+        if ($cost <= 0) {
+            return 0;
+        }
+
+
+        return round(
+            (($price - $cost) / $cost) * 100,
+            2
+        );
+    }    /**
+     * Get POS location using EIS site ID.
+     */
+    private function getLocationFromSite(
+        int $businessId,
+        ?string $siteId
+    ): ?int {
+
+
         if (empty($siteId)) {
-            Log::debug('Empty site ID provided for location lookup', [
-                'business_id' => $businessId
-            ]);
+
+            Log::warning(
+                'Missing EIS site id',
+                [
+                    'business_id'=>$businessId
+                ]
+            );
+
             return null;
         }
 
-        $locationId = DB::table('business_locations')
-            ->where('business_id', $businessId)
-            ->where('eis_site_id', $siteId)
-            ->value('id');
 
-        Log::debug('Location lookup result', [
-            'business_id' => $businessId,
-            'site_id' => $siteId,
-            'location_id' => $locationId
-        ]);
+
+        $locationId =
+            DB::table('business_locations')
+                ->where('business_id', $businessId)
+                ->where('eis_site_id', $siteId)
+                ->value('id');
+
+
+
+        Log::debug(
+            'EIS location lookup',
+            [
+                'business_id'=>$businessId,
+                'site_id'=>$siteId,
+                'location_id'=>$locationId
+            ]
+        );
+
+
 
         return $locationId;
     }
 
-    // -----------------------
-    // UNIT OF MEASURE LOOKUP
-    // -----------------------
-    private function getUnitId(int $businessId, ?string $unitName): ?int
-    {
+
+
+
+    /**
+     * Find product unit.
+     *
+     * Matches:
+     * - short_name
+     * - actual_name
+     *
+     * Case insensitive.
+     */
+    private function getUnitId(
+        int $businessId,
+        ?string $unitName
+    ): ?int {
+
+
         if (empty($unitName)) {
-            Log::debug('Empty unit name provided for unit lookup', [
-                'business_id' => $businessId
-            ]);
+
             return null;
         }
 
-        $unitId = DB::table('units')
-            ->where('business_id', $businessId)
-            ->where(function ($q) use ($unitName) {
-                $q->where('short_name', $unitName)
-                ->orWhere('actual_name', $unitName);
-            })
-            ->value('id');
 
-        Log::debug('Unit lookup result', [
-            'business_id' => $businessId,
-            'unit_name' => $unitName,
-            'unit_id' => $unitId
-        ]);
+
+        $unitName =
+            strtolower(trim($unitName));
+
+
+
+        $unitId =
+            DB::table('units')
+                ->where('business_id',$businessId)
+                ->where(function($query) use ($unitName){
+
+
+                    $query
+                        ->whereRaw(
+                            'LOWER(short_name)=?',
+                            [
+                                $unitName
+                            ]
+                        )
+                        ->orWhereRaw(
+                            'LOWER(actual_name)=?',
+                            [
+                                $unitName
+                            ]
+                        );
+
+                })
+                ->value('id');
+
+
+
+        Log::debug(
+            'EIS unit lookup',
+            [
+
+                'business_id'=>$businessId,
+
+                'unit'=>$unitName,
+
+                'unit_id'=>$unitId,
+
+            ]
+        );
+
+
 
         return $unitId;
     }
+
+
+
+
+    /**
+     * Validate required EIS product fields.
+     */
+    private function validateProduct(
+        array $item
+    ): void {
+
+
+        if (empty($item['name'])) {
+
+            throw new \Exception(
+                'EIS product name is required'
+            );
+        }
+
+
+        if (empty($item['sku'])) {
+
+            Log::warning(
+                'EIS product has no SKU',
+                [
+                    'name'=>$item['name']
+                ]
+            );
+        }
+    }
+
+
+
+
+    /**
+     * Generate fallback SKU.
+     */
+    private function generateSku(
+        string $eisId
+    ): string {
+
+
+        return 'EIS-' . strtoupper($eisId);
+    }
+
 }
