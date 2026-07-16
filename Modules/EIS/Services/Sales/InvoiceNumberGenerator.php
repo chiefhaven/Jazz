@@ -139,6 +139,8 @@ class InvoiceNumberGenerator
                     ->whereDate('created_at', now()->toDateString())
                     ->count() + 1;
 
+                    Log::info('Configuratons: ',[$configuration]);
+
                 // Get components
                 $taxpayerId = $configuration->terminalConfiguration->taxpayer_id ?? '000000';
                 
