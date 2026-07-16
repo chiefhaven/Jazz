@@ -132,6 +132,7 @@ class SaleSubmissionService
         try {
             // Get terminal position from transaction or settings
             $terminalPosition =  $this->getTerminalPosition($transaction->business_id) ?? null;
+            $taxpayerId =  $this->getTaxpayerId($transaction->business_id) ?? null;
 
             if(!$terminalPosition){
                 Log::warning('Terminal position not available');
@@ -140,7 +141,8 @@ class SaleSubmissionService
             // Generate invoice number
             $invoiceNumber = $this->invoiceGenerator->generateInvoiceNumber(
                 $transaction->business_id,
-                $terminalPosition
+                $terminalPosition,
+                $taxpayerId
             );
 
             Log::debug('EIS invoice number generated', [
@@ -199,6 +201,45 @@ class SaleSubmissionService
         }
 
         return (int) ($terminal->terminal_position ?? 1);
+    }
+
+    /**
+     * Get terminal position from terminal configuration.
+     *
+     * @param int $businessId
+     * @return int
+     */
+    protected function getTaxpayerId(int $businessId): int
+    {
+        $eisConfiguration = \Modules\EIS\Models\EisConfiguration::where('business_id', $businessId)
+            ->oldest('id')
+            ->first();
+
+        if (!$eisConfiguration) {
+            Log::warning('EIS configuration not found', [
+                'business_id' => $businessId,
+            ]);
+
+            return 1;
+        }
+
+        $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where(
+                'configuration_id',
+                $eisConfiguration->id
+            )
+            ->oldest('id')
+            ->first();
+
+        if (!$terminal) {
+            Log::warning('Terminal configuration not found', [
+                'business_id' => $businessId,
+                'configuration_id' => $eisConfiguration->id,
+            ]);
+
+            return 1;
+        }
+
+        return (int) ($terminal->taxpayer_id ?? 1);
     }
 
     /**
