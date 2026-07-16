@@ -107,7 +107,7 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return string
      */
-    public function generateInvoiceNumber(int $businessId, ?int $terminalPosition = null, int $taxpayerId): string
+    public function generateInvoiceNumber(int $businessId, ?int $terminalPosition, ?int $taxpayerId): string
     {
         try {
             Log::info('Generating EIS invoice number', [
@@ -115,7 +115,7 @@ class InvoiceNumberGenerator
                 'terminal_position' => $terminalPosition
             ]);
 
-            return DB::transaction(function () use ($businessId, $terminalPosition) {
+            return DB::transaction(function () use ($businessId, $terminalPosition, $taxpayerId) {
                 // Get EIS settings
                 $setting = EisSetting::where('business_id', $businessId)->first();
                 if (!$setting) {
