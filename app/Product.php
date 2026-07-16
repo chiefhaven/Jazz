@@ -17,6 +17,10 @@ class Product extends Model
 
     protected $appends = ['image_url'];
 
+    protected $fillable = [
+        'product_description'
+    ];
+
     /**
      * The attributes that should be cast to native types.
      *
