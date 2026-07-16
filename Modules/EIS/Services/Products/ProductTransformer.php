@@ -366,7 +366,7 @@ class ProductTransformer
         return [
             'productCode' => $product['sku'] ?? null,
             'productName' => $product['name'] ?? null,
-            'productDescription' => $product['description'] ?? null,
+            'productDescription' => $product['product_description'] ?? null,
             'price' => (float) ($product['price'] ?? 0),
             'cost' => (float) ($product['cost'] ?? 0),
             'quantity' => (float) ($product['stock'] ?? 0),
