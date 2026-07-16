@@ -132,7 +132,7 @@ class SaleSubmissionService
         try {
             // Get terminal position from transaction or settings
             $terminalPosition =  $this->getTerminalPosition($transaction->business_id) ?? null;
-            $taxpayerId =  $this->getTaxpayerId($transaction->business_id) ?? null;
+            $taxpayerId =  $this->getTaxpayerId($transaction->business_id);
 
             if(!$terminalPosition){
                 Log::warning('Terminal position not available');
