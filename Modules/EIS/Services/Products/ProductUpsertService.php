@@ -135,7 +135,7 @@ class ProductUpsertService {
             if ($isNew) {
                 $product->type = $item['type'] ?? 'single';
                 $product->created_by = config('eis.system_user_id', 1);
-                $product->enable_stock = false;
+                $product->enable_stock = $item['isProduct'];
             }
 
             /*
