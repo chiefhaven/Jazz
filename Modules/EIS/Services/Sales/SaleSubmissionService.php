@@ -131,9 +131,11 @@ class SaleSubmissionService
     {
         try {
             // Get terminal position from transaction or settings
-            $terminalPosition = $transaction->terminal_position ?? 
-                               $setting->terminal_position ?? 
-                               $this->getTerminalPosition($transaction->business_id);
+            $terminalPosition =  $this->getTerminalPosition($transaction->business_id) ?? null;
+
+            if(!$terminalPosition){
+                Log::warning('Terminal position not available');
+            }
 
             // Generate invoice number
             $invoiceNumber = $this->invoiceGenerator->generateInvoiceNumber(
@@ -168,19 +170,35 @@ class SaleSubmissionService
      */
     protected function getTerminalPosition(int $businessId): int
     {
-        try {
-            $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where('configuration_id', $businessId)
-                ->orderBy('id')
-                ->first();
+        $eisConfiguration = \Modules\EIS\Models\EisConfiguration::where('business_id', $businessId)
+            ->oldest('id')
+            ->first();
 
-            return $terminal->terminal_position ?? 1;
-        } catch (\Exception $e) {
-            Log::warning('Failed to get terminal position, using default', [
+        if (!$eisConfiguration) {
+            Log::warning('EIS configuration not found', [
                 'business_id' => $businessId,
-                'error' => $e->getMessage()
             ]);
+
             return 1;
         }
+
+        $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where(
+                'configuration_id',
+                $eisConfiguration->id
+            )
+            ->oldest('id')
+            ->first();
+
+        if (!$terminal) {
+            Log::warning('Terminal configuration not found', [
+                'business_id' => $businessId,
+                'configuration_id' => $eisConfiguration->id,
+            ]);
+
+            return 1;
+        }
+
+        return (int) ($terminal->terminal_position ?? 1);
     }
 
     /**
