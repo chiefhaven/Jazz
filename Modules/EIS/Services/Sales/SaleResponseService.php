@@ -9,10 +9,16 @@ use Modules\EIS\Models\EisSale;
 class SaleResponseService
 {
     /**
-     * Handle successful EIS response
+     * Handle EIS response
      */
     public function handle(Transaction $transaction, array $response): void
     {
+        Log::debug('Processing EIS sale response', [
+            'transaction_id' => $transaction->id,
+            'status_code' => $response['statusCode'] ?? null,
+            'remark' => $response['remark'] ?? null,
+        ]);
+
         $eisSale = EisSale::where('transaction_id', $transaction->id)->first();
 
         if (!$eisSale) {
@@ -22,10 +28,16 @@ class SaleResponseService
             return;
         }
 
-        // -------------------------
-        // NORMALIZED RESPONSE
-        // -------------------------
-        $normalized = $this->normalize($response);
+        // Check if response indicates success
+        if (!$this->isSuccessfulResponse($response)) {
+            $this->handleErrorResponse($transaction, $eisSale, $response);
+            return;
+        }
+
+        // Extract data from response
+        $data = $response['data'] ?? [];
+        $validationUrl = $data['validationURL'] ?? null;
+        $receiptNumber = $this->extractReceiptFromUrl($validationUrl);
 
         // -------------------------
         // UPDATE EIS TRACKING
@@ -33,11 +45,9 @@ class SaleResponseService
         $eisSale->update([
             'status' => 'completed',
             'response_payload' => $response,
-
-            'fiscal_invoice_number' => $normalized['fiscal_invoice_number'],
-            'receipt_number' => $normalized['receipt_number'],
-            'receipt_signature' => $normalized['signature'],
-            'qr_code' => $normalized['qr_code'],
+            'fiscal_invoice_number' => $receiptNumber,
+            'receipt_number' => $receiptNumber,
+            'qr_code' => $validationUrl,
             'submitted_at' => now(),
         ]);
 
@@ -46,8 +56,8 @@ class SaleResponseService
         // -------------------------
         $transaction->update([
             'is_fiscalized' => 1,
-            'fiscal_invoice_number' => $normalized['fiscal_invoice_number'],
-            'receipt_number' => $normalized['receipt_number'],
+            'fiscal_invoice_number' => $receiptNumber,
+            'receipt_number' => $receiptNumber,
         ]);
 
         // -------------------------
@@ -55,31 +65,101 @@ class SaleResponseService
         // -------------------------
         Log::info('EIS sale completed successfully', [
             'transaction_id' => $transaction->id,
-            'fiscal_invoice_number' => $normalized['fiscal_invoice_number'],
+            'receipt_number' => $receiptNumber,
+            'validation_url' => $validationUrl,
         ]);
     }
 
     /**
-     * Normalize EIS response structure
+     * Handle error response
      */
-    private function normalize(array $response): array
+    private function handleErrorResponse(Transaction $transaction, EisSale $eisSale, array $response): void
     {
-        return [
-            'fiscal_invoice_number' => $response['fiscalInvoiceNumber']
-                ?? $response['invoiceNumber']
-                ?? null,
+        $errorMessage = $response['remark'] ?? 'Unknown error';
+        
+        // Check for validation errors
+        $validationErrors = $response['data']['validationErrors'] ?? null;
+        if ($validationErrors) {
+            if (is_array($validationErrors)) {
+                $errorMessage .= ': ' . implode(', ', $validationErrors);
+            } else {
+                $errorMessage .= ': ' . $validationErrors;
+            }
+        }
 
-            'receipt_number' => $response['receiptNumber']
-                ?? $response['receiptNo']
-                ?? null,
+        $eisSale->update([
+            'status' => 'failed',
+            'response_payload' => $response,
+            'error_message' => $errorMessage,
+            'submitted_at' => now(),
+        ]);
 
-            'signature' => $response['signature']
-                ?? $response['offlineSignature']
-                ?? null,
+        Log::error('EIS sale failed', [
+            'transaction_id' => $transaction->id,
+            'status_code' => $response['statusCode'] ?? null,
+            'error' => $errorMessage,
+        ]);
+    }
 
-            'qr_code' => $response['qrCode']
-                ?? $response['qr']
-                ?? null,
-        ];
+    /**
+     * Check if response indicates success
+     */
+    private function isSuccessfulResponse(array $response): bool
+    {
+        return ($response['statusCode'] ?? null) === 1;
+    }
+
+    /**
+     * Extract receipt number from validation URL
+     */
+    private function extractReceiptFromUrl(?string $url): ?string
+    {
+        if (!$url) {
+            return null;
+        }
+
+        // Parse URL to extract query parameters
+        parse_str(parse_url($url, PHP_URL_QUERY) ?? '', $params);
+        
+        // Extract 'vc' parameter from URL
+        return $params['vc'] ?? null;
+    }
+
+    /**
+     * Get validation URL from response
+     */
+    public function getValidationUrl(array $response): ?string
+    {
+        return $response['data']['validationURL'] ?? null;
+    }
+
+    /**
+     * Check if response requires terminal block
+     */
+    public function shouldBlockTerminal(array $response): bool
+    {
+        return (bool) ($response['data']['shouldBlockTerminal'] ?? false);
+    }
+
+    /**
+     * Check if response requires config download
+     */
+    public function shouldDownloadConfig(array $response): bool
+    {
+        return (bool) ($response['data']['shouldDownloadLatestConfig'] ?? false);
+    }
+
+    /**
+     * Get validation errors from response
+     */
+    public function getValidationErrors(array $response): ?array
+    {
+        $errors = $response['data']['validationErrors'] ?? null;
+        
+        if ($errors === null) {
+            return null;
+        }
+
+        return is_array($errors) ? $errors : [$errors];
     }
 }
