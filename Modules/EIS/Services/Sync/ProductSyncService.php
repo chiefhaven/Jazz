@@ -47,7 +47,7 @@ class ProductSyncService
                 }
 
                 try {
-                    $data = $this->transformer->fromEis($item);
+                    $data = $this->transformer->fromEis($item, $eisId);
 
                     $this->upserter->upsert(
                         $businessId,
