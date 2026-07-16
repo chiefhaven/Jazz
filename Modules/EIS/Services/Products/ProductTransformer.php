@@ -37,7 +37,6 @@ class ProductTransformer
             'brand' => $this->extractBrand($item),
             'tax_rate_id' => $this->extractTaxRateId($item),
             'is_active' => $this->extractIsActive($item),
-            'sku' => $this->extractSku($item, $eisId),
         ];
 
         Log::debug('Product transformation completed', [
