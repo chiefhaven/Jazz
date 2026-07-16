@@ -131,21 +131,8 @@ class InvoiceNumberGenerator
                     throw new \Exception('EIS configuration not found for business: ' . $businessId);
                 }
 
-                // Get terminal configuration
-                $terminal = $configuration->terminalConfiguration;
-
-                if (!$terminal) {
-                    Log::warning('Terminal configuration not found, using defaults', [
-                        'business_id' => $businessId,
-                        'configuration_id' => $configuration->id
-                    ]);
-
-                    $terminalPosition = $terminalPosition ?? $setting->terminal_position ?? 1;
-                    $terminal = $this->createDefaultTerminal($configuration, $terminalPosition);
-                }
-
                 // Get terminal position
-                $terminalPos = $terminal->terminal_position ?? $terminalPosition ?? 1;
+                $terminalPos = $terminalPosition ?? 1;
 
                 // Get count for today
                 $count = EisSale::where('business_id', $businessId)
@@ -153,7 +140,7 @@ class InvoiceNumberGenerator
                     ->count() + 1;
 
                 // Get components
-                $taxpayerId = $setting->tpin ?? '000000';
+                $taxpayerId = $configuration->terminalConfiguration->taxpayer_id ?? '000000';
                 
                 // Use full astronomical Julian Date
                 $julianDate = $this->toJulianDate(now());
