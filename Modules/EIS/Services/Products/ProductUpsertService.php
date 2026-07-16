@@ -144,7 +144,7 @@ class ProductUpsertService {
             |--------------------------------------------------------------------------
             */
             $product->name = $item['productName'] ?? $product->name ?? 'Unnamed Product';
-            $product->product_description = $item['productDescription'] ?? $product->description;
+            $product->product_description =  $product->description ?? $item['productDescription'];
             $product->sku = $item['sku'] ?? $product->sku ?? 'EIS-' . $eisId;
             $product->eis_product_id = $eisId;
             $product->eis_last_synced_at = now();
