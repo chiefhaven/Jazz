@@ -107,7 +107,7 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return string
      */
-    public function generateInvoiceNumber(int $businessId, ?int $terminalPosition = null): string
+    public function generateInvoiceNumber(int $businessId, ?int $terminalPosition = null, int $taxpayerId): string
     {
         try {
             Log::info('Generating EIS invoice number', [
@@ -140,9 +140,6 @@ class InvoiceNumberGenerator
                     ->count() + 1;
 
                     Log::info('Configuratons: ',[$configuration]);
-
-                // Get components
-                $taxpayerId = $configuration->terminalConfiguration->taxpayer_id ?? '000000';
                 
                 // Use full astronomical Julian Date
                 $julianDate = $this->toJulianDate(now());
