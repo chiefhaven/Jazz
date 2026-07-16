@@ -28,6 +28,8 @@ use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\ProductsCreatedOrModified;
 use App\TransactionSellLine;
+use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisProductMap;
 
 class ProductController extends Controller
 {
@@ -55,6 +57,37 @@ class ProductController extends Controller
         $this->barcode_types = $this->productUtil->barcode_types();
     }
 
+     /**
+     * Checks if product name already exists.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function checkProductName(Request $request)
+    {
+        $business_id = $request->session()->get('user.business_id');
+        $name = $request->input('name');
+        $product_id = $request->input('product_id');
+
+        //check in products table
+        $query = Product::where('business_id', $business_id)
+                        ->where('name', $name);
+        if (! empty($product_id)) {
+            $query->where('id', '!=', $product_id);
+        }
+        $count = $query->count();
+
+        //check in variation table if $count = 0
+        
+        if ($count == 0) {
+            echo 'true';
+            exit;
+        } else {
+            echo 'false';
+            exit;
+        }
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -68,6 +101,15 @@ class ProductController extends Controller
         $business_id = request()->session()->get('user.business_id');
         $selling_price_group_count = SellingPriceGroup::countSellingPriceGroups($business_id);
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
+
+        try {
+            Log::info($business_id);
+            dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
+                ->onQueue('eis-products');
+        } catch (\Exception $e) {
+            Log::error('EIS SyncProductsJob failed: ' . $e->getMessage());
+        }
+
 
         if (request()->ajax()) {
             //Filter by location
@@ -1258,6 +1300,22 @@ class ProductController extends Controller
 
             $result = $this->productUtil->filterProduct($business_id, $search_term, $location_id, $not_for_selling, $price_group_id, $product_types, $search_fields, $check_qty);
 
+            // If only one result and location_id is provided (POS context), auto-fetch the product row
+            if (count($result) == 1 && !empty($location_id) && request()->get('auto_add_single', false)) {
+                
+                $variation_id = $result[0]->variation_id;
+                        
+                $row_data = $this->productUtil->getPosProductRow($variation_id, $location_id);
+                
+                // Add variation_id to row_data for duplicate checking
+                $row_data['variation_id'] = $variation_id;
+                
+                return json_encode([
+                    'auto_add' => true,
+                    'row_data' => $row_data
+                ]);
+            }
+
             return json_encode($result);
         }
     }
@@ -1459,6 +1517,15 @@ class ProductController extends Controller
     {
         if (! auth()->user()->can('product.create')) {
             abort(403, 'Unauthorized action.');
+        }
+
+        $business_id = $request->session()->get('user.business_id');
+
+        // check for products quota
+        if(! $this->moduleUtil->isQuotaAvailable('products', $business_id)) {
+            return $output = ['success' => 0,
+                'msg' => __('superadmin::lang.max_products'),
+            ];
         }
 
         try {
@@ -1663,6 +1730,14 @@ class ProductController extends Controller
                         //Delete variation location details
                         VariationLocationDetails::where('product_id', $product->id)
                                                     ->delete();
+
+                        //Delete Eis product map
+                        EisProductMap::where('product_id', $product->id)->delete();
+
+                        //Detach product locations pivot
+                        $product->product_locations()->detach();
+                        //Delete rack details
+                        \App\ProductRack::where('product_id', $product->id)->delete();
                         $product->delete();
                         event(new ProductsCreatedOrModified($product, 'Deleted'));
                     } else {
