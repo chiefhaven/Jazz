@@ -143,7 +143,7 @@ class ProductUpsertService {
             | EIS CONTROLLED FIELDS
             |--------------------------------------------------------------------------
             */
-            $product->name = $item['productName'] ?? $product->name ?? 'Unnamed Product';
+            $product->name = $product->name ?? 'Unnamed Product';
             $product->product_description =  $product->description ?? $item['productDescription'];
             $product->sku = $item['sku'] ?? $product->sku ?? 'EIS-' . $eisId;
             $product->eis_product_id = $eisId;
