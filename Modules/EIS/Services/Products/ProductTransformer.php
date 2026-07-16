@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 class ProductTransformer
 {
     /**
-     * Transform EIS product data to internal format.
+     * Transform EIS product data to internal format with dual fallbacks.
      *
      * @param array $item
      * @param string $eisId
@@ -22,7 +22,7 @@ class ProductTransformer
         ]);
 
         $transformed = [
-            'name' => $this->extractName($item),
+            'name' => $this->extractName($item, $eisId),
             'sku' => $this->extractSku($item, $eisId),
             'type' => $this->extractType($item),
             'price' => $this->extractPrice($item),
@@ -38,6 +38,9 @@ class ProductTransformer
             'tax_rate_id' => $this->extractTaxRateId($item),
             'is_active' => $this->extractIsActive($item),
         ];
+
+        // Validate with dual fallback
+        $this->validateAndFix($transformed, $eisId);
 
         Log::debug('Product transformation completed', [
             'eis_id' => $eisId,
@@ -85,27 +88,41 @@ class ProductTransformer
     }
 
     /**
-     * Extract product name.
+     * Extract product name with dual fallbacks.
      *
      * @param array $item
+     * @param string $eisId
      * @return string
      */
-    private function extractName(array $item): string
+    private function extractName(array $item, string $eisId): string
     {
-        $name = $item['name'] ?? $item['description'] ?? 'Unnamed Product';
-
-        if (empty(trim($name))) {
-            Log::warning('Product name is empty, using default', [
-                'item' => $item
-            ]);
-            $name = 'Unnamed Product';
+        // Primary: Check multiple name fields
+        $name = $item['name'] ?? $item['productName'] ?? $item['description'] ?? null;
+        
+        // Secondary: Clean and validate
+        if ($name && !empty(trim($name))) {
+            return trim($name);
         }
-
-        return trim($name);
+        
+        // Fallback 1: Use SKU if available
+        $sku = $item['productCode'] ?? $item['sku'] ?? $item['code'] ?? null;
+        if ($sku && !empty(trim($sku))) {
+            Log::warning('Product name missing, using SKU as fallback', [
+                'eis_id' => $eisId,
+                'sku' => $sku
+            ]);
+            return 'Product ' . trim($sku);
+        }
+        
+        // Fallback 2: Generate from EIS ID
+        Log::warning('Product name and SKU missing, using EIS ID as fallback', [
+            'eis_id' => $eisId
+        ]);
+        return 'Product-' . substr($eisId, 0, 8);
     }
 
     /**
-     * Extract product SKU.
+     * Extract product SKU with dual fallbacks.
      *
      * @param array $item
      * @param string $eisId
@@ -113,294 +130,515 @@ class ProductTransformer
      */
     private function extractSku(array $item, string $eisId): string
     {
+        // Primary: Check multiple SKU fields
         $sku = $item['productCode'] ?? $item['sku'] ?? $item['code'] ?? null;
-
-        if (empty($sku)) {
-            Log::warning('Product SKU is empty, generating from EIS ID', [
-                'eis_id' => $eisId
-            ]);
-            $sku = 'EIS-' . strtoupper($eisId);
+        
+        // Secondary: Clean and validate
+        if ($sku && !empty(trim($sku))) {
+            return trim($sku);
         }
-
-        return trim($sku);
+        
+        // Fallback 1: Use product name if available
+        $name = $item['name'] ?? $item['productName'] ?? null;
+        if ($name && !empty(trim($name))) {
+            $sku = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $name), 0, 10));
+            Log::warning('Product SKU missing, using name as fallback', [
+                'eis_id' => $eisId,
+                'generated_sku' => $sku
+            ]);
+            return $sku ?: 'SKU-' . substr($eisId, 0, 6);
+        }
+        
+        // Fallback 2: Generate from EIS ID
+        Log::warning('Product SKU and name missing, generating from EIS ID', [
+            'eis_id' => $eisId
+        ]);
+        return 'EIS-' . strtoupper(substr($eisId, 0, 8));
     }
 
     /**
-     * Extract product type.
+     * Extract product type with dual fallbacks.
      *
      * @param array $item
      * @return string
      */
     private function extractType(array $item): string
     {
-        $type = $item['type'] ?? $item['productType'] ?? 'single';
-
+        // Primary: Check multiple type fields
+        $type = $item['type'] ?? $item['productType'] ?? null;
+        
+        // Secondary: Validate allowed types
         $allowedTypes = ['single', 'variable', 'combo', 'service'];
-
-        if (!in_array($type, $allowedTypes)) {
-            Log::warning('Invalid product type, defaulting to single', [
+        
+        if ($type && in_array($type, $allowedTypes)) {
+            return $type;
+        }
+        
+        // Fallback 1: Detect from item structure
+        if (isset($item['variations']) && is_array($item['variations']) && count($item['variations']) > 1) {
+            Log::warning('Invalid product type, detecting as variable', [
                 'type' => $type
             ]);
-            $type = 'single';
+            return 'variable';
         }
-
-        return $type;
+        
+        // Fallback 2: Default to single
+        Log::warning('Invalid product type, defaulting to single', [
+            'type' => $type
+        ]);
+        return 'single';
     }
 
     /**
-     * Extract product price.
+     * Extract product price with dual fallbacks.
      *
      * @param array $item
      * @return float
      */
     private function extractPrice(array $item): float
     {
+        // Primary: Check multiple price fields
         $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? $item['unitPrice'] ?? 0);
-
-        if ($price < 0) {
-            Log::warning('Product price is negative, setting to 0', [
-                'price' => $price
-            ]);
-            $price = 0;
+        
+        // Secondary: Validate non-negative
+        if ($price >= 0) {
+            return $price;
         }
-
-        return $price;
+        
+        // Fallback 1: Try to calculate from cost + margin
+        $cost = (float) ($item['cost'] ?? $item['purchasePrice'] ?? 0);
+        if ($cost > 0) {
+            $margin = $item['profitMargin'] ?? 20; // Default 20% margin
+            $calculatedPrice = $cost * (1 + ($margin / 100));
+            Log::warning('Product price negative, calculating from cost', [
+                'original_price' => $price,
+                'calculated_price' => $calculatedPrice
+            ]);
+            return round($calculatedPrice, 2);
+        }
+        
+        // Fallback 2: Set to 0
+        Log::warning('Product price negative and no cost available, setting to 0', [
+            'price' => $price
+        ]);
+        return 0;
     }
 
     /**
-     * Extract product cost.
+     * Extract product cost with dual fallbacks.
      *
      * @param array $item
      * @return float
      */
     private function extractCost(array $item): float
     {
+        // Primary: Check multiple cost fields
         $cost = (float) ($item['cost'] ?? $item['purchasePrice'] ?? $item['buyingPrice'] ?? 0);
-
-        if ($cost < 0) {
-            Log::warning('Product cost is negative, setting to 0', [
-                'cost' => $cost
-            ]);
-            $cost = 0;
+        
+        // Secondary: Validate non-negative
+        if ($cost >= 0) {
+            return $cost;
         }
-
-        return $cost;
+        
+        // Fallback 1: Estimate from price if available
+        $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
+        if ($price > 0) {
+            $estimatedCost = $price * 0.7; // Assume 30% margin
+            Log::warning('Product cost negative, estimating from price', [
+                'original_cost' => $cost,
+                'estimated_cost' => $estimatedCost
+            ]);
+            return round($estimatedCost, 2);
+        }
+        
+        // Fallback 2: Set to 0
+        Log::warning('Product cost negative and no price available, setting to 0', [
+            'cost' => $cost
+        ]);
+        return 0;
     }
 
     /**
-     * Extract product stock.
+     * Extract product stock with dual fallbacks.
      *
      * @param array $item
      * @return float
      */
     private function extractStock(array $item): float
     {
+        // Primary: Check multiple stock fields
         $stock = (float) ($item['quantity'] ?? $item['stock'] ?? $item['stockQuantity'] ?? 0);
-
-        if ($stock < 0) {
-            Log::warning('Product stock is negative, setting to 0', [
-                'stock' => $stock
-            ]);
-            $stock = 0;
+        
+        // Secondary: Validate non-negative
+        if ($stock >= 0) {
+            return $stock;
         }
-
-        return $stock;
+        
+        // Fallback 1: Check variation stock if available
+        if (isset($item['variations']) && is_array($item['variations'])) {
+            foreach ($item['variations'] as $variation) {
+                $varStock = (float) ($variation['stock'] ?? $variation['quantity'] ?? 0);
+                if ($varStock >= 0) {
+                    Log::warning('Product stock negative, using variation stock as fallback', [
+                        'original_stock' => $stock,
+                        'variation_stock' => $varStock
+                    ]);
+                    return $varStock;
+                }
+            }
+        }
+        
+        // Fallback 2: Set to 0
+        Log::warning('Product stock negative, setting to 0', [
+            'stock' => $stock
+        ]);
+        return 0;
     }
 
     /**
-     * Extract manage stock flag.
+     * Extract manage stock flag with dual fallbacks.
      *
      * @param array $item
      * @return bool
      */
     private function extractManageStock(array $item): bool
     {
-        $isProduct = $item['isProduct'] ?? false;
-
-        return filter_var($isProduct, FILTER_VALIDATE_BOOLEAN);
+        // Primary: Check multiple fields
+        $manageStock = $item['isProduct'] ?? $item['manageStock'] ?? $item['trackStock'] ?? false;
+        
+        // Secondary: Convert to boolean
+        $boolValue = filter_var($manageStock, FILTER_VALIDATE_BOOLEAN);
+        
+        // Fallback 1: Check if stock is set
+        if (!$boolValue) {
+            $stock = (float) ($item['quantity'] ?? $item['stock'] ?? 0);
+            if ($stock > 0) {
+                Log::warning('Manage stock not set but stock exists, enabling', [
+                    'stock' => $stock
+                ]);
+                return true;
+            }
+        }
+        
+        // Fallback 2: Return boolean value
+        return $boolValue;
     }
 
     /**
-     * Extract unit of measure.
+     * Extract unit of measure with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractUnitOfMeasure(array $item): ?string
     {
+        // Primary: Check multiple unit fields
         $unit = $item['unitOfMeasure'] ?? $item['unit'] ?? $item['uom'] ?? null;
-
-        if ($unit) {
-            $unit = trim($unit);
+        
+        // Secondary: Clean
+        if ($unit && !empty(trim($unit))) {
+            return trim($unit);
         }
-
-        return $unit;
+        
+        // Fallback 1: Try to infer from item type
+        $type = $item['type'] ?? $item['productType'] ?? null;
+        if ($type === 'service') {
+            Log::warning('Unit of measure missing for service, defaulting to hour', [
+                'type' => $type
+            ]);
+            return 'hour';
+        }
+        
+        // Fallback 2: Default null
+        return null;
     }
 
     /**
-     * Extract expiry period.
+     * Extract expiry period with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractExpiryPeriod(array $item): ?string
     {
+        // Primary: Check multiple expiry fields
         $expiry = $item['productExpiryDate'] ?? $item['expiryDate'] ?? $item['expiry'] ?? null;
-
-        if ($expiry) {
-            $expiry = trim($expiry);
+        
+        // Secondary: Clean
+        if ($expiry && !empty(trim($expiry))) {
+            return trim($expiry);
         }
-
-        return $expiry;
+        
+        // Fallback 1: Check for expiry in days/weeks/months
+        $expiryDays = $item['expiryDays'] ?? $item['shelfLife'] ?? null;
+        if ($expiryDays && is_numeric($expiryDays)) {
+            Log::warning('Expiry date missing, using expiry days as fallback', [
+                'expiry_days' => $expiryDays
+            ]);
+            return $expiryDays . ' days';
+        }
+        
+        // Fallback 2: Default null
+        return null;
     }
 
     /**
-     * Extract site ID.
+     * Extract site ID with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractSiteId(array $item): ?string
     {
+        // Primary: Check multiple site fields
         $siteId = $item['siteId'] ?? $item['site_id'] ?? $item['locationId'] ?? null;
-
-        if ($siteId) {
-            $siteId = trim($siteId);
+        
+        // Secondary: Clean
+        if ($siteId && !empty(trim($siteId))) {
+            return trim($siteId);
         }
-
-        return $siteId;
+        
+        // Fallback 1: Check in nested location object
+        if (isset($item['location']) && is_array($item['location'])) {
+            $siteId = $item['location']['id'] ?? $item['location']['siteId'] ?? null;
+            if ($siteId && !empty(trim($siteId))) {
+                Log::warning('Site ID missing in main, using location object as fallback', [
+                    'site_id' => $siteId
+                ]);
+                return trim($siteId);
+            }
+        }
+        
+        // Fallback 2: Default null
+        return null;
     }
 
     /**
-     * Extract product description.
+     * Extract product description with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractDescription(array $item): ?string
     {
-        $description = $item['description'];
-
-        if ($description) {
-            $description = trim($description);
+        // Primary: Check description field
+        $description = $item['description'] ?? null;
+        
+        // Secondary: Clean
+        if ($description && !empty(trim($description))) {
+            return trim($description);
         }
-
-        return $description;
+        
+        // Fallback 1: Use long description if available
+        $longDesc = $item['longDescription'] ?? $item['detailedDescription'] ?? null;
+        if ($longDesc && !empty(trim($longDesc))) {
+            Log::warning('Description missing, using long description as fallback', [
+                'long_desc_length' => strlen(trim($longDesc))
+            ]);
+            return trim($longDesc);
+        }
+        
+        // Fallback 2: Use product name with prefix
+        $name = $item['name'] ?? $item['productName'] ?? null;
+        if ($name && !empty(trim($name))) {
+            return 'Product: ' . trim($name);
+        }
+        
+        return null;
     }
 
     /**
-     * Extract product category.
+     * Extract product category with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractCategory(array $item): ?string
     {
+        // Primary: Check multiple category fields
         $category = $item['category'] ?? $item['productCategory'] ?? $item['categoryName'] ?? null;
-
-        if ($category) {
-            $category = trim($category);
+        
+        // Secondary: Clean
+        if ($category && !empty(trim($category))) {
+            return trim($category);
         }
-
-        return $category;
+        
+        // Fallback 1: Check in nested category object
+        if (isset($item['categoryInfo']) && is_array($item['categoryInfo'])) {
+            $category = $item['categoryInfo']['name'] ?? $item['categoryInfo']['categoryName'] ?? null;
+            if ($category && !empty(trim($category))) {
+                Log::warning('Category missing in main, using category info as fallback', [
+                    'category' => $category
+                ]);
+                return trim($category);
+            }
+        }
+        
+        // Fallback 2: Use product type as category
+        $type = $item['type'] ?? $item['productType'] ?? null;
+        if ($type) {
+            Log::warning('Category missing, using product type as fallback', [
+                'type' => $type
+            ]);
+            return ucfirst($type) . ' Products';
+        }
+        
+        return null;
     }
 
     /**
-     * Extract product brand.
+     * Extract product brand with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractBrand(array $item): ?string
     {
+        // Primary: Check multiple brand fields
         $brand = $item['brand'] ?? $item['productBrand'] ?? $item['brandName'] ?? null;
-
-        if ($brand) {
-            $brand = trim($brand);
+        
+        // Secondary: Clean
+        if ($brand && !empty(trim($brand))) {
+            return trim($brand);
         }
-
-        return $brand;
+        
+        // Fallback 1: Check in nested brand object
+        if (isset($item['brandInfo']) && is_array($item['brandInfo'])) {
+            $brand = $item['brandInfo']['name'] ?? $item['brandInfo']['brandName'] ?? null;
+            if ($brand && !empty(trim($brand))) {
+                Log::warning('Brand missing in main, using brand info as fallback', [
+                    'brand' => $brand
+                ]);
+                return trim($brand);
+            }
+        }
+        
+        // Fallback 2: Use manufacturer if available
+        $manufacturer = $item['manufacturer'] ?? $item['supplier'] ?? null;
+        if ($manufacturer && !empty(trim($manufacturer))) {
+            Log::warning('Brand missing, using manufacturer as fallback', [
+                'manufacturer' => $manufacturer
+            ]);
+            return trim($manufacturer);
+        }
+        
+        return null;
     }
 
     /**
-     * Extract tax rate ID.
+     * Extract tax rate ID with dual fallbacks.
      *
      * @param array $item
      * @return string|null
      */
     private function extractTaxRateId(array $item): ?string
     {
+        // Primary: Check multiple tax fields
         $taxRateId = $item['taxRateId'] ?? $item['tax_id'] ?? $item['taxCode'] ?? null;
-
-        if ($taxRateId) {
-            $taxRateId = trim($taxRateId);
+        
+        // Secondary: Clean
+        if ($taxRateId && !empty(trim($taxRateId))) {
+            return trim($taxRateId);
         }
-
-        return $taxRateId;
+        
+        // Fallback 1: Check if tax rate is explicitly set
+        $taxRate = $item['taxRate'] ?? $item['tax'] ?? null;
+        if ($taxRate && is_numeric($taxRate) && $taxRate > 0) {
+            Log::warning('Tax rate ID missing, using tax rate value as fallback', [
+                'tax_rate' => $taxRate
+            ]);
+            return 'TAX-' . $taxRate;
+        }
+        
+        // Fallback 2: Check if tax included
+        $taxIncluded = $item['taxIncluded'] ?? $item['includesTax'] ?? false;
+        if (filter_var($taxIncluded, FILTER_VALIDATE_BOOLEAN)) {
+            Log::warning('Tax rate ID missing, using default tax included ID', [
+                'tax_included' => $taxIncluded
+            ]);
+            return 'TAX-INCLUDED';
+        }
+        
+        return null;
     }
 
     /**
-     * Extract is active flag.
+     * Extract is active flag with dual fallbacks.
      *
      * @param array $item
      * @return bool
      */
     private function extractIsActive(array $item): bool
     {
-        $isActive = $item['isActive'] ?? $item['status'] ?? true;
-
-        return filter_var($isActive, FILTER_VALIDATE_BOOLEAN);
-    }
-
-    /**
-     * Transform product to EIS format.
-     *
-     * @param array $product
-     * @return array
-     */
-    public function toEis(array $product): array
-    {
-        Log::debug('Transforming product to EIS format', [
-            'product_sku' => $product['sku'] ?? null
-        ]);
-
-        return [
-            'productCode' => $product['sku'] ?? null,
-            'productName' => $product['name'] ?? null,
-            'productDescription' => $product['product_description'] ?? null,
-            'price' => (float) ($product['price'] ?? 0),
-            'cost' => (float) ($product['cost'] ?? 0),
-            'quantity' => (float) ($product['stock'] ?? 0),
-            'isProduct' => $product['isProduct'] ?? true,
-            'unitOfMeasure' => $product['unit_of_measure'] ?? null,
-            'productExpiryDate' => $product['expiry_period'] ?? null,
-            'siteId' => $product['site_id'] ?? null,
-            'category' => $product['category'] ?? null,
-            'brand' => $product['brand'] ?? null,
-            'taxRateId' => $product['tax_rate_id'] ?? null,
-            'isActive' => $product['is_active'] ?? true,
-        ];
-    }
-
-    /**
-     * Transform multiple products to EIS format.
-     *
-     * @param array $products
-     * @return array
-     */
-    public function toEisCollection(array $products): array
-    {
-        Log::info('Transforming product collection to EIS format', [
-            'count' => count($products)
-        ]);
-
-        $transformed = [];
-
-        foreach ($products as $product) {
-            $transformed[] = $this->toEis($product);
+        // Primary: Check multiple status fields
+        $isActive = $item['isActive'] ?? $item['status'] ?? $item['active'] ?? true;
+        
+        // Secondary: Convert to boolean
+        $boolValue = filter_var($isActive, FILTER_VALIDATE_BOOLEAN);
+        
+        // Fallback 1: Check if stock is available
+        if (!$boolValue) {
+            $stock = (float) ($item['quantity'] ?? $item['stock'] ?? 0);
+            if ($stock > 0) {
+                Log::warning('Product marked inactive but has stock, activating', [
+                    'stock' => $stock
+                ]);
+                return true;
+            }
         }
+        
+        // Fallback 2: Return boolean value
+        return $boolValue;
+    }
 
-        return $transformed;
+    /**
+     * Validate and fix transformed data with dual fallbacks.
+     *
+     * @param array $data
+     * @param string $eisId
+     * @return void
+     */
+    private function validateAndFix(array &$data, string $eisId): void
+    {
+        $issues = [];
+        
+        // Ensure name is not empty
+        if (empty($data['name']) || trim($data['name']) === '') {
+            $data['name'] = 'Product-' . substr($eisId, 0, 8);
+            $issues[] = 'name';
+        }
+        
+        // Ensure SKU is not empty
+        if (empty($data['sku']) || trim($data['sku']) === '') {
+            $data['sku'] = 'EIS-' . strtoupper(substr($eisId, 0, 8));
+            $issues[] = 'sku';
+        }
+        
+        // Ensure price is not negative
+        if ($data['price'] < 0) {
+            $data['price'] = 0;
+            $issues[] = 'price';
+        }
+        
+        // Ensure cost is not negative
+        if ($data['cost'] < 0) {
+            $data['cost'] = 0;
+            $issues[] = 'cost';
+        }
+        
+        // Ensure stock is not negative
+        if ($data['stock'] < 0) {
+            $data['stock'] = 0;
+            $issues[] = 'stock';
+        }
+        
+        if (!empty($issues)) {
+            Log::warning('Product data fixed with fallbacks', [
+                'eis_id' => $eisId,
+                'fixed_fields' => $issues,
+                'fixed_data' => $data
+            ]);
+        }
     }
 
     /**
