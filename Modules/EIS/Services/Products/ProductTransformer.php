@@ -204,6 +204,8 @@ class ProductTransformer
             $stock = 0;
         }
 
+        Log::info('stock', $stock);
+
         return $stock;
     }
 
