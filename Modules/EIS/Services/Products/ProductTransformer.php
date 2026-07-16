@@ -44,7 +44,8 @@ class ProductTransformer
             'transformed_name' => $transformed['name'],
             'transformed_sku' => $transformed['sku'],
             'transformed_price' => $transformed['price'],
-            'transformed_stock' => $transformed['stock']
+            'transformed_stock' => $transformed['stock'],
+            'description' => $transformed['description']
         ]);
 
         return $transformed;
@@ -278,7 +279,7 @@ class ProductTransformer
      */
     private function extractDescription(array $item): ?string
     {
-        $description = $item['description'] ?? $item['productDescription'] ?? null;
+        $description = $item['description'];
 
         if ($description) {
             $description = trim($description);
