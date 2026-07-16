@@ -92,7 +92,7 @@ class ProductTransformer
      */
     private function extractName(array $item): string
     {
-        $name = $item['productName'] ?? $item['name'] ?? $item['description'] ?? 'Unnamed Product';
+        $name = $item['name'] ?? $item['description'] ?? 'Unnamed Product';
 
         if (empty(trim($name))) {
             Log::warning('Product name is empty, using default', [
