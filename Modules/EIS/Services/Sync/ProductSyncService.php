@@ -38,7 +38,6 @@ class ProductSyncService
 
                 $eisId = $item['productCode']
                     ?? $item['id']
-                    ?? $item['sku']
                     ?? null;
 
                 if (!$eisId) {
