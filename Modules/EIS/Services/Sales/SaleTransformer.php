@@ -282,7 +282,7 @@ class SaleTransformer
     {
         try {
             if ($line->product) {
-                return $line->product->description ?? 'Unknown description';
+                return $line->product->product_description ?? 'Unknown description';
             }
             return $line->product_description ?? 'Unknown Product';
         } catch (\Exception $e) {
