@@ -215,7 +215,7 @@ class ProductTransformer
      */
     private function extractManageStock(array $item): bool
     {
-        $isProduct = $item['isProduct'] ?? $item['isStockable'] ?? true;
+        $isProduct = $item['isProduct'] ?? false;
 
         return filter_var($isProduct, FILTER_VALIDATE_BOOLEAN);
     }
@@ -371,7 +371,7 @@ class ProductTransformer
             'price' => (float) ($product['price'] ?? 0),
             'cost' => (float) ($product['cost'] ?? 0),
             'quantity' => (float) ($product['stock'] ?? 0),
-            'isProduct' => $product['manage_stock'] ?? true,
+            'isProduct' => $product['isProduct'] ?? true,
             'unitOfMeasure' => $product['unit_of_measure'] ?? null,
             'productExpiryDate' => $product['expiry_period'] ?? null,
             'siteId' => $product['site_id'] ?? null,
