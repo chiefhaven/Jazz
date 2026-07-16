@@ -58,11 +58,12 @@ class SaleTransformer
             // Get product details
             $productCode = $this->getProductCode($line);
             $productName = $this->getProductName($line);
+            $productDescription = $this->getProductDescription($line);
 
             $invoiceItems[] = [
                 'id' => $index + 1,
                 'productCode' => (string) $productCode,
-                'description' => (string) $productName,
+                'description' => (string) $productDescription ?? $productName,
                 'unitPrice' => $unitPrice,
                 'quantity' => $quantity,
                 'discount' => $discount,
@@ -266,6 +267,24 @@ class SaleTransformer
                 return $line->product->name ?? $line->product_name ?? 'Unknown Product';
             }
             return $line->product_name ?? 'Unknown Product';
+        } catch (\Exception $e) {
+            return $line->product_name ?? 'Unknown Product';
+        }
+    }
+
+    /**
+     * Get product name from sell line.
+     *
+     * @param TransactionSellLine $line
+     * @return string
+     */
+    protected function getProductDescription(TransactionSellLine $line): string
+    {
+        try {
+            if ($line->product) {
+                return $line->product->description ?? 'Unknown description';
+            }
+            return $line->product_description ?? 'Unknown Product';
         } catch (\Exception $e) {
             return $line->product_name ?? 'Unknown Product';
         }
