@@ -6,6 +6,7 @@ use App\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisProductMap;
+use Modules\EIS\Models\EisTaxRate;
 
 class ProductUpsertService {
     /**
@@ -17,6 +18,11 @@ class ProductUpsertService {
      * Cache for location lookups
      */
     private array $locationCache = [];
+    
+    /**
+     * Cache for tax rate lookups
+     */
+    private array $taxRateCache = [];
 
     /**
      * Sync EIS product into UltimatePOS.
@@ -37,6 +43,7 @@ class ProductUpsertService {
                 'business_id' => $businessId,
                 'eis_product_id' => $eisId,
                 'sku' => $item['sku'] ?? null,
+                'tax_rate_short_name' => $item['taxRateShortName'] ?? null
             ]);
 
             /*
@@ -108,7 +115,6 @@ class ProductUpsertService {
             if (!$product || !$product->exists) {
                 $sku = $item['sku'] ?? null;
                 
-                // Primary: Try exact SKU match
                 if ($sku) {
                     $product = Product::withTrashed()
                         ->where('business_id', $businessId)
@@ -197,16 +203,9 @@ class ProductUpsertService {
             | EIS CONTROLLED FIELDS WITH DUAL FALLBACKS
             |--------------------------------------------------------------------------
             */
-            // Name with fallbacks
             $product->name = $this->getProductName($item, $product, $eisId);
-            
-            // Description with fallbacks
             $product->product_description = $this->getProductDescription($item, $product);
-            
-            // SKU with fallbacks
             $product->sku = $this->getProductSku($item, $product, $eisId);
-            
-            // EIS ID
             $product->eis_product_id = $eisId;
             $product->eis_last_synced_at = now();
 
@@ -237,7 +236,6 @@ class ProductUpsertService {
                         'unit_name' => $defaultUnit->short_name
                     ]);
                 } else {
-                    // Final fallback: Get any unit or leave null
                     $anyUnit = DB::table('units')
                         ->where('business_id', $businessId)
                         ->first();
@@ -293,185 +291,6 @@ class ProductUpsertService {
                 $item
             );
         });
-    }
-
-    /**
-     * Get product name with dual fallbacks
-     */
-    private function getProductName(array $item, Product $product, string $eisId): string
-    {
-        // Primary: Use existing name
-        if ($product->exists && !empty($product->name)) {
-            return $product->name;
-        }
-        
-        // Secondary: Extract from item
-        $name = $item['name'] ?? $item['productName'] ?? $item['description'] ?? null;
-        if ($name && !empty(trim($name))) {
-            return trim($name);
-        }
-        
-        // Fallback 1: Use SKU
-        $sku = $item['sku'] ?? $item['productCode'] ?? null;
-        if ($sku && !empty(trim($sku))) {
-            Log::warning('Using SKU as name fallback', [
-                'eis_id' => $eisId,
-                'sku' => $sku
-            ]);
-            return 'Product ' . trim($sku);
-        }
-        
-        // Fallback 2: Generate from EIS ID
-        Log::warning('Using generated name from EIS ID as final fallback', [
-            'eis_id' => $eisId
-        ]);
-        return 'Product-' . substr($eisId, 0, 8);
-    }
-
-    /**
-     * Get product description with dual fallbacks
-     */
-    private function getProductDescription(array $item, Product $product): ?string
-    {
-        // Primary: Use existing description
-        if ($product->exists && !empty($product->product_description)) {
-            return $product->product_description;
-        }
-        
-        // Secondary: Extract from item
-        $desc = $item['productDescription'] ?? $item['description'] ?? null;
-        if ($desc && !empty(trim($desc))) {
-            return trim($desc);
-        }
-        
-        // Fallback 1: Use long description
-        $longDesc = $item['longDescription'] ?? $item['detailedDescription'] ?? null;
-        if ($longDesc && !empty(trim($longDesc))) {
-            Log::warning('Using long description as fallback');
-            return trim($longDesc);
-        }
-        
-        // Fallback 2: Use name
-        $name = $item['name'] ?? $product->name ?? null;
-        if ($name && !empty(trim($name))) {
-            return 'Product: ' . trim($name);
-        }
-        
-        return null;
-    }
-
-    /**
-     * Get product SKU with dual fallbacks
-     */
-    private function getProductSku(array $item, Product $product, string $eisId): string
-    {
-        // Primary: Use existing SKU
-        if ($product->exists && !empty($product->sku)) {
-            return $product->sku;
-        }
-        
-        // Secondary: Extract from item
-        $sku = $item['sku'] ?? $item['productCode'] ?? $item['code'] ?? null;
-        if ($sku && !empty(trim($sku))) {
-            return trim($sku);
-        }
-        
-        // Fallback 1: Generate from name
-        $name = $item['name'] ?? $item['productName'] ?? null;
-        if ($name && !empty(trim($name))) {
-            $generatedSku = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $name), 0, 10));
-            if ($generatedSku) {
-                Log::warning('Generating SKU from name as fallback', [
-                    'name' => $name,
-                    'generated_sku' => $generatedSku
-                ]);
-                return $generatedSku;
-            }
-        }
-        
-        // Fallback 2: Generate from EIS ID
-        Log::warning('Generating SKU from EIS ID as final fallback', [
-            'eis_id' => $eisId
-        ]);
-        return 'EIS-' . strtoupper(substr($eisId, 0, 8));
-    }
-
-    /**
-     * Get expiry period with dual fallbacks
-     */
-    private function getExpiryPeriod(array $item, Product $product): ?string
-    {
-        // Primary: Use existing expiry
-        if ($product->exists && !empty($product->expiry_period)) {
-            return $product->expiry_period;
-        }
-        
-        // Secondary: Extract from item
-        $expiry = $item['expiry_period'] ?? $item['productExpiryDate'] ?? $item['expiryDate'] ?? null;
-        if ($expiry && !empty(trim($expiry))) {
-            return trim($expiry);
-        }
-        
-        // Fallback 1: Convert expiry days
-        $expiryDays = $item['expiryDays'] ?? $item['shelfLife'] ?? null;
-        if ($expiryDays && is_numeric($expiryDays) && $expiryDays > 0) {
-            Log::warning('Using expiry days as fallback', [
-                'expiry_days' => $expiryDays
-            ]);
-            return $expiryDays . ' days';
-        }
-        
-        // Fallback 2: Default null
-        return null;
-    }
-
-    /**
-     * Save EIS product mapping safely.
-     */
-    private function saveProductMap(
-        int $businessId,
-        string $eisId,
-        Product $product,
-        ?string $sku
-    ): void {
-
-        $map = EisProductMap::withTrashed()
-            ->where('business_id', $businessId)
-            ->where('eis_product_id', $eisId)
-            ->first();
-
-        if ($map) {
-            if ($map->trashed()) {
-                $map->restore();
-            }
-
-            $map->update([
-                'product_id' => $product->id,
-                'sku' => $sku ?? $product->sku,
-                'last_synced_at' => now(),
-            ]);
-
-            Log::debug('EIS product map updated', [
-                'map_id' => $map->id,
-                'product_id' => $product->id,
-                'sku' => $sku
-            ]);
-        } else {
-            EisProductMap::create([
-                'business_id' => $businessId,
-                'eis_product_id' => $eisId,
-                'product_id' => $product->id,
-                'sku' => $sku ?? $product->sku,
-                'last_synced_at' => now(),
-            ]);
-
-            Log::debug('EIS product map created', [
-                'business_id' => $businessId,
-                'eis_product_id' => $eisId,
-                'product_id' => $product->id,
-                'sku' => $sku
-            ]);
-        }
     }
 
     /**
@@ -536,18 +355,44 @@ class ProductUpsertService {
 
         /*
         |--------------------------------------------------------------------------
-        | UPDATE PRICES WITH FALLBACKS
+        | GET TAX RATE FROM SHORT NAME
+        |--------------------------------------------------------------------------
+        */
+        $taxRate = $this->getTaxRateByShortName($businessId, $item);
+        $taxPercentage = $taxRate ? (float) $taxRate->rate : 0;
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE PRICES WITH TAX CALCULATION
         |--------------------------------------------------------------------------
         */
         $sellPrice = $this->getSellPrice($item, $variation);
         $cost = $this->getCostPrice($item, $variation);
+        
+        // Calculate sell price excluding tax
+        // Formula: Price Excl Tax = Price / (1 + TaxRate/100)
+        $sellPriceExclTax = $taxPercentage > 0 
+            ? $sellPrice / (1 + ($taxPercentage / 100))
+            : $sellPrice;
+        
+        // Calculate tax amount
+        $taxAmount = $sellPrice - $sellPriceExclTax;
+
+        Log::debug('Price calculation with tax', [
+            'tax_percentage' => $taxPercentage,
+            'tax_rate_short_name' => $item['taxRateShortName'] ?? null,
+            'tax_rate_id' => $taxRate->id ?? null,
+            'sell_price_incl_tax' => $sellPrice,
+            'sell_price_excl_tax' => $sellPriceExclTax,
+            'tax_amount' => $taxAmount
+        ]);
 
         $variation->update([
-            'default_sell_price' => $sellPrice,
+            'default_sell_price' => round($sellPriceExclTax, 2), // Price excluding tax
             'default_purchase_price' => $cost,
-            'sell_price_inc_tax' => $sellPrice,
+            'sell_price_inc_tax' => round($sellPrice, 2), // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
-            'profit_percent' => $this->profit($sellPrice, $cost),
+            'profit_percent' => $this->profit($sellPriceExclTax, $cost),
         ]);
 
         /*
@@ -605,19 +450,149 @@ class ProductUpsertService {
             'variation_id' => $variation->id,
             'location_id' => $locationId,
             'stock' => $stock,
+            'tax_percentage' => $taxPercentage,
+            'tax_rate_short_name' => $item['taxRateShortName'] ?? null,
+            'price_excl_tax' => round($sellPriceExclTax, 2),
+            'price_incl_tax' => round($sellPrice, 2)
         ]);
 
         return $product;
     }
 
     /**
-     * Get sell price with dual fallbacks
+     * Get tax rate by short name from EIS data.
+     *
+     * @param int $businessId
+     * @param array $item
+     * @return object|null
+     */
+    private function getTaxRateByShortName(int $businessId, array $item): ?object
+    {
+        $shortName = $item['taxRateShortName'] ?? $item['taxRate'] ?? $item['taxShortName'] ?? null;
+        
+        Log::debug('Looking for tax rate by short name', [
+            'business_id' => $businessId,
+            'short_name' => $shortName
+        ]);
+
+        // Check cache first
+        $cacheKey = $businessId . ':' . ($shortName ?? 'default');
+        if (isset($this->taxRateCache[$cacheKey])) {
+            Log::debug('Tax rate found in cache', [
+                'short_name' => $shortName,
+                'rate' => $this->taxRateCache[$cacheKey]->rate ?? null
+            ]);
+            return $this->taxRateCache[$cacheKey];
+        }
+
+        $taxRate = null;
+
+        // Primary: Find by short name (case insensitive)
+        if (!empty($shortName)) {
+            $taxRate = DB::table('tax_rates')
+                ->where('business_id', $businessId)
+                ->whereRaw('LOWER(short_name) = ?', [strtolower(trim($shortName))])
+                ->first();
+            
+            if ($taxRate) {
+                Log::debug('Tax rate found by short name', [
+                    'short_name' => $shortName,
+                    'tax_rate_id' => $taxRate->id,
+                    'rate' => $taxRate->rate
+                ]);
+            }
+        }
+
+        // Secondary: Try to find by name
+        if (!$taxRate && !empty($shortName)) {
+            $taxRate = DB::table('tax_rates')
+                ->where('business_id', $businessId)
+                ->whereRaw('LOWER(name) = ?', [strtolower(trim($shortName))])
+                ->first();
+            
+            if ($taxRate) {
+                Log::debug('Tax rate found by name', [
+                    'short_name' => $shortName,
+                    'tax_rate_id' => $taxRate->id,
+                    'rate' => $taxRate->rate
+                ]);
+            }
+        }
+
+        // Fallback 1: Get default tax rate (standard rate with rate > 0)
+        if (!$taxRate) {
+            $taxRate = DB::table('tax_rates')
+                ->where('business_id', $businessId)
+                ->where('is_activated', true)
+                ->where('rate', '>', 0)
+                ->orderBy('rate', 'desc')
+                ->first();
+            
+            if ($taxRate) {
+                Log::warning('Using default tax rate as fallback', [
+                    'short_name' => $shortName,
+                    'tax_rate_id' => $taxRate->id,
+                    'rate' => $taxRate->rate
+                ]);
+            }
+        }
+
+        // Fallback 2: Use zero-rated tax if no other found
+        if (!$taxRate) {
+            $taxRate = DB::table('tax_rates')
+                ->where('business_id', $businessId)
+                ->where('is_activated', true)
+                ->where('rate', 0)
+                ->first();
+            
+            if ($taxRate) {
+                Log::warning('Using zero-rated tax as final fallback', [
+                    'short_name' => $shortName,
+                    'tax_rate_id' => $taxRate->id
+                ]);
+            }
+        }
+
+        // Fallback 3: Get any tax rate
+        if (!$taxRate) {
+            $taxRate = DB::table('tax_rates')
+                ->where('business_id', $businessId)
+                ->where('is_activated', true)
+                ->first();
+            
+            if ($taxRate) {
+                Log::warning('Using any available tax rate as final fallback', [
+                    'short_name' => $shortName,
+                    'tax_rate_id' => $taxRate->id,
+                    'rate' => $taxRate->rate
+                ]);
+            }
+        }
+
+        // Cache the result
+        if ($taxRate) {
+            $this->taxRateCache[$cacheKey] = $taxRate;
+        }
+
+        Log::debug('Tax rate lookup result', [
+            'business_id' => $businessId,
+            'short_name' => $shortName,
+            'found' => !empty($taxRate),
+            'rate' => $taxRate->rate ?? null,
+            'tax_rate_id' => $taxRate->id ?? null
+        ]);
+
+        return $taxRate;
+    }
+
+    /**
+     * Get sell price with dual fallbacks and tax consideration.
      */
     private function getSellPrice(array $item, $variation): float
     {
         // Primary: Use existing price
-        if ($variation->exists && $variation->default_sell_price > 0) {
-            return $variation->default_sell_price;
+        if ($variation->exists && $variation->sell_price_inc_tax > 0) {
+            return $variation->sell_price_inc_tax;
         }
         
         // Secondary: Extract from item
@@ -626,8 +601,8 @@ class ProductUpsertService {
             return $price;
         }
         
-        // Fallback 1: Calculate from cost
-        $cost = (float) ($item['cost'] ?? $item['purchasePrice'] ?? 0);
+        // Fallback 1: Calculate from cost with margin
+        $cost = (float) ($item['cost'] ?? 0);
         if ($cost > 0) {
             $margin = $item['profitMargin'] ?? 20;
             $calculatedPrice = $cost * (1 + ($margin / 100));
@@ -644,7 +619,7 @@ class ProductUpsertService {
     }
 
     /**
-     * Get cost price with dual fallbacks
+     * Get cost price with dual fallbacks.
      */
     private function getCostPrice(array $item, $variation): float
     {
@@ -676,7 +651,7 @@ class ProductUpsertService {
     }
 
     /**
-     * Get stock with dual fallbacks
+     * Get stock with dual fallbacks.
      */
     private function getStockWithFallbacks(array $item): float
     {
@@ -706,7 +681,7 @@ class ProductUpsertService {
     }
 
     /**
-     * Get location with dual fallbacks
+     * Get location with dual fallbacks.
      */
     private function getLocationWithFallbacks(int $businessId, array $item): ?int
     {
@@ -749,6 +724,169 @@ class ProductUpsertService {
         }
         
         return null;
+    }
+
+    /**
+     * Get product name with dual fallbacks.
+     */
+    private function getProductName(array $item, Product $product, string $eisId): string
+    {
+        if ($product->exists && !empty($product->name)) {
+            return $product->name;
+        }
+        
+        $name = $item['name'] ?? $item['productName'] ?? $item['description'] ?? null;
+        if ($name && !empty(trim($name))) {
+            return trim($name);
+        }
+        
+        $sku = $item['sku'] ?? $item['productCode'] ?? null;
+        if ($sku && !empty(trim($sku))) {
+            Log::warning('Using SKU as name fallback', [
+                'eis_id' => $eisId,
+                'sku' => $sku
+            ]);
+            return 'Product ' . trim($sku);
+        }
+        
+        Log::warning('Using generated name from EIS ID as final fallback', [
+            'eis_id' => $eisId
+        ]);
+        return 'Product-' . substr($eisId, 0, 8);
+    }
+
+    /**
+     * Get product description with dual fallbacks.
+     */
+    private function getProductDescription(array $item, Product $product): ?string
+    {
+        if ($product->exists && !empty($product->product_description)) {
+            return $product->product_description;
+        }
+        
+        $desc = $item['productDescription'] ?? $item['description'] ?? null;
+        if ($desc && !empty(trim($desc))) {
+            return trim($desc);
+        }
+        
+        $longDesc = $item['longDescription'] ?? $item['detailedDescription'] ?? null;
+        if ($longDesc && !empty(trim($longDesc))) {
+            Log::warning('Using long description as fallback');
+            return trim($longDesc);
+        }
+        
+        $name = $item['name'] ?? $product->name ?? null;
+        if ($name && !empty(trim($name))) {
+            return 'Product: ' . trim($name);
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get product SKU with dual fallbacks.
+     */
+    private function getProductSku(array $item, Product $product, string $eisId): string
+    {
+        if ($product->exists && !empty($product->sku)) {
+            return $product->sku;
+        }
+        
+        $sku = $item['sku'] ?? $item['productCode'] ?? $item['code'] ?? null;
+        if ($sku && !empty(trim($sku))) {
+            return trim($sku);
+        }
+        
+        $name = $item['name'] ?? $item['productName'] ?? null;
+        if ($name && !empty(trim($name))) {
+            $generatedSku = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $name), 0, 10));
+            if ($generatedSku) {
+                Log::warning('Generating SKU from name as fallback', [
+                    'name' => $name,
+                    'generated_sku' => $generatedSku
+                ]);
+                return $generatedSku;
+            }
+        }
+        
+        Log::warning('Generating SKU from EIS ID as final fallback', [
+            'eis_id' => $eisId
+        ]);
+        return 'EIS-' . strtoupper(substr($eisId, 0, 8));
+    }
+
+    /**
+     * Get expiry period with dual fallbacks.
+     */
+    private function getExpiryPeriod(array $item, Product $product): ?string
+    {
+        if ($product->exists && !empty($product->expiry_period)) {
+            return $product->expiry_period;
+        }
+        
+        $expiry = $item['expiry_period'] ?? $item['productExpiryDate'] ?? $item['expiryDate'] ?? null;
+        if ($expiry && !empty(trim($expiry))) {
+            return trim($expiry);
+        }
+        
+        $expiryDays = $item['expiryDays'] ?? $item['shelfLife'] ?? null;
+        if ($expiryDays && is_numeric($expiryDays) && $expiryDays > 0) {
+            Log::warning('Using expiry days as fallback', [
+                'expiry_days' => $expiryDays
+            ]);
+            return $expiryDays . ' days';
+        }
+        
+        return null;
+    }
+
+    /**
+     * Save EIS product mapping safely.
+     */
+    private function saveProductMap(
+        int $businessId,
+        string $eisId,
+        Product $product,
+        ?string $sku
+    ): void {
+
+        $map = EisProductMap::withTrashed()
+            ->where('business_id', $businessId)
+            ->where('eis_product_id', $eisId)
+            ->first();
+
+        if ($map) {
+            if ($map->trashed()) {
+                $map->restore();
+            }
+
+            $map->update([
+                'product_id' => $product->id,
+                'sku' => $sku ?? $product->sku,
+                'last_synced_at' => now(),
+            ]);
+
+            Log::debug('EIS product map updated', [
+                'map_id' => $map->id,
+                'product_id' => $product->id,
+                'sku' => $sku
+            ]);
+        } else {
+            EisProductMap::create([
+                'business_id' => $businessId,
+                'eis_product_id' => $eisId,
+                'product_id' => $product->id,
+                'sku' => $sku ?? $product->sku,
+                'last_synced_at' => now(),
+            ]);
+
+            Log::debug('EIS product map created', [
+                'business_id' => $businessId,
+                'eis_product_id' => $eisId,
+                'product_id' => $product->id,
+                'sku' => $sku
+            ]);
+        }
     }
 
     /**
@@ -804,12 +942,6 @@ class ProductUpsertService {
 
     /**
      * Find product unit with dual fallbacks.
-     *
-     * Matches:
-     * - short_name
-     * - actual_name
-     *
-     * Case insensitive.
      */
     private function getUnitId(
         int $businessId,
