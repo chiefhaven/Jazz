@@ -3,10 +3,10 @@
 namespace Modules\EIS\Services\Products;
 
 use App\Product;
+use App\TaxRate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisProductMap;
-use Modules\EIS\Models\EisTaxRate;
 
 class ProductUpsertService {
     /**
@@ -43,7 +43,7 @@ class ProductUpsertService {
                 'business_id' => $businessId,
                 'eis_product_id' => $eisId,
                 'sku' => $item['sku'] ?? null,
-                'tax_rate_short_name' => $item['taxRateShortName'] ?? null
+                'tax_rate_short_name' => $item['taxRateId'] ?? null
             ]);
 
             /*
@@ -168,7 +168,7 @@ class ProductUpsertService {
 
             /*
             |--------------------------------------------------------------------------
-            | CREATE NEW PRODUCT
+            | CREATENEW PRODUCT
             |--------------------------------------------------------------------------
             */
             if (!$product) {
@@ -185,7 +185,7 @@ class ProductUpsertService {
 
             /*
             |--------------------------------------------------------------------------
-            | PRODUCT DATA
+            | PRODUCTDATA
             |--------------------------------------------------------------------------
             */
             $isNew = !$product->exists;
@@ -206,6 +206,7 @@ class ProductUpsertService {
             $product->name = $this->getProductName($item, $product, $eisId);
             $product->product_description = $this->getProductDescription($item, $product);
             $product->sku = $this->getProductSku($item, $product, $eisId);
+            $product->tax = $this->getProductTaxRateId($item['taxRateId'], $businessId);
             $product->eis_product_id = $eisId;
             $product->eis_last_synced_at = now();
 
@@ -363,7 +364,7 @@ class ProductUpsertService {
 
         /*
         |--------------------------------------------------------------------------
-        | UPDATE PRICES WITH TAX CALCULATION
+        | UPDATEPRICES WITH TAX CALCULATION
         |--------------------------------------------------------------------------
         */
         $sellPrice = $this->getSellPrice($item, $variation);
@@ -380,7 +381,7 @@ class ProductUpsertService {
 
         Log::debug('Price calculation with tax', [
             'tax_percentage' => $taxPercentage,
-            'tax_rate_short_name' => $item['taxRateShortName'] ?? null,
+            'tax_rate_short_name' => $item['taxRateId'] ?? null,
             'tax_rate_id' => $taxRate->id ?? null,
             'sell_price_incl_tax' => $sellPrice,
             'sell_price_excl_tax' => $sellPriceExclTax,
@@ -451,7 +452,7 @@ class ProductUpsertService {
             'location_id' => $locationId,
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
-            'tax_rate_short_name' => $item['taxRateShortName'] ?? null,
+            'tax_rate_short_name' => $item['taxRateId'] ?? null,
             'price_excl_tax' => round($sellPriceExclTax, 2),
             'price_incl_tax' => round($sellPrice, 2)
         ]);
@@ -468,7 +469,7 @@ class ProductUpsertService {
      */
     private function getTaxRateByShortName(int $businessId, array $item): ?object
     {
-        $shortName = $item['taxRateShortName'] ?? $item['taxRate'] ?? $item['taxShortName'] ?? null;
+        $shortName = $item['taxRateId'] ?? null;
         
         Log::debug('Looking for tax rate by short name', [
             'business_id' => $businessId,
@@ -781,6 +782,16 @@ class ProductUpsertService {
         }
         
         return null;
+    }
+
+    /**
+     * Get product taxRate with dual fallbacks.
+     */
+    private function getProductTaxRateId(string $item, $businessId): ?string
+    {
+        $taxRateId = TaxRate::where('business_id', $businessId)->where('tax_rate_id', $item)->first();
+        Log::info('Tax rate fetch', $taxRateId);
+        return $taxRateId->id ?? null;
     }
 
     /**
