@@ -790,7 +790,7 @@ class ProductUpsertService {
     private function getProductTaxRateId(string $item, $businessId): ?string
     {
         $taxRateId = TaxRate::where('business_id', $businessId)->where('tax_rate_id', $item)->first();
-        Log::info('Tax rate fetch', $taxRateId);
+        Log::info('Tax rate fetch', [$taxRateId]);
         return $taxRateId->id ?? null;
     }
 
