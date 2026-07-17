@@ -153,7 +153,7 @@
             <div class="col-sm-8">
               <div class="form-group">
                 {!! Form::label('product_description', __('lang_v1.product_description') . ':') !!}
-                  {!! Form::text('product_description', $product->product_description, ['class' => 'form-control'] @disabled(true)); !!}
+                {!! Form::text('product_description', $product->product_description, ['class' => 'form-control'] ); !!}
               </div>
             </div>
             <div class="col-sm-4">
