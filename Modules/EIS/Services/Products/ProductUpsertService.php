@@ -43,7 +43,7 @@ class ProductUpsertService {
                 'business_id' => $businessId,
                 'eis_product_id' => $eisId,
                 'sku' => $item['sku'] ?? null,
-                'tax_rate_short_name' => $item['taxRateId'] ?? null
+                'tax_rate_short_name' => $item ?? null
             ]);
 
             /*
