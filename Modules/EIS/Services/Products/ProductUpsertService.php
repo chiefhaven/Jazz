@@ -43,7 +43,7 @@ class ProductUpsertService {
                 'business_id' => $businessId,
                 'eis_product_id' => $eisId,
                 'sku' => $item['sku'] ?? null,
-                'tax_rate_short_name' => $item ?? null
+                'tax_rate_short_name' => $item['tax_rate_id'] ?? null
             ]);
 
             /*
@@ -206,7 +206,7 @@ class ProductUpsertService {
             $product->name = $this->getProductName($item, $product, $eisId);
             $product->product_description = $this->getProductDescription($item, $product);
             $product->sku = $this->getProductSku($item, $product, $eisId);
-            $product->tax = $this->getProductTaxRateId($item['taxRateId'], $businessId);
+            $product->tax = $this->getProductTaxRateId($item['tax_rate_id'], $businessId);
             $product->eis_product_id = $eisId;
             $product->eis_last_synced_at = now();
 
