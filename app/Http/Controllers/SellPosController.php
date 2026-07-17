@@ -617,6 +617,18 @@ class SellPosController extends Controller
 
                 DB::commit();
 
+                /**
+                 * SAFE POINT: DB is now permanent
+                 * External systems can no longer break POS
+                 */
+                DB::afterCommit(function () use ($transaction) {
+                    event(new SaleCompleted($transaction));
+                });
+
+                Log::info('Sale committed and EIS event queued', [
+                    'transaction_id' => $transaction->id
+                ]);
+
                 SellCreatedOrModified::dispatch($transaction);
 
                 if ($request->input('is_save_and_print') == 1) {
