@@ -492,7 +492,7 @@ class ProductUpsertService {
         if (!empty($shortName)) {
             $taxRate = DB::table('tax_rates')
                 ->where('business_id', $businessId)
-                ->whereRaw('LOWER(short_name) = ?', [strtolower(trim($shortName))])
+                ->whereRaw('LOWER(tax_rate_id) = ?', [strtolower(trim($shortName))])
                 ->first();
             
             if ($taxRate) {
