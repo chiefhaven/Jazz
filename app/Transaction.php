@@ -3,6 +3,7 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\EIS\Models\EisSale;
 
 class Transaction extends Model
 {
@@ -326,6 +327,11 @@ class Transaction extends Model
     public static function getSellStatuses()
     {
         return ['final' => __('sale.final'), 'draft' => __('sale.draft'), 'quotation' => __('lang_v1.quotation'), 'proforma' => __('lang_v1.proforma')];
+    }
+
+    public function eisSale()
+    {
+        return $this->hasOne(\Modules\EIS\Models\EisSale::class);
     }
 
     /**
