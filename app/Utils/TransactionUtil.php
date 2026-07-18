@@ -965,7 +965,7 @@ class TransactionUtil extends Util
     {
         $il = $invoice_layout;
 
-        $transaction = Transaction::find($transaction_id);
+        $transaction = Transaction::with('esiSale')->find($transaction_id);
         $transaction_type = $transaction->type;
 
         $output = [
@@ -1615,6 +1615,9 @@ class TransactionUtil extends Util
             $output['show_qr_code'] = ! empty($il->show_qr_code) ? true : false;
 
             $zatca_qr = ! empty($il->common_settings['zatca_qr']) ? true : false;
+
+            $eis_qr = ! empty($il->common_settings['eis_qr']) ? true : false;
+
 
             if ($zatca_qr) {
                 $total_order_tax = $transaction->tax_amount + $total_line_taxes;
