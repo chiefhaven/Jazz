@@ -384,6 +384,7 @@ class ProductUpsertService {
             'tax_percentage' => $taxPercentage,
             'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
             'tax_rate_id' => $taxRate->id ?? null,
+            'default_purchase_price' => round($defaultPurchasePriceExcTax, 2),
             'ddp_inc_tax' => round($defaultPurchasePriceExcTax, 2),
             'sell_price_incl_tax' => round($sellPrice, 2),
             'sell_price_excl_tax' => round($sellPriceExclTax, 2),
@@ -453,12 +454,12 @@ class ProductUpsertService {
             'product_id' => $product->id,
             'variation_id' => $variation->id,
             'location_id' => $locationId,
-            'dpp_inc_tax' => $defaultPurchasePriceExcTax,
+            'dpp_inc_tax' => round($defaultPurchasePriceExcTax, 2),
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
             'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
-            'price_excl_tax' => $sellPriceExclTax,
-            'price_incl_tax' => $sellPrice,
+            'price_excl_tax' => round($sellPriceExclTax, 2),
+            'price_incl_tax' => round($sellPrice, 2),
         ]);
 
         return $product;
