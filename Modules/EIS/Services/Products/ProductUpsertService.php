@@ -371,27 +371,30 @@ class ProductUpsertService {
         $cost = $this->getCostPrice($item, $variation);
         
         // Calculate sell price excluding tax
-        // Formula: Price Excl Tax = Price / (1 + TaxRate/100)
         $sellPriceExclTax = $taxPercentage > 0 
             ? $sellPrice / (1 + ($taxPercentage / 100))
             : $sellPrice;
-        
+
+        $defaultPurchasePriceIncTax = $cost + ($sellPrice - $sellPriceExclTax);
+
         // Calculate tax amount
         $taxAmount = $sellPrice - $sellPriceExclTax;
 
         Log::debug('Price calculation with tax', [
             'tax_percentage' => $taxPercentage,
-            'tax_rate_short_name' => $item['taxRateId'] ?? null,
+            'tax_rate_short_name' => $item['tax_rate_id'] ?? null,
             'tax_rate_id' => $taxRate->id ?? null,
+            'ddp_inc_tax' => $defaultPurchasePriceIncTax,
             'sell_price_incl_tax' => $sellPrice,
             'sell_price_excl_tax' => $sellPriceExclTax,
             'tax_amount' => $taxAmount
         ]);
 
         $variation->update([
-            'default_sell_price' => round($sellPriceExclTax, 4), // Price excluding tax
+            'default_sell_price' => round($sellPriceExclTax, 2), // Price excluding tax
             'default_purchase_price' => $cost,
-            'sell_price_inc_tax' => round($sellPrice, 4), // Price including tax
+            'dpp_inc_tax' => round( $defaultPurchasePriceIncTax, 2),
+            'sell_price_inc_tax' => round($sellPrice, 2), // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
             'profit_percent' => $this->profit($sellPriceExclTax, $cost),
         ]);
@@ -450,9 +453,10 @@ class ProductUpsertService {
             'product_id' => $product->id,
             'variation_id' => $variation->id,
             'location_id' => $locationId,
+            'dpp_inc_tax' => $defaultPurchasePriceIncTax,
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
-            'tax_rate_short_name' => $item['taxRateId'] ?? null,
+            'tax_rate_short_name' => $item['tax_rate_id'] ?? null,
             'price_excl_tax' => round($sellPriceExclTax, 4),
             'price_incl_tax' => round($sellPrice, 4)
         ]);
