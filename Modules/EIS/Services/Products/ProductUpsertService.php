@@ -43,7 +43,7 @@ class ProductUpsertService {
                 'business_id' => $businessId,
                 'eis_product_id' => $eisId,
                 'sku' => $item['sku'] ?? null,
-                'tax_rate_short_name' => $item['tax_rate_id'] ?? null
+                'eis_tax_rate_id' => $item['tax_rate_id'] ?? null
             ]);
 
             /*
@@ -375,14 +375,16 @@ class ProductUpsertService {
             ? $sellPrice / (1 + ($taxPercentage / 100))
             : $sellPrice;
 
-        $defaultPurchasePriceIncTax = $cost + ($sellPrice - $sellPriceExclTax);
+        $defaultPurchasePriceIncTax = $taxPercentage > 0 
+            ? $cost / (1 - ($taxPercentage / 100))
+            : $cost;
 
         // Calculate tax amount
         $taxAmount = $sellPrice - $sellPriceExclTax;
 
         Log::debug('Price calculation with tax', [
             'tax_percentage' => $taxPercentage,
-            'tax_rate_short_name' => $item['tax_rate_id'] ?? null,
+            'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
             'tax_rate_id' => $taxRate->id ?? null,
             'ddp_inc_tax' => $defaultPurchasePriceIncTax,
             'sell_price_incl_tax' => $sellPrice,
@@ -456,7 +458,7 @@ class ProductUpsertService {
             'dpp_inc_tax' => $defaultPurchasePriceIncTax,
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
-            'tax_rate_short_name' => $item['tax_rate_id'] ?? null,
+            'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
             'price_excl_tax' => round($sellPriceExclTax, 2),
             'price_incl_tax' => round($sellPrice, 2)
         ]);
