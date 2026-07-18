@@ -375,8 +375,8 @@ class ProductUpsertService {
             ? $sellPrice / (1 + ($taxPercentage / 100))
             : $sellPrice;
 
-        $defaultPurchasePriceIncTax = $taxPercentage > 0 
-            ? $cost / (1 - ($taxPercentage / 100))
+        $defaultPurchasePriceExcTax = $taxPercentage > 0 
+            ? $cost / (1 + ($taxPercentage / 100))
             : $cost;
 
         // Calculate tax amount
@@ -386,7 +386,7 @@ class ProductUpsertService {
             'tax_percentage' => $taxPercentage,
             'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
             'tax_rate_id' => $taxRate->id ?? null,
-            'ddp_inc_tax' => round($defaultPurchasePriceIncTax, 2),
+            'ddp_inc_tax' => round($defaultPurchasePriceExcTax, 2),
             'sell_price_incl_tax' => round($sellPrice, 2),
             'sell_price_excl_tax' => round($sellPriceExclTax, 2),
             'tax_amount' => $taxAmount
@@ -394,11 +394,11 @@ class ProductUpsertService {
 
         $variation->update([
             'default_sell_price' => round($sellPriceExclTax, 2), // Price excluding tax
-            'default_purchase_price' => round($cost, 2),
-            'dpp_inc_tax' => round($defaultPurchasePriceIncTax, 2),
+            'default_purchase_price' => round($defaultPurchasePriceExcTax, 2),
+            'dpp_inc_tax' => round($cost, 2),
             'sell_price_inc_tax' => round($sellPrice, 2), // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
-            'profit_percent' => $this->profit($sellPriceExclTax, $cost, $defaultPurchasePriceIncTax),
+            'profit_percent' => $this->profit($sellPriceExclTax, $cost),
         ]);
 
         /*
@@ -912,13 +912,12 @@ class ProductUpsertService {
     private function profit(
         float $price,
         float $cost,
-        float $defaultPurchasePriceIncTax
     ): float {
         if ($cost <= 0) {
             return 0;
         }
 
-        return round((($price -  $defaultPurchasePriceIncTax) / $defaultPurchasePriceIncTax) * 100, 2);
+        return round((($price -  $cost) / $cost) * 100, 2);
     }
 
     /**
