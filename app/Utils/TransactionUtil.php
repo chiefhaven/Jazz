@@ -1670,6 +1670,9 @@ class TransactionUtil extends Util
             }
 
             if ($transaction->status == 'final') {
+
+                $qr_code_text = $transaction->eisSale->qr_code;
+                Log::info('Transation: ', [$transaction]);
                 $output['qr_code_text'] = $qr_code_text;
             }
         // add this seprate for sell retuen qr text of zatca
