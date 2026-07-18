@@ -469,7 +469,7 @@ class ProductUpsertService {
      */
     private function getTaxRateByShortName(int $businessId, array $item): ?object
     {
-        $shortName = $item['taxRateId'] ?? null;
+        $shortName = $item['tax_rate_id'] ?? null;
         
         Log::debug('Looking for tax rate by short name', [
             'business_id' => $businessId,
