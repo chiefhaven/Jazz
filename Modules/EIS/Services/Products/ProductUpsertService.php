@@ -917,7 +917,7 @@ class ProductUpsertService {
             return 0;
         }
 
-        return round((($price - $cost) / $cost) * 100;
+        return (($price - $cost) / $cost) * 100;
     }
 
     /**
