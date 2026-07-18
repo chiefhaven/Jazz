@@ -380,23 +380,23 @@ class ProductUpsertService {
             : $cost;
 
         // Calculate tax amount
-        $taxAmount = $sellPrice - $sellPriceExclTax;
+        $taxAmount = round($sellPrice - $sellPriceExclTax, 2);
 
         Log::debug('Price calculation with tax', [
             'tax_percentage' => $taxPercentage,
             'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
             'tax_rate_id' => $taxRate->id ?? null,
-            'ddp_inc_tax' => $defaultPurchasePriceIncTax,
-            'sell_price_incl_tax' => $sellPrice,
-            'sell_price_excl_tax' => $sellPriceExclTax,
+            'ddp_inc_tax' => round($defaultPurchasePriceIncTax, 2),
+            'sell_price_incl_tax' => round($sellPrice, 2),
+            'sell_price_excl_tax' => round($sellPriceExclTax, 2),
             'tax_amount' => $taxAmount
         ]);
 
         $variation->update([
-            'default_sell_price' => $sellPriceExclTax, // Price excluding tax
-            'default_purchase_price' => $cost,
-            'dpp_inc_tax' => $defaultPurchasePriceIncTax,
-            'sell_price_inc_tax' => $sellPrice, // Price including tax
+            'default_sell_price' => round($sellPriceExclTax, 2), // Price excluding tax
+            'default_purchase_price' => round($cost, 2),
+            'dpp_inc_tax' => round($defaultPurchasePriceIncTax, 2),
+            'sell_price_inc_tax' => round($sellPrice, 2), // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
             'profit_percent' => $this->profit($sellPriceExclTax, $cost, $defaultPurchasePriceIncTax),
         ]);
@@ -644,7 +644,7 @@ class ProductUpsertService {
         // Fallback 1: Estimate from price
         $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
         if ($price > 0) {
-            $estimatedCost = $price * 0.7;
+            $estimatedCost = $price * 0.20;
             Log::warning('Estimating cost from price as fallback', [
                 'price' => $price,
                 'estimated_cost' => $estimatedCost
@@ -918,7 +918,7 @@ class ProductUpsertService {
             return 0;
         }
 
-        return (($price -  $defaultPurchasePriceIncTax) / $cost) * 100;
+        return round((($price -  $defaultPurchasePriceIncTax) / $defaultPurchasePriceIncTax) * 100, 2);
     }
 
     /**
