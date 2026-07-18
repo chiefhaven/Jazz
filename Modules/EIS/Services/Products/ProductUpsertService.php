@@ -398,7 +398,7 @@ class ProductUpsertService {
             'dpp_inc_tax' => $defaultPurchasePriceIncTax,
             'sell_price_inc_tax' => $sellPrice, // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
-            'profit_percent' => $this->profit($sellPriceExclTax, $cost),
+            'profit_percent' => $this->profit($sellPriceExclTax, $cost, $defaultPurchasePriceIncTax),
         ]);
 
         /*
@@ -644,7 +644,7 @@ class ProductUpsertService {
         // Fallback 1: Estimate from price
         $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
         if ($price > 0) {
-            $estimatedCost = $price * 0.7;
+            $estimatedCost = $price * 0.20;
             Log::warning('Estimating cost from price as fallback', [
                 'price' => $price,
                 'estimated_cost' => $estimatedCost
@@ -911,13 +911,14 @@ class ProductUpsertService {
      */
     private function profit(
         float $price,
-        float $cost
+        float $cost,
+        float $defaultPurchasePriceIncTax
     ): float {
         if ($cost <= 0) {
             return 0;
         }
 
-        return (($price - $cost) / $cost) * 100;
+        return (($price -  $defaultPurchasePriceIncTax) / $cost) * 100;
     }
 
     /**
