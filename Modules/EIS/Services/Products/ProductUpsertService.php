@@ -375,9 +375,7 @@ class ProductUpsertService {
             ? $sellPrice / (1 + ($taxPercentage / 100))
             : $sellPrice;
 
-        $defaultPurchasePriceExcTax = $taxPercentage > 0 
-            ? $cost / (1 + ($taxPercentage / 100))
-            : $cost;
+        $defaultPurchasePriceExcTax = $this->getCostPriceIncTax($item, $variation);
 
         // Calculate tax amount
         $taxAmount = round($sellPrice - $sellPriceExclTax, 2);
@@ -650,6 +648,38 @@ class ProductUpsertService {
                 'estimated_cost' => $estimatedCost
             ]);
             return $estimatedCost;
+        }
+        
+        // Fallback 2: Use default 0
+        Log::warning('No cost available, using 0 as final fallback');
+        return 0;
+    }
+
+    /**
+     * Get cost price with dual fallbacks.
+     */
+    private function getCostPriceIncTax(array $item, $variation): float
+    {
+        // Primary: Use existing cost
+        if ($variation->exists && $variation->dpp_inc_tax > 0) {
+            return $variation->dpp_inc_tax;
+        }
+        
+        // Secondary: Extract from item
+        $cost = (float) ($item['cost'] ?? $item['purchasePrice'] ?? $item['buyingPrice'] ?? 0);
+        if ($cost > 0) {
+            return $cost;
+        }
+        
+        // Fallback 1: Estimate from price
+        $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
+        if ($price > 0) {
+            $estimatedCostIncTax = $price * 0.60;
+            Log::warning('Estimating cost from price as fallback', [
+                'price' => $price,
+                'estimated_cost' => $estimatedCostIncTax
+            ]);
+            return $estimatedCostIncTax;
         }
         
         // Fallback 2: Use default 0
