@@ -667,12 +667,13 @@ class ProductUpsertService {
         }
         
         // Secondary: Extract from item
-        $cost = (float) ($item['cost'] ?? 0);
-        if ($cost > 0) {
+        $price = (float) ($item['price'] ?? 0);
+        $estimatedCost = $price * 0.60;
+        if ($estimatedCost > 0) {
             
             $defaultPriceExclTax = $taxPercentage > 0 
-            ? $cost / (1 + ($taxPercentage / 100))
-            : $cost;
+            ? $estimatedCost / (1 + ($taxPercentage / 100))
+            : $estimatedCost;
 
             return $defaultPriceExclTax;
         }
