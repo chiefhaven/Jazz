@@ -630,18 +630,12 @@ class ProductUpsertService {
     private function getCostPrice(array $item, $variation): float
     {
         // Primary: Use existing cost
-        if ($variation->exists && $variation->default_purchase_price > 0) {
-            return $variation->default_purchase_price;
-        }
-        
-        // Secondary: Extract from item
-        $cost = (float) ($item['cost'] ?? $item['purchasePrice'] ?? $item['buyingPrice'] ?? 0);
-        if ($cost > 0) {
-            return $cost;
+        if ($variation->exists && $variation->dpp_inc_tax > 0) {
+            return $variation->dpp_inc_tax;
         }
         
         // Fallback 1: Estimate from price
-        $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
+        $price = (float) ($item['price'] ?? 0);
         if ($price > 0) {
             $estimatedCost = $price * 0.60;
             Log::warning('Estimating cost from price as fallback', [
@@ -659,18 +653,18 @@ class ProductUpsertService {
     /**
      * Get cost price with dual fallbacks.
      */
-    private function getCostPriceExcTax($costExcTax, $variation, $taxPercentage): float
+    private function getCostPriceExcTax($cost, $variation, $taxPercentage): float
     {
         // Primary: Use existing cost
         if ($variation->exists && $variation->default_purchase_price > 0) {
             return $variation->default_purchase_price;
         }
         
-        if ($costExcTax > 0) {
+        if ($cost > 0) {
             
             $defaultPriceExclTax = $taxPercentage > 0 
-            ? $costExcTax / (1 + ($taxPercentage / 100))
-            : $costExcTax;
+            ? $cost / (1 + ($taxPercentage / 100))
+            : $cost;
 
             return $defaultPriceExclTax;
         }
