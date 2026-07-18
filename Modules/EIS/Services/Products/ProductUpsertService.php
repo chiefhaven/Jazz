@@ -375,7 +375,7 @@ class ProductUpsertService {
             ? $sellPrice / (1 + ($taxPercentage / 100))
             : $sellPrice;
 
-        $defaultPurchasePriceExcTax = $this->getCostPriceIncTax($item, $variation);
+        $defaultPurchasePriceExcTax = $this->getCostPriceExcTax($item, $variation);
 
         // Calculate tax amount
         $taxAmount = round($sellPrice - $sellPriceExclTax, 2);
@@ -630,8 +630,8 @@ class ProductUpsertService {
     private function getCostPrice(array $item, $variation): float
     {
         // Primary: Use existing cost
-        if ($variation->exists && $variation->default_purchase_price > 0) {
-            return $variation->default_purchase_price;
+        if ($variation->exists && $variation->dpp_inc_tax > 0) {
+            return $variation->dpp_inc_tax;
         }
         
         // Secondary: Extract from item
@@ -659,11 +659,11 @@ class ProductUpsertService {
     /**
      * Get cost price with dual fallbacks.
      */
-    private function getCostPriceIncTax(array $item, $variation): float
+    private function getCostPriceExcTax(array $item, $variation): float
     {
         // Primary: Use existing cost
-        if ($variation->exists && $variation->dpp_inc_tax > 0) {
-            return $variation->dpp_inc_tax;
+        if ($variation->exists && $variation->default_purchase_price > 0) {
+            return $variation->default_purchase_price;
         }
         
         // Secondary: Extract from item
