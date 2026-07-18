@@ -659,14 +659,13 @@ class ProductUpsertService {
     /**
      * Get cost price with dual fallbacks.
      */
-    private function getCostPriceExcTax($cost, $variation, $taxPercentage): float
+    private function getCostPriceExcTax($costExcTax, $variation, $taxPercentage): float
     {
         // Primary: Use existing cost
         if ($variation->exists && $variation->default_purchase_price > 0) {
             return $variation->default_purchase_price;
         }
         
-        $costExcTax = $cost * 0.60;
         if ($costExcTax > 0) {
             
             $defaultPriceExclTax = $taxPercentage > 0 
