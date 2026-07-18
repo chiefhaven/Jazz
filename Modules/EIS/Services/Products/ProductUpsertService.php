@@ -393,10 +393,10 @@ class ProductUpsertService {
         ]);
 
         $variation->update([
-            'default_sell_price' => round($sellPriceExclTax, 2), // Price excluding tax
+            'default_sell_price' => $sellPriceExclTax, // Price excluding tax
             'default_purchase_price' => $cost,
-            'dpp_inc_tax' => round( $defaultPurchasePriceIncTax, 2),
-            'sell_price_inc_tax' => round($sellPrice, 2), // Price including tax
+            'dpp_inc_tax' => $defaultPurchasePriceIncTax,
+            'sell_price_inc_tax' => $sellPrice, // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
             'profit_percent' => $this->profit($sellPriceExclTax, $cost),
         ]);
@@ -459,8 +459,8 @@ class ProductUpsertService {
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
             'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
-            'price_excl_tax' => round($sellPriceExclTax, 2),
-            'price_incl_tax' => round($sellPrice, 2)
+            'price_excl_tax' => $sellPriceExclTax,
+            'price_incl_tax' => $sellPrice,
         ]);
 
         return $product;
@@ -617,7 +617,7 @@ class ProductUpsertService {
                 'cost' => $cost,
                 'calculated_price' => $calculatedPrice
             ]);
-            return round($calculatedPrice, 2);
+            return $calculatedPrice;
         }
         
         // Fallback 2: Use default 0
@@ -649,7 +649,7 @@ class ProductUpsertService {
                 'price' => $price,
                 'estimated_cost' => $estimatedCost
             ]);
-            return round($estimatedCost, 2);
+            return $estimatedCost;
         }
         
         // Fallback 2: Use default 0
@@ -917,7 +917,7 @@ class ProductUpsertService {
             return 0;
         }
 
-        return round((($price - $cost) / $cost) * 100, 2);
+        return round((($price - $cost) / $cost) * 100;
     }
 
     /**
