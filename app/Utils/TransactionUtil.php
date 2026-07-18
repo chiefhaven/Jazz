@@ -27,7 +27,7 @@ use App\VariationLocationDetails;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\CashRegister;
-
+use Illuminate\Support\Facades\Log;
 
 class TransactionUtil extends Util
 {
