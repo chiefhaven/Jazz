@@ -965,7 +965,7 @@ class TransactionUtil extends Util
     {
         $il = $invoice_layout;
 
-        $transaction = Transaction::with('esiSale')->find($transaction_id);
+        $transaction = Transaction::with('eisSale')->find($transaction_id);
         $transaction_type = $transaction->type;
 
         $output = [
@@ -1595,7 +1595,7 @@ class TransactionUtil extends Util
         }
 
         //Check for barcode
-        $output['barcode'] = ($il->show_barcode == 1) ? $transaction->invoice_no : false;
+        $output['barcode'] = ($il->show_barcode == 1) ? $transaction->invoice_no : true;
 
         //Additional notes
         $output['additional_notes'] = $transaction->additional_notes;
@@ -1615,9 +1615,6 @@ class TransactionUtil extends Util
             $output['show_qr_code'] = ! empty($il->show_qr_code) ? true : false;
 
             $zatca_qr = ! empty($il->common_settings['zatca_qr']) ? true : false;
-
-            $eis_qr = ! empty($il->common_settings['eis_qr']) ? true : false;
-
 
             if ($zatca_qr) {
                 $total_order_tax = $transaction->tax_amount + $total_line_taxes;
