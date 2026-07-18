@@ -644,7 +644,7 @@ class ProductUpsertService {
         // Fallback 1: Estimate from price
         $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
         if ($price > 0) {
-            $estimatedCost = $price * 0.20;
+            $estimatedCost = $price * 0.7;
             Log::warning('Estimating cost from price as fallback', [
                 'price' => $price,
                 'estimated_cost' => $estimatedCost
