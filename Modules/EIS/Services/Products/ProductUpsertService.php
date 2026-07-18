@@ -457,8 +457,8 @@ class ProductUpsertService {
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
             'tax_rate_short_name' => $item['tax_rate_id'] ?? null,
-            'price_excl_tax' => round($sellPriceExclTax, 4),
-            'price_incl_tax' => round($sellPrice, 4)
+            'price_excl_tax' => round($sellPriceExclTax, 2),
+            'price_incl_tax' => round($sellPrice, 2)
         ]);
 
         return $product;
@@ -615,7 +615,7 @@ class ProductUpsertService {
                 'cost' => $cost,
                 'calculated_price' => $calculatedPrice
             ]);
-            return round($calculatedPrice, 4);
+            return round($calculatedPrice, 2);
         }
         
         // Fallback 2: Use default 0
@@ -647,7 +647,7 @@ class ProductUpsertService {
                 'price' => $price,
                 'estimated_cost' => $estimatedCost
             ]);
-            return round($estimatedCost, 4);
+            return round($estimatedCost, 2);
         }
         
         // Fallback 2: Use default 0
@@ -915,7 +915,7 @@ class ProductUpsertService {
             return 0;
         }
 
-        return round((($price - $cost) / $cost) * 100, 4);
+        return round((($price - $cost) / $cost) * 100, 2);
     }
 
     /**
