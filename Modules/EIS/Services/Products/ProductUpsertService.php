@@ -375,11 +375,7 @@ class ProductUpsertService {
             ? $sellPrice / (1 + ($taxPercentage / 100))
             : $sellPrice;
 
-        $defaultPurchasePrice = $this->getdefaultPurchasePrice($item, $variation);
-
-        $defaultPurchasePriceExcTax =  $taxPercentage > 0 
-            ? $defaultPurchasePrice / (1 + ($taxPercentage / 100))
-            : $defaultPurchasePrice;
+        $defaultPurchasePriceExcTax = $this->getCostPriceExcTax($item, $variation, $taxPercentage);
 
         // Calculate tax amount
         $taxAmount = round($sellPrice - $sellPriceExclTax, 2);
@@ -663,7 +659,7 @@ class ProductUpsertService {
     /**
      * Get cost price with dual fallbacks.
      */
-    private function getdefaultPurchasePrice(array $item, $variation): float
+    private function getCostPriceExcTax(array $item, $variation, $taxPercentage): float
     {
         // Primary: Use existing cost
         if ($variation->exists && $variation->default_purchase_price > 0) {
@@ -673,7 +669,12 @@ class ProductUpsertService {
         // Secondary: Extract from item
         $cost = (float) ($item['cost'] ?? 0);
         if ($cost > 0) {
-            return $cost;
+            
+            $defaultPriceExclTax = $taxPercentage > 0 
+            ? $cost / (1 + ($taxPercentage / 100))
+            : $cost;
+
+            return $defaultPriceExclTax;
         }
         
         // Fallback 2: Use default 0
