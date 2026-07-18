@@ -455,7 +455,7 @@ class ProductUpsertService {
             'product_id' => $product->id,
             'variation_id' => $variation->id,
             'location_id' => $locationId,
-            'dpp_inc_tax' => $defaultPurchasePriceIncTax,
+            'dpp_inc_tax' => $defaultPurchasePriceExcTax,
             'stock' => $stock,
             'tax_percentage' => $taxPercentage,
             'eis_tax_rate_id' => $item['tax_rate_id'] ?? null,
@@ -644,7 +644,7 @@ class ProductUpsertService {
         // Fallback 1: Estimate from price
         $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? 0);
         if ($price > 0) {
-            $estimatedCost = $price * 0.20;
+            $estimatedCost = $price * 0.60;
             Log::warning('Estimating cost from price as fallback', [
                 'price' => $price,
                 'estimated_cost' => $estimatedCost
@@ -909,15 +909,22 @@ class ProductUpsertService {
     /**
      * Calculate profit margin.
      */
-    private function profit(
-        float $price,
-        float $cost,
-    ): float {
+    private function profit(float $price, float $cost): float
+    {
         if ($cost <= 0) {
             return 0;
         }
-
-        return round((($price -  $cost) / $cost) * 100, 2);
+        
+        // Handle potential division by zero or negative values
+        if ($price < 0 || $cost < 0) {
+            Log::warning('Invalid price or cost values for profit calculation', [
+                'price' => $price,
+                'cost' => $cost
+            ]);
+            return 0;
+        }
+        
+        return round((($price - $cost) / $cost) * 100, 2);
     }
 
     /**
