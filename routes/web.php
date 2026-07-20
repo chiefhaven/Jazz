@@ -131,6 +131,9 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
 
     Route::resource('brands', BrandController::class);
 
+    Route::get('/sell/split-bill/{id}', [SellController::class, 'splitBill'])->name('sell.splitBill');
+    Route::post('/sell/process-split-bill', [SellController::class, 'processSplitBill'])->name('sell.processSplitBill');
+    
     //Route::resource('payment-account', 'PaymentAccountController');
 
     Route::resource('tax-rates', TaxRateController::class);

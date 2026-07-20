@@ -2590,6 +2590,35 @@ class TransactionUtil extends Util
     }
 
     /**
+    * Update transaction totals after removing lines
+    *
+    * @param  int  $transaction_id
+    * @return void
+    */
+    public function updateSellTransactionTotals($transaction_id)
+    {
+        $transaction = Transaction::findOrFail($transaction_id);
+        
+        $totals = TransactionSellLine::where('transaction_id', $transaction_id)
+                    ->whereNull('parent_sell_line_id')
+                    ->select(
+                        DB::raw('SUM(quantity) as total_quantity'),
+                        DB::raw('SUM(unit_price * quantity) as total_before_tax'),
+                        DB::raw('SUM(item_tax * quantity) as total_tax'),
+                        DB::raw('SUM(unit_price_inc_tax * quantity) as final_total')
+                    )
+                    ->first();
+        
+        $transaction->total_before_tax = $totals->total_before_tax ?? 0;
+        $transaction->tax_amount = $totals->total_tax ?? 0;
+        $transaction->final_total = $totals->final_total ?? 0;
+        $transaction->save();
+        
+        // Update payment status
+        $this->updatePaymentStatus($transaction_id);
+    }
+
+    /**
      * Gives the total sell amount for a business within the date range passed
      *
      * @param  int  $business_id

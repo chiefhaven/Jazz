@@ -82,6 +82,12 @@ class SellController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $eis_status = [
+            'pending' => 'Pending',
+            'submitted' => 'Submmited',
+            'failed' => 'Failed', 
+        ];
+
         $business_id = request()->session()->get('user.business_id');
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
         $is_crm = $this->moduleUtil->isModuleInstalled('Crm');
@@ -121,6 +127,7 @@ class SellController extends Controller
                 'res_waiter_id' => request()->input('res_waiter_id'),
                 'sub_type' => request()->input('sub_type'),
                 'status' => request()->input('status'),
+                'eis_status' => request()->input('eis_status'),
                 'sales_cmsn_agnt' => request()->input('sales_cmsn_agnt'),
                 'service_staffs' => request()->input('service_staffs'),
                 'only_pending_shipments' => request()->input('only_pending_shipments'),
@@ -193,6 +200,7 @@ class SellController extends Controller
             if ($this->businessUtil->isModuleEnabled('subscription')) {
                 $sells->addSelect('transactions.is_recurring', 'transactions.recur_parent_id');
             }
+
             $sales_order_statuses = Transaction::sales_order_statuses();
 
             // for zatca module Retrieve the 'is_zatca' parameter from the request; default to 0 if not provided and only comes 1 from zatca module
@@ -260,6 +268,9 @@ class SellController extends Controller
 
                         if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view') || auth()->user()->can('view_own_sell_only')) {
                             $html .= '<li><a href="#" data-href="'.action([\App\Http\Controllers\SellController::class, 'show'], [$row->id]).'" class="btn-modal" data-container=".view_modal"><i class="fas fa-eye" aria-hidden="true"></i> '.__('messages.view').'</a></li>';
+                        }
+                        if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view') || auth()->user()->can('view_own_sell_only')) {
+                            $html .= '<li><a href="#" data-href="'.action([\App\Http\Controllers\SellController::class, 'splitBill'], [$row->id]).'" class="btn-modal" data-container=".view_modal"><i class="fas fas-scissors" aria-hidden="true"></i> '.__('lang_v1.split_bill').'</a></li>';
                         }
                         if (! $only_shipments) {
                             if ($row->is_direct_sale == 0) {
@@ -469,6 +480,10 @@ class SellController extends Controller
                     $html = ! empty($payment_method) ? '<span class="payment-method" data-orig-value="'.$payment_method.'" data-status-name="'.$payment_method.'">'.$payment_method.'</span>' : '';
 
                     return $html;
+                })
+                ->addColumn('eis_status', function ($row) use ($eis_status) {
+                    $status = optional($row->eisSale)->status;
+                    return $status ? ($eis_status[$status] ?? $status) : '';
                 })
                 ->editColumn('status', function ($row) use ($sales_order_statuses, $is_admin) {
                     $status = '';
@@ -737,7 +752,7 @@ class SellController extends Controller
                             ->pluck('name', 'id');
         $query = Transaction::where('business_id', $business_id)
                     ->where('id', $id)
-                    ->with(['contact', 'delivery_person_user', 'sell_lines' => function ($q) {
+                    ->with(['contact', 'eisSale', 'delivery_person_user', 'sell_lines' => function ($q) {
                         $q->whereNull('parent_sell_line_id');
                     }, 'sell_lines.product', 'sell_lines.product.unit', 'sell_lines.product.second_unit', 'sell_lines.variations', 'sell_lines.variations.product_variation', 'payment_lines', 'sell_lines.modifiers', 'sell_lines.lot_details', 'tax', 'sell_lines.sub_unit', 'table', 'service_staff', 'sell_lines.service_staff', 'types_of_service', 'sell_lines.warranties', 'media']);
 
@@ -810,6 +825,406 @@ class SellController extends Controller
                 'sales_orders',
                 'line_taxes'
             ));
+    }
+
+    /**
+     * Show split bill modal
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function splitBill($id)
+    {
+        if (!auth()->user()->can('sell.view') && !auth()->user()->can('direct_sell.access') && !auth()->user()->can('view_own_sell_only')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $business_id = request()->session()->get('user.business_id');
+        
+        $sell = Transaction::where('business_id', $business_id)
+                    ->where('id', $id)
+                    ->with([
+                        'contact', 
+                        'eisSale', 
+                        'sell_lines' => function ($q) {
+                            $q->whereNull('parent_sell_line_id');
+                        }, 
+                        'sell_lines.product', 
+                        'sell_lines.product.unit', 
+                        'sell_lines.variations', 
+                        'sell_lines.variations.product_variation', 
+                        'sell_lines.sub_unit',
+                        'sell_lines.modifiers',
+                        'tax', 
+                        'location'
+                    ])
+                    ->firstOrFail();
+
+        // Get payment types for dropdown
+        $payment_types = $this->transactionUtil->payment_types($sell->location_id, true, $business_id);
+        
+        // Get customers for dropdown
+        $customers = Contact::customersDropdown($business_id, false);
+        
+        // Get locations for dropdown
+        $business_locations = BusinessLocation::forDropdown($business_id, false);
+        
+        // Get tax rates
+        $taxes = TaxRate::where('business_id', $business_id)->pluck('name', 'id');
+
+        // Calculate line totals for display
+        $line_taxes = [];
+        foreach ($sell->sell_lines as $key => $value) {
+            if (! empty($value->sub_unit_id)) {
+                $formated_sell_line = $this->transactionUtil->recalculateSellLineTotals($business_id, $value);
+                $sell->sell_lines[$key] = $formated_sell_line;
+            }
+
+            if (! empty($taxes[$value->tax_id])) {
+                if (isset($line_taxes[$taxes[$value->tax_id]])) {
+                    $line_taxes[$taxes[$value->tax_id]] += ($value->item_tax * $value->quantity);
+                } else {
+                    $line_taxes[$taxes[$value->tax_id]] = ($value->item_tax * $value->quantity);
+                }
+            }
+        }
+
+        return view('sale_pos.split_bill')
+            ->with(compact(
+                'sell',
+                'payment_types',
+                'customers',
+                'business_locations',
+                'taxes',
+                'line_taxes'
+            ));
+    }
+
+    /**
+     * Process split bill
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function processSplitBill(Request $request)
+    {
+        try {
+            $business_id = request()->session()->get('user.business_id');
+            $user_id = request()->session()->get('user.id');
+
+            $request->validate([
+                'transaction_id' => 'required|exists:transactions,id',
+                'sell_lines' => 'required|array|min:1',
+                'customer_id' => 'required|exists:contacts,id',
+                'location_id' => 'required|exists:business_locations,id',
+            ]);
+
+            DB::beginTransaction();
+
+            $original_transaction = Transaction::where('business_id', $business_id)
+                                    ->where('id', $request->transaction_id)
+                                    ->with(['sell_lines' => function($q) {
+                                        $q->whereNull('parent_sell_line_id');
+                                    }])
+                                    ->firstOrFail();
+
+            // Check if EIS already submitted
+            if (!empty($original_transaction->eisSale) && $original_transaction->eisSale->status == 'submitted') {
+                throw new \Exception(__('lang_v1.cannot_split_after_eis_submission'));
+            }
+
+            // Get all line IDs that will be affected
+            $all_line_ids = $original_transaction->sell_lines->pluck('id')->toArray();
+            $selected_ids = [];
+            $selected_lines_data = [];
+            $split_items = [];
+
+            foreach ($request->sell_lines as $line_data) {
+                if (is_array($line_data)) {
+                    $line_id = $line_data['id'];
+                    $quantity = !empty($line_data['quantity']) ? floatval($line_data['quantity']) : null;
+                } else {
+                    $line_id = $line_data;
+                    $quantity = null;
+                }
+
+                $selected_ids[] = $line_id;
+
+                $original_line = $original_transaction->sell_lines->where('id', $line_id)->first();
+                if (!$original_line) {
+                    throw new \Exception(__('lang_v1.sell_line_not_found'));
+                }
+
+                // If quantity not specified, use full quantity
+                if ($quantity === null) {
+                    $quantity = $original_line->quantity;
+                }
+
+                // Validate quantity
+                if ($quantity <= 0) {
+                    throw new \Exception(__('lang_v1.quantity_must_be_greater_than_zero'));
+                }
+
+                if ($quantity > $original_line->quantity) {
+                    throw new \Exception(__('lang_v1.quantity_exceeds_available', ['available' => $original_line->quantity]));
+                }
+
+                // Check if quantity can be split (for combo products)
+                if ($original_line->product->type == 'combo') {
+                    $combo_lines = TransactionSellLine::where('parent_sell_line_id', $original_line->id)
+                                    ->where('children_type', 'combo')
+                                    ->get();
+                    foreach ($combo_lines as $combo_line) {
+                        $combo_qty = ($combo_line->quantity / $original_line->quantity) * $quantity;
+                        if (fmod($combo_qty, 1) != 0) {
+                            throw new \Exception(__('lang_v1.cannot_split_combo_product_quantity'));
+                        }
+                    }
+                }
+
+                $selected_lines_data[] = [
+                    'line' => $original_line,
+                    'quantity' => $quantity
+                ];
+                $split_items[] = [
+                    'id' => $line_id,
+                    'quantity' => $quantity
+                ];
+            }
+
+            // Check if splitting all items or leaving at least 1
+            $lines_not_selected = array_diff($all_line_ids, $selected_ids);
+            $remaining_items = 0;
+            
+            foreach ($lines_not_selected as $line_id) {
+                $line = $original_transaction->sell_lines->where('id', $line_id)->first();
+                if ($line) {
+                    $remaining_items += $line->quantity;
+                }
+            }
+            
+            // Check if selected lines have full quantity taken
+            foreach ($selected_lines_data as $item) {
+                $line = $item['line'];
+                $qty = $item['quantity'];
+                if ($qty == $line->quantity) {
+                    // Full quantity taken from this line
+                    continue;
+                } else {
+                    // Partial quantity taken, so there will be remaining items
+                    $remaining_items += ($line->quantity - $qty);
+                }
+            }
+
+            // If all items are being moved, throw error
+            if ($remaining_items == 0) {
+                throw new \Exception(__('lang_v1.cannot_split_all_items'));
+            }
+
+            // Calculate totals for new transaction
+            $split_total = 0;
+            $split_total_before_tax = 0;
+            $split_tax_amount = 0;
+            $split_discount_amount = 0;
+            $split_line_discount_total = 0;
+
+            foreach ($selected_lines_data as $item) {
+                $line = $item['line'];
+                $qty = $item['quantity'];
+                
+                // Calculate line totals
+                $line_total = $line->unit_price_inc_tax * $qty;
+                $line_total_before_tax = $line->unit_price * $qty;
+                $line_tax = $line->item_tax * $qty;
+                $line_discount = $line->line_discount_amount * $qty;
+
+                $split_total += $line_total;
+                $split_total_before_tax += $line_total_before_tax;
+                $split_tax_amount += $line_tax;
+                $split_line_discount_total += $line_discount;
+
+                // Calculate proportional discount from original transaction
+                if ($original_transaction->discount_amount > 0) {
+                    $proportional_discount = ($line_total / $original_transaction->final_total) * $original_transaction->discount_amount;
+                    $split_discount_amount += $proportional_discount;
+                }
+            }
+
+            // Create new transaction for split
+            $split_transaction_data = [
+                'business_id' => $business_id,
+                'location_id' => $request->location_id,
+                'type' => 'sell',
+                'status' => $request->status ?? 'final',
+                'contact_id' => $request->customer_id,
+                'invoice_no' => $this->transactionUtil->getInvoiceNumber(
+                    $business_id, 
+                    $request->status ?? 'final', 
+                    $request->location_id
+                ),
+                'transaction_date' => \Carbon::now(),
+                'total_before_tax' => $split_total_before_tax,
+                'tax_amount' => $split_tax_amount,
+                'final_total' => $split_total - $split_discount_amount,
+                'discount_type' => $original_transaction->discount_type,
+                'discount_amount' => $split_discount_amount,
+                'created_by' => $user_id,
+                'additional_notes' => $request->notes ?? 'Split from invoice: ' . $original_transaction->invoice_no,
+                'is_direct_sale' => 1,
+                'payment_status' => 'due',
+                'shipping_charges' => ($original_transaction->shipping_charges / $original_transaction->final_total) * $split_total,
+                'tax_id' => $original_transaction->tax_id,
+            ];
+
+            // Apply tax recalculation
+            if (!empty($original_transaction->tax_id)) {
+                $tax = TaxRate::find($original_transaction->tax_id);
+                if ($tax && $tax->is_tax_group) {
+                    // Recalculate group tax
+                    $tax_amount = $this->transactionUtil->calculateGroupTax($tax, $split_total_before_tax);
+                    $split_transaction_data['tax_amount'] = $tax_amount;
+                    $split_transaction_data['final_total'] = $split_total_before_tax + $tax_amount - $split_discount_amount;
+                }
+            }
+
+            $split_transaction = Transaction::create($split_transaction_data);
+
+            // Create sell lines for split transaction
+            $new_sell_lines = [];
+            foreach ($selected_lines_data as $item) {
+                $line = $item['line'];
+                $qty = $item['quantity'];
+
+                $new_line = [
+                    'product_id' => $line->product_id,
+                    'variation_id' => $line->variation_id,
+                    'quantity' => $qty,
+                    'unit_price_before_discount' => $line->unit_price_before_discount,
+                    'unit_price' => $line->unit_price,
+                    'line_discount_type' => $line->line_discount_type,
+                    'line_discount_amount' => $line->line_discount_amount,
+                    'item_tax' => $line->item_tax,
+                    'tax_id' => $line->tax_id,
+                    'unit_price_inc_tax' => $line->unit_price_inc_tax,
+                    'sub_unit_id' => $line->sub_unit_id,
+                    'sell_line_note' => $line->sell_line_note . ' (Split from invoice ' . $original_transaction->invoice_no . ')',
+                    'so_line_id' => $line->so_line_id,
+                ];
+                $new_sell_lines[] = $new_line;
+            }
+
+            $split_transaction->sell_lines()->createMany($new_sell_lines);
+
+            // Copy modifiers if any
+            foreach ($selected_lines_data as $item) {
+                $line = $item['line'];
+                $qty = $item['quantity'];
+                
+                $modifiers = TransactionSellLine::where('parent_sell_line_id', $line->id)
+                                ->where('children_type', 'modifier')
+                                ->get();
+                
+                if ($modifiers->count() > 0) {
+                    $new_modifiers = [];
+                    foreach ($modifiers as $modifier) {
+                        $modifier_qty = ($modifier->quantity / $line->quantity) * $qty;
+                        $new_modifiers[] = [
+                            'product_id' => $modifier->product_id,
+                            'variation_id' => $modifier->variation_id,
+                            'quantity' => $modifier_qty,
+                            'unit_price_before_discount' => $modifier->unit_price_before_discount,
+                            'unit_price' => $modifier->unit_price,
+                            'line_discount_type' => $modifier->line_discount_type,
+                            'line_discount_amount' => $modifier->line_discount_amount,
+                            'item_tax' => $modifier->item_tax,
+                            'tax_id' => $modifier->tax_id,
+                            'unit_price_inc_tax' => $modifier->unit_price_inc_tax,
+                            'sub_unit_id' => $modifier->sub_unit_id,
+                            'children_type' => 'modifier',
+                        ];
+                    }
+                    
+                    // Get the new parent line ID
+                    $new_parent_line = $split_transaction->sell_lines()
+                                        ->where('product_id', $line->product_id)
+                                        ->where('variation_id', $line->variation_id)
+                                        ->orderBy('id', 'desc')
+                                        ->first();
+                    
+                    if ($new_parent_line) {
+                        foreach ($new_modifiers as &$modifier) {
+                            $modifier['parent_sell_line_id'] = $new_parent_line->id;
+                        }
+                        $split_transaction->sell_lines()->createMany($new_modifiers);
+                    }
+                }
+            }
+
+            // Update original transaction - remove selected lines or reduce quantity
+            foreach ($selected_lines_data as $item) {
+                $line = $item['line'];
+                $qty = $item['quantity'];
+                
+                if ($qty == $line->quantity) {
+                    // Remove entire line
+                    $line->delete();
+                } else {
+                    // Reduce quantity
+                    $line->quantity = $line->quantity - $qty;
+                    
+                    // Recalculate line totals
+                    $line->save();
+                }
+
+                // Handle modifiers for original transaction
+                $modifiers = TransactionSellLine::where('parent_sell_line_id', $line->id)
+                                ->where('children_type', 'modifier')
+                                ->get();
+                
+                foreach ($modifiers as $modifier) {
+                    if ($qty == $line->quantity) {
+                        $modifier->delete();
+                    } else {
+                        $modifier->quantity = ($modifier->quantity / $line->quantity) * ($line->quantity - $qty);
+                        $modifier->save();
+                    }
+                }
+            }
+
+            // Recalculate original transaction totals
+            $this->transactionUtil->updateSellTransactionTotals($original_transaction->id);
+
+            // Update payment status for both transactions
+            $this->transactionUtil->updatePaymentStatus($original_transaction->id);
+            $this->transactionUtil->updatePaymentStatus($split_transaction->id);
+
+            // Adjust stock for both transactions
+            $this->adjustStockForSplitTransaction($original_transaction, $split_transaction, $split_items);
+
+            // Copy EIS data if exists
+            if (!empty($original_transaction->eisSale)) {
+                $this->copyEisData($original_transaction, $split_transaction, $split_items);
+            }
+
+            DB::commit();
+
+            $output = [
+                'success' => true,
+                'msg' => __('lang_v1.split_bill_success'),
+                'new_transaction_id' => $split_transaction->id
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
+
+            $output = [
+                'success' => false,
+                'msg' => $e->getMessage()
+            ];
+        }
+
+        return $output;
     }
 
     /**
