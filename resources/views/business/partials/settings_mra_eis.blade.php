@@ -114,6 +114,10 @@
                                     <th>Activation Date</th>
                                     <td id="activation_date_display">N/A</td>
                                 </tr>
+                                <tr>
+                                    <th>Branch</th>
+                                    <td id="branch">N/A</td>
+                                </tr>
                             </table>
                         </div>
                         <div class="col-md-6">
@@ -121,13 +125,13 @@
                             <table class="table table-bordered table-striped">
                                 <tr>
                                     <th width="40%">JWT Token</th>
-                                    <td id="jwt_token_display">
+                                    <td id="jwt_token_display" class="text-break word-wrap" style="max-width: 300px; word-break: break-all; white-space: normal;">
                                         <span class="text-muted">N/A</span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>Secret Key</th>
-                                    <td id="secret_key_display">
+                                    <td id="secret_key_display" class="text-break word-wrap" style="max-width: 300px; word-break: break-all; white-space: normal;">
                                         <span class="text-muted">N/A</span>
                                     </td>
                                 </tr>

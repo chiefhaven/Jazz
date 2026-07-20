@@ -262,17 +262,12 @@ class TerminalActivationController extends Controller
     public function toggle(Request $request)
     {
         try {
-            $request->validate([
-                'business_id' => 'required|integer|exists:eis_configurations,business_id',
-                'token' => 'required|string'
-            ]);
-
-            $toggledBy = auth()->id() ?? null;
+            
+            $user = auth()->user();
 
             $result = $this->activationService->toggle(
-                $request->business_id,
-                $request->token,
-                $toggledBy
+                $user->business_id,
+                $user->id
             );
 
             return response()->json($result, $result['success'] ? 200 : 400);

@@ -46,4 +46,6 @@ return [
         'generate_code' => env('EIS_GENERATE_ACTIVATION_CODE', true),
         'code_prefix' => env('EIS_ACTIVATION_CODE_PREFIX', 'TAC-'),
     ],
+
+    'productId' => env('EIS_PRODUCT_ID', 1),
 ];

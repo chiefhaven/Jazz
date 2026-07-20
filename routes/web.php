@@ -121,6 +121,7 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
 
     Route::post('/test-email', [BusinessController::class, 'testEmailConfiguration']);
     Route::post('/activate-eis-terminal', [BusinessController::class, 'activateEISTerminal'])->name('activate_eis_terminal');
+    Route::post('/toggle-eis-terminal', [BusinessController::class, 'toggleEISTerminal'])->name('eis.terminal.toggle');
     Route::post('/test-sms', [BusinessController::class, 'testSmsConfiguration']);
     Route::get('/business/settings', [BusinessController::class, 'getBusinessSettings'])->name('business.getBusinessSettings');
     Route::post('/business/update', [BusinessController::class, 'postBusinessSettings'])->name('business.postBusinessSettings');
