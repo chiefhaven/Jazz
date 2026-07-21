@@ -279,8 +279,8 @@
                 var price = parseFloat($(this).data('price'));
                 total += price * quantity;
             });
-            $('#selected-total').text('{{ $sell->location->currency->symbol ?? '$' }}' + total.toFixed(2));
-            $('#split-amount-display').text('{{ $sell->location->currency->symbol ?? '$' }}' + total.toFixed(2));
+            $('#selected-total').text('{{ $sell->location->currency->symbol ?? 'K' }}' + total.toFixed(2));
+            $('#split-amount-display').text('{{ $sell->location->currency->symbol ?? 'K' }}' + total.toFixed(2));
             $('#split-amount').val(total);
         }
 
