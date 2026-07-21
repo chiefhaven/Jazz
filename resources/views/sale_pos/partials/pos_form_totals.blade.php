@@ -9,7 +9,7 @@
 					<span class="price_total tw-text-base md:tw-text-lg tw-font-semibold">0</span>
 				</td>
 			</tr>
-			{{--  <tr>
+			<tr>
 				
 					<td @if(!Gate::check('disable_discount') || auth()->user()->can('superadmin') || auth()->user()->can('admin')) class="" @else class="hide" @endif>
 						<b class="tw-text-base md:tw-text-lg tw-font-bold">
@@ -96,7 +96,7 @@
 					<input type="hidden" name="round_off_amount" id="round_off_amount" value=0>
 				</td>
 				@endif
-			</tr>  --}}
+			</tr>
 		</table>
 	</div>
 </div>

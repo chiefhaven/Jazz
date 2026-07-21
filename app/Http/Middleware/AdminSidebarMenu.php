@@ -307,6 +307,14 @@ class AdminSidebarMenu
 
                         if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'sell.create', 'direct_sell.access', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell', 'access_shipping', 'access_own_shipping', 'access_commission_agent_shipping'])) {
                             $sub->url(
+                                action([\App\Http\Controllers\SellController::class, 'sellsByUser']),
+                                __('lang_v1.sales_by_user'),
+                                ['icon' => '', 'active' => request()->segment(1) == 'sells-by-user' && request()->segment(2) == null]
+                            );
+                        }
+
+                        if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'sell.create', 'direct_sell.access', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell', 'access_shipping', 'access_own_shipping', 'access_commission_agent_shipping'])) {
+                            $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'index']),
                                 __('lang_v1.all_sales'),
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == null]

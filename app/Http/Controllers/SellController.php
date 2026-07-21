@@ -573,6 +573,10 @@ class SellController extends Controller
         ->with(compact('business_locations', 'customers', 'is_woocommerce', 'sales_representative', 'is_cmsn_agent_enabled', 'commission_agents', 'service_staffs', 'is_tables_enabled', 'is_service_staff_enabled', 'is_types_service_enabled', 'shipping_statuses', 'sources', 'payment_types'));
     }
 
+    public function sellsByUserSummary(){
+        
+    }
+
     /**
      * Show the form for creating a new resource.
      *
@@ -1225,6 +1229,74 @@ class SellController extends Controller
         }
 
         return $output;
+    }
+
+    /**
+     * Adjust stock for split transaction
+     */
+    private function adjustStockForSplitTransaction($original_transaction, $split_transaction, $split_items)
+    {
+        $business_id = request()->session()->get('user.business_id');
+        
+        foreach ($split_items as $item) {
+            $sell_line = TransactionSellLine::find($item['id']);
+            if (!$sell_line) continue;
+            
+            // Check if product has stock enabled
+            $product = Product::find($sell_line->product_id);
+            if (!$product || $product->enable_stock != 1) {
+                continue;
+            }
+            
+            // Decrease stock from original transaction's location
+            $this->productUtil->updateProductQuantity(
+                $original_transaction->location_id,
+                $sell_line->product_id,
+                $sell_line->variation_id,
+                -$item['quantity'],
+                0,
+                null,
+                false
+            );
+            
+            // Increase stock for new transaction's location
+            $this->productUtil->updateProductQuantity(
+                $split_transaction->location_id,
+                $sell_line->product_id,
+                $sell_line->variation_id,
+                $item['quantity'],
+                0,
+                null,
+                false
+            );
+        }
+    }
+
+    /**
+     * Copy EIS data to split transaction
+     */
+    private function copyEisData($original_transaction, $split_transaction, $split_items)
+    {
+        $original_eis = $original_transaction->eisSale;
+        if (!$original_eis) return;
+        
+        // Create new EIS record for split transaction
+        $new_eis = $original_eis->replicate();
+        $new_eis->transaction_id = $split_transaction->id;
+        $new_eis->status = 'pending';
+        $new_eis->created_at = \Carbon::now();
+        $new_eis->updated_at = \Carbon::now();
+        $new_eis->save();
+        
+        // Update original EIS status if needed
+        $remaining_lines = TransactionSellLine::where('transaction_id', $original_transaction->id)
+                            ->whereNull('parent_sell_line_id')
+                            ->count();
+        
+        if ($remaining_lines == 0) {
+            $original_eis->status = 'partially_split';
+            $original_eis->save();
+        }
     }
 
     /**
