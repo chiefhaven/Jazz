@@ -35,7 +35,7 @@ class SaleResponseService
         }
 
         // Extract data from response
-        $data = $response['data'] ?? [];
+        $data = $response['data']['data'] ?? [];
         $validationUrl = $data['validationURL'] ?? null;
         $receiptNumber = $this->extractReceiptFromUrl($validationUrl);
 
