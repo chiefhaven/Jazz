@@ -17,6 +17,7 @@ class SaleResponseService
             'transaction_id' => $transaction->id,
             'status_code' => $response['statusCode'] ?? null,
             'remark' => $response['remark'] ?? null,
+            'response' => $response,
         ]);
 
         $eisSale = EisSale::where('transaction_id', $transaction->id)->first();
