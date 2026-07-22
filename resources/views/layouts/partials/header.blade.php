@@ -65,7 +65,7 @@
                         $cacheKey = 'eis_token_' . $businessId;
                         $token = Cache::remember($cacheKey, 3600, function() use ($businessId) {
                             $eisSetting = EisSetting::where('business_id', $businessId)->first();
-                            return $eisSetting->jw_token ?? null;
+                            return $eisSetting->jwt_token ?? null;
                         });
                         
                         if (empty($token)) {
