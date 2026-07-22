@@ -861,6 +861,13 @@ class SellController extends Controller
                     ])
                     ->firstOrFail();
 
+        if ($sell->payment_status == 'paid' || $sell->sell_lines->count() <= 1) {
+            return response()->json([
+                'success' => false,
+                'msg' => __('lang_v1.cannot_split_invoice')
+            ], 400);
+        }
+
         // Get payment types for dropdown
         $payment_types = $this->transactionUtil->payment_types($sell->location_id, true, $business_id);
         
