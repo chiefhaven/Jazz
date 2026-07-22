@@ -52,7 +52,7 @@ class SaleResponseService
         ]);
 
         // -------------------------
-        // UPDATE POS TRANSACTION
+        // UPDATEPOS TRANSACTION
         // -------------------------
         $transaction->update([
             'is_fiscalized' => 1,
@@ -75,7 +75,7 @@ class SaleResponseService
      */
     private function handleErrorResponse(Transaction $transaction, EisSale $eisSale, array $response): void
     {
-        $errorMessage = $response['remark'] ?? 'Unknown error';
+        $errorMessage = $response['data']['remark'] ?? 'Unknown error';
         
         // Check for validation errors
         $validationErrors = $response['data']['validationErrors'] ?? null;
@@ -96,7 +96,7 @@ class SaleResponseService
 
         Log::error('EIS sale failed', [
             'transaction_id' => $transaction->id,
-            'status_code' => $response['statusCode'] ?? null,
+            'status_code' => $response['data']['statusCode'] ?? null,
             'error' => $errorMessage,
         ]);
     }
@@ -106,7 +106,7 @@ class SaleResponseService
      */
     private function isSuccessfulResponse(array $response): bool
     {
-        return ($response['statusCode'] ?? null) === 1;
+        return ($response['data']['statusCode'] ?? null) === 1;
     }
 
     /**
