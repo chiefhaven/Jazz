@@ -50,6 +50,47 @@
 
 
             <div class="tw-flex tw-flex-wrap tw-items-center tw-justify-end tw-gap-3">
+                <?php
+                    use Modules\EIS\Models\EisSetting;
+                    use Illuminate\Support\Facades\Cache;
+
+                    try {
+                        $businessId = auth()->user()->business_id ?? null;
+                        
+                        if (!$businessId) {
+                            throw new \Exception('Business ID not found');
+                        }
+                        
+                        // Cache the token for 1 hour
+                        $cacheKey = 'eis_token_' . $businessId;
+                        $token = Cache::remember($cacheKey, 3600, function() use ($businessId) {
+                            $eisSetting = EisSetting::where('business_id', $businessId)->first();
+                            return $eisSetting->jw_token ?? null;
+                        });
+                        
+                        if (empty($token)) {
+                            throw new \Exception('EIS token not configured');
+                        }
+                        
+                        // Cache status for 5 minutes
+                        $statusCacheKey = 'eis_status_' . $businessId;
+                        $eisStatus = Cache::remember($statusCacheKey, 300, function() use ($businessId, $token) {
+                            return \Modules\EIS\Services\Http\EisHealthService::isOnline($businessId, $token) ? 'online' : 'offline';
+                        });
+                        
+                    } catch (\Exception $e) {
+                        \Log::error('EIS status check failed: ' . $e->getMessage());
+                        $eisStatus = 'offline';
+                    }
+
+                    $statusColor = ($eisStatus == 'online') ? 'green' : 'red';
+                ?>
+
+                <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-1 tw-rounded-full tw-text-xs tw-font-medium tw-bg-<?php echo $statusColor; ?>-500/10 tw-text-<?php echo $statusColor; ?>-400 tw-border tw-border-<?php echo $statusColor; ?>-500/20">
+                    <span class="tw-inline-block tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-<?php echo $statusColor; ?>-500"></span>
+                    EIS: <?php echo ucfirst($eisStatus); ?>
+                </span>
+
                 @if (Module::has('Essentials'))
                     @includeIf('essentials::layouts.partials.header_part')
                 @endif
@@ -120,7 +161,6 @@
                     </ul>
 
                 </details>
-
 
                 {{-- data-toggle="popover" remove this for on hover show --}}
 
