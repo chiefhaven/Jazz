@@ -51,7 +51,7 @@
 
             <div class="tw-flex tw-flex-wrap tw-items-center tw-justify-end tw-gap-3">
                 <?php
-                    use Modules\EIS\Entities\EisSetting;
+                    use Modules\EIS\Models\EisSetting;
                     use Illuminate\Support\Facades\Cache;
 
                     try {
