@@ -2677,7 +2677,7 @@ class TransactionUtil extends Util
     }
 
     /**
-    * Get total VAT (tax) amount for sales within the specified date range and filters
+    * Get total VAT (tax) amount for submitted sales including item-level tax
     *
     * @param  int  $business_id
     * @param  string|null  $start_date
@@ -2690,18 +2690,29 @@ class TransactionUtil extends Util
     public function getVatTotals($business_id, $start_date = null, $end_date = null, $location_id = null, $created_by = null, $permitted_locations = null)
     {
         $query = Transaction::where('transactions.business_id', $business_id)
-        ->where('transactions.type', 'sell')
-        ->where('transactions.status', 'final')
-        ->join('eis_sales', 'transactions.id', '=', 'eis_sales.transaction_id')
-        ->where('eis_sales.status', 'submitted')
-        ->join('transaction_sell_lines', 'transactions.id', '=', 'transaction_sell_lines.transaction_id')
-        ->select(
-            DB::raw('COALESCE(SUM(transactions.tax_amount), 0) as total_tax'),
-            DB::raw('COALESCE(SUM(transaction_sell_lines.item_tax), 0) as total_item_tax'),
-            DB::raw('COALESCE(SUM(transactions.tax_amount + transaction_sell_lines.item_tax), 0) as total_tax_combined')
-        );
+            ->where('transactions.type', 'sell')
+            ->where('transactions.status', 'final')
+            ->whereExists(function($query) {
+                $query->select(DB::raw(1))
+                    ->from('eis_sales')
+                    ->whereColumn('eis_sales.transaction_id', 'transactions.id')
+                    ->where('eis_sales.status', 'submitted');
+            })
+            ->select(
+                DB::raw('COALESCE(SUM(transactions.tax_amount), 0) as header_tax'),
+                DB::raw('COALESCE(SUM(
+                    (SELECT COALESCE(SUM(item_tax), 0) 
+                    FROM transaction_sell_lines 
+                    WHERE transaction_sell_lines.transaction_id = transactions.id)
+                ), 0) as item_tax'),
+                DB::raw('COALESCE(SUM(transactions.tax_amount + (
+                    SELECT COALESCE(SUM(item_tax), 0) 
+                    FROM transaction_sell_lines 
+                    WHERE transaction_sell_lines.transaction_id = transactions.id
+                )), 0) as total_tax')
+            );
 
-        // Check for permitted locations of a user
+        // Check for permitted locations
         if (!empty($permitted_locations) && $permitted_locations !== 'all') {
             $query->whereIn('transactions.location_id', $permitted_locations);
         }
@@ -2714,7 +2725,7 @@ class TransactionUtil extends Util
             $query->whereDate('transactions.transaction_date', '<=', $end_date);
         }
 
-        // Filter by location (if not already filtered by permitted_locations)
+        // Filter by location
         if (!empty($location_id) && (empty($permitted_locations) || $permitted_locations === 'all' || !in_array($location_id, $permitted_locations))) {
             $query->where('transactions.location_id', $location_id);
         }
@@ -2726,10 +2737,15 @@ class TransactionUtil extends Util
 
         $vat_details = $query->first();
 
-        \Log::info('Total VAT', [$vat_details]);
+        // Calculate total_tax by adding header_tax and item_tax
+        $header_tax = $vat_details ? (float) $vat_details->header_tax : 0;
+        $item_tax = $vat_details ? (float) $vat_details->item_tax : 0;
+        $total_tax = $header_tax + $item_tax;
 
         return [
-            'total_tax' => $vat_details ? (float) $vat_details->total_tax : 0,
+            'header_tax' => $header_tax,
+            'item_tax' => $item_tax,
+            'total_tax' => $total_tax,
         ];
     }
 
