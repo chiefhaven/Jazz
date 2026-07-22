@@ -40,6 +40,8 @@ class SaleSubmissionService
             return $existing;
         }
 
+        Log::info('Transaction to submit',$transaction);
+
         // ----------------------------
         // GET EIS SETTINGS
         // ----------------------------
