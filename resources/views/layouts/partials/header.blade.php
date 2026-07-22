@@ -63,7 +63,7 @@
                         
                         // Get token
                         $eisSetting = EisSetting::where('business_id', $businessId)->first();
-                        $token = $eisSetting->jw_token ?? null;
+                        $token = $eisSetting->jwt_token ?? null;
                         
                         if (empty($token)) {
                             throw new \Exception('EIS token not configured');
