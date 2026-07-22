@@ -110,10 +110,6 @@ class InvoiceNumberGenerator
     public function generateInvoiceNumber(int $businessId, int $transactionId, ?int $terminalPosition, ?int $taxpayerId): string
     {
         try {
-            Log::info('Generating EIS invoice number', [
-                'business_id' => $businessId,
-                'terminal_position' => $terminalPosition
-            ]);
 
             return DB::transaction(function () use ($businessId, $transactionId, $terminalPosition, $taxpayerId) {
                 // Get EIS settings
@@ -137,8 +133,6 @@ class InvoiceNumberGenerator
                 // Get count for today
                 $identifier = $businessId.$transactionId;
 
-                    Log::info('Configuratons: ',[$configuration]);
-                
                 // Use full astronomical Julian Date
                 $julianDate = $this->toJulianDate(now());
                 

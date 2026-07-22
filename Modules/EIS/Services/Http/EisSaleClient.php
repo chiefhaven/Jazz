@@ -43,9 +43,6 @@ class EisSaleClient
      */
     public function submit(array $payload, object $settings): array
     {
-        Log::info('Submitting sale transaction to EIS', [
-            'payload' => $this->sanitizePayloadForLog($payload),
-        ]);
 
         // Check if EIS server is online
         if (! $this->health->isOnline($settings->business_id, $settings->jwt_token)) {

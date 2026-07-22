@@ -37,8 +37,6 @@ class SubmitSaleJob implements ShouldQueue
 
         $settings = EisSetting::where('business_id', $transaction->business_id)->first();
 
-        Log::info($settings);
-
         if (!$settings) {
             Log::info('EIS not enabled for business', [
                 'business_id' => $transaction->business_id
