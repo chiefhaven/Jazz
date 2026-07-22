@@ -5,6 +5,7 @@ return [
     'sales_commission_agent' => 'Sales Commission Agent',
     'sales_commission_agents' => 'Sales Commission Agents',
     'disable' => 'Disable',
+    'eis_status' => 'EIS status',
     'logged_in_user' => 'Logged in user',
     'select_from_users_list' => "Select from user's list",
     'select_from_commisssion_agents_list' => "Select from commission agent's list",
