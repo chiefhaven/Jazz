@@ -30,7 +30,14 @@
                             </svg> @lang('messages.add')
                         </a>
                 </div>
+                <div class="box-tools">
+                    <a class="clear-all-bills-btn tw-bg-gradient-to-r tw-dw-btn tw-from-green-600 tw-to-green-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right"
+                    href="{{ route('sells.clear-all-bill') }}" >
+                        <i class="fa fa-cash"></i> @lang('lang_v1.clear_all_bills')
+                    </a>
+                </div>
             @endslot
+
         @endcan
         @can('sell.view')
             <input type="hidden" name="is_direct_sale" id="is_direct_sale" value="0">
@@ -63,5 +70,6 @@
 
 @section('javascript')
 @include('sale_pos.partials.sale_table_javascript')
+@include('sale_pos.partials.clear_bills_javascript')
 <script src="{{ asset('js/payment.js?v=' . $asset_v) }}"></script>
 @endsection

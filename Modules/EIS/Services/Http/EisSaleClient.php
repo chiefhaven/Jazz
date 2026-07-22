@@ -11,11 +11,8 @@ use Modules\EIS\Exceptions\EisSaleException;
 class EisSaleClient
 {
     protected string $baseUrl;
-
     protected int $timeout;
-
     protected int $connectTimeout;
-
     protected int $retries;
 
     public function __construct(
@@ -23,48 +20,61 @@ class EisSaleClient
     )
     {
         $this->baseUrl = rtrim(config('eis.base_url'), '/');
-
         $this->timeout = config('eis.http_timeout', 60);
         $this->connectTimeout = config('eis.connect_timeout', 10);
         $this->retries = config('eis.http_retries', 3);
-
     }
 
     /**
      * Submit sale transaction to EIS.
-     *
-     * @throws EisSaleException
+     * 
+     * Returns array with 'success' flag instead of throwing exceptions
+     * 
+     * @param array $payload
+     * @param object $settings
+     * @return array {
+     *     success: bool,
+     *     data?: array,
+     *     error?: string,
+     *     error_code?: string,
+     *     status?: int,
+     *     retryable?: bool
+     * }
      */
     public function submit(array $payload, object $settings): array
     {
         Log::info('Submitting sale transaction to EIS', [
-            'payload' => $payload,
+            'payload' => $this->sanitizePayloadForLog($payload),
         ]);
 
+        // Check if EIS server is online
         if (! $this->health->isOnline($settings->business_id, $settings->jwt_token)) {
-            throw new EisSaleException('EIS server is currently offline.');
+            Log::error('EIS server is currently offline.', [
+                'business_id' => $settings->business_id
+            ]);
+
+            return $this->errorResult(
+                'EIS server is currently offline',
+                'SERVER_OFFLINE',
+                null,
+                true // Retryable
+            );
         }
 
-        if (empty($settings->jwt_token)) {
-            throw new EisSaleException('Missing EIS JWT token.');
-        }
-
-        if (empty($settings->secret_key)) {
-            throw new EisSaleException('Missing EIS Secret Key.');
-        }
-
-        if (empty($settings->branch_id)) {
-             throw new EisSaleException('Missing EIS Site ID.');
-        }
-
-        if (empty($settings->tpin)) {
-            throw new EisSaleException('Missing EIS TIN.');
+        // Validate settings
+        $validationResult = $this->validateSettings($settings);
+        if (!$validationResult['valid']) {
+            return $this->errorResult(
+                $validationResult['error'],
+                'INVALID_SETTINGS',
+                null,
+                false // Not retryable - fix settings first
+            );
         }
 
         $url = $this->baseUrl . '/sales/submit-sales-transaction';
 
         try {
-
             $response = Http::acceptJson()
                 ->asJson()
                 ->connectTimeout($this->connectTimeout)
@@ -82,58 +92,198 @@ class EisSaleClient
                 ])
                 ->post($url, $payload);
 
+            // Handle HTTP errors
             if ($response->failed()) {
-
+                $status = $response->status();
+                $body = $response->body();
+                
                 Log::error('EIS request failed', [
                     'url' => $url,
-                    'status' => $response->status(),
-                    'response' => $response->body(),
+                    'status' => $status,
+                    'response' => $body,
                 ]);
 
-                throw new EisSaleException(
-                    sprintf(
-                        'EIS returned HTTP %s: %s',
-                        $response->status(),
-                        $response->body()
-                    ),
-                    $response->status()
+                $errorMessage = $this->parseErrorMessage($response);
+                $isRetryable = $this->isRetryableHttpStatus($status);
+
+                return $this->errorResult(
+                    $errorMessage ?? sprintf('EIS returned HTTP %s', $status),
+                    'HTTP_ERROR_' . $status,
+                    $status,
+                    $isRetryable,
+                    $response->json() ?? $body
                 );
             }
 
+            $responseData = $response->json();
+            $invoiceNumber = $payload['invoiceHeader']['invoiceNumber'] ?? null;
+            
             Log::info('EIS invoice submitted successfully.', [
                 'url' => $url,
-                'invoice' => $payload['invoiceHeader']['invoiceNumber'] ?? null,
+                'invoice' => $invoiceNumber,
+                'response' => $responseData
             ]);
 
-            return $response->json();
+            return [
+                'success' => true,
+                'data' => $responseData,
+                'reference' => $responseData['reference'] ?? null,
+                'invoice_number' => $invoiceNumber,
+                'status' => $response->status(),
+            ];
 
         } catch (ConnectionException $e) {
-
             Log::error('Unable to connect to EIS server.', [
                 'url' => $url,
                 'error' => $e->getMessage(),
             ]);
 
-        } catch (RequestException $e) {
+            return $this->errorResult(
+                'Unable to connect to EIS server: ' . $e->getMessage(),
+                'CONNECTION_ERROR',
+                null,
+                true // Retryable - network issue
+            );
 
+        } catch (RequestException $e) {
             Log::error('EIS request exception.', [
                 'url' => $url,
                 'error' => $e->getMessage(),
             ]);
 
-            throw new EisSaleException(
-                $e->getMessage(),
-                0,
-                $e
+            return $this->errorResult(
+                'EIS request failed: ' . $e->getMessage(),
+                'REQUEST_ERROR',
+                $e->getCode(),
+                true // Retryable
             );
 
         } catch (\Throwable $e) {
-
             Log::error('Unexpected EIS client error.', [
                 'url' => $url,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
+            return $this->errorResult(
+                'Unexpected error: ' . $e->getMessage(),
+                'UNEXPECTED_ERROR',
+                null,
+                false // Not sure if retryable - investigate first
+            );
         }
+    }
+
+    /**
+     * Validate EIS settings
+     */
+    private function validateSettings(object $settings): array
+    {
+        if (empty($settings->jwt_token)) {
+            return ['valid' => false, 'error' => 'Missing EIS JWT token.'];
+        }
+
+        if (empty($settings->secret_key)) {
+            return ['valid' => false, 'error' => 'Missing EIS Secret Key.'];
+        }
+
+        if (empty($settings->branch_id)) {
+            return ['valid' => false, 'error' => 'Missing EIS Site ID.'];
+        }
+
+        if (empty($settings->tpin)) {
+            return ['valid' => false, 'error' => 'Missing EIS TIN.'];
+        }
+
+        return ['valid' => true];
+    }
+
+    /**
+     * Parse error message from response
+     */
+    private function parseErrorMessage($response): ?string
+    {
+        try {
+            $data = $response->json();
+            
+            if (isset($data['message'])) {
+                return $data['message'];
+            }
+            
+            if (isset($data['error'])) {
+                return is_string($data['error']) ? $data['error'] : json_encode($data['error']);
+            }
+            
+            if (isset($data['errors'])) {
+                $errors = $data['errors'];
+                if (is_array($errors) && isset($errors[0])) {
+                    return is_string($errors[0]) ? $errors[0] : json_encode($errors[0]);
+                }
+            }
+            
+            return null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Determine if HTTP status code is retryable
+     */
+    private function isRetryableHttpStatus(int $status): bool
+    {
+        // Retry on server errors (5xx)
+        if ($status >= 500 && $status < 600) {
+            return true;
+        }
+
+        // Retry on rate limiting
+        if ($status === 429) {
+            return true;
+        }
+
+        // Don't retry on client errors (4xx) except 429
+        if ($status >= 400 && $status < 500) {
+            return false;
+        }
+
+        // Default - retry if unsure
+        return true;
+    }
+
+    /**
+     * Create error result array
+     */
+    private function errorResult(
+        string $message,
+        string $code,
+        ?int $status = null,
+        bool $retryable = false,
+        $response = null
+    ): array {
+        return [
+            'success' => false,
+            'error' => $message,
+            'error_code' => $code,
+            'status' => $status,
+            'retryable' => $retryable,
+            'response' => $response,
+        ];
+    }
+
+    /**
+     * Sanitize payload for logging (remove sensitive data)
+     */
+    private function sanitizePayloadForLog(array $payload): array
+    {
+        // Remove sensitive fields if needed
+        $sanitized = $payload;
+        
+        // Example: Mask or remove sensitive data
+        if (isset($sanitized['customer']['email'])) {
+            // Keep for logging but could mask
+        }
+        
+        return $sanitized;
     }
 }

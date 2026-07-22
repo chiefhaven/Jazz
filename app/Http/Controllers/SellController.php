@@ -27,6 +27,7 @@ use DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Modules\EIS\Events\SaleCompleted;
 use Spatie\Activitylog\Models\Activity;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -571,10 +572,6 @@ class SellController extends Controller
 
         return view('sell.index')
         ->with(compact('business_locations', 'customers', 'is_woocommerce', 'sales_representative', 'is_cmsn_agent_enabled', 'commission_agents', 'service_staffs', 'is_tables_enabled', 'is_service_staff_enabled', 'is_types_service_enabled', 'shipping_statuses', 'sources', 'payment_types'));
-    }
-
-    public function sellsByUserSummary(){
-        
     }
 
     /**
@@ -1297,6 +1294,150 @@ class SellController extends Controller
             $original_eis->status = 'partially_split';
             $original_eis->save();
         }
+    }
+
+    //Clear all bills
+    public function clearAllBill(){
+        $business_id = request()->session()->get('user.business_id');
+        $user_id = auth()->user()->id;
+
+        try {
+            DB::beginTransaction();
+            
+            // Get all unpaid invoices
+            $unpaidInvoices = Transaction::where('business_id', $business_id)
+                                        ->where('type', 'sell')
+                                        ->where(function($query) {
+                                            $query->where('payment_status', 'due')
+                                                ->orWhere('payment_status', 'partial')
+                                                ->orWhereNull('payment_status');
+                                        })
+                                        ->where('status', 'final')
+                                        ->with(['payment_lines'])
+                                        ->get();
+            
+            // Check if there are any unpaid invoices
+            if ($unpaidInvoices->isEmpty()) {
+                DB::rollBack();
+                
+                // Return JSON response for AJAX or redirect with message
+                if (request()->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'msg' => __('lang_v1.no_unpaid_bills_found')
+                    ]);
+                }
+                
+                return redirect()->back()
+                    ->with('status', [
+                        'success' => false,
+                        'msg' => __('lang_v1.no_unpaid_bills_found')
+                    ]);
+            }
+            
+            $total_cleared = 0;
+            $total_amount = 0;
+            $cleared_invoices = [];
+            
+            foreach ($unpaidInvoices as $invoice) {
+                $due_amount = $invoice->final_total - $invoice->payment_lines->sum('amount');
+                
+                if ($due_amount > 0) {
+                    // Create a payment entry for the due amount
+                    $payment_data = [
+                        'transaction_id' => $invoice->id,
+                        'business_id' => $business_id,
+                        'amount' => $due_amount,
+                        'method' => 'cash',
+                        'paid_on' => \Carbon::now(),
+                        'created_by' => $user_id,
+                        'payment_for' => $invoice->contact_id,
+                        'note' => __('lang_v1.bulk_payment_cleared')
+                    ];
+                    
+                    $payment = \App\TransactionPayment::create($payment_data);
+                    
+                    // Update payment status
+                    $this->transactionUtil->updatePaymentStatus($invoice->id);
+                    
+                    $total_cleared++;
+                    $total_amount += $due_amount;
+                    $cleared_invoices[] = $invoice->invoice_no;
+                }
+            }
+            
+            DB::commit();
+
+            /**
+             * SAFE POINT: DB is now permanent
+             * External systems can no longer break POS
+             */
+            DB::afterCommit(function () use ($invoice) {
+                event(new SaleCompleted($invoice));
+            });
+            
+            // Check if any invoices were actually cleared
+            if ($total_cleared == 0) {
+                $msg = __('lang_v1.no_unpaid_bills_found');
+                $success = false;
+            } else {
+                $msg = __('lang_v1.bills_cleared_successfully', [
+                    'count' => $total_cleared, 
+                    'amount' => $this->transactionUtil->num_f($total_amount, true)
+                ]);
+                $success = true;
+            }
+            
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => $success,
+                    'msg' => $msg,
+                    'cleared_invoices' => $cleared_invoices ?? [],
+                    'total_cleared' => $total_cleared ?? 0,
+                    'total_amount' => $this->transactionUtil->num_f($total_amount ?? 0, true)
+                ]);
+            }
+            
+            return redirect()->back()->with('status', [
+                'success' => $success,
+                'msg' => $msg
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
+            
+            $output = [
+                'success' => false,
+                'msg' => trans('messages.something_went_wrong')
+            ];
+            
+            if (request()->ajax()) {
+                return response()->json($output);
+            }
+            
+            return redirect()->back()->with(['status' => $output]);
+        }
+    }
+
+    public function checkUnpaidBills()
+    {
+        $business_id = request()->session()->get('user.business_id');
+        
+        $count = Transaction::where('business_id', $business_id)
+                        ->where('type', 'sell')
+                        ->where(function($query) {
+                            $query->where('payment_status', 'due')
+                                  ->orWhere('payment_status', 'partial')
+                                  ->orWhereNull('payment_status');
+                        })
+                        ->where('status', 'final')
+                        ->count();
+    
+        return response()->json([
+            'count' => $count,
+            'has_unpaid' => $count > 0
+        ]);
     }
 
     /**

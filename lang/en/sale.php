@@ -12,18 +12,6 @@ return [
     */
 
     'sale' => 'Sell',
-    'sells_by_user' => 'Sale by user',
-    'end_date' => 'End date',
-    'start_date' => 'Start date',
-    'total_before_tax' => 'Total before tax',
-    'total_amount' => 'Total Amount',
-    'today_sales' => 'Today\'s Sales',
-    'today_invoices' => 'Today\'s Invoices',
-    'today_paid' => 'Today\'s Paid',
-    'today_due' => 'Today\'s Due',
-    'invoice_count' => 'Invoice Count',
-    'total_unpaid' => 'Total Unpaid',
-    'count' => 'Count',
     'sells' => 'Sales',
     'list_sale' => 'List Sales',
     'add_sale' => 'Add Sale',

@@ -16,9 +16,9 @@ class SubmitSaleJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    public int $tries = 2;
 
-    public int $backoff = 60; // retry after 1 min
+    public int $backoff = 3600; // retry after 1 hour
 
     public function __construct(
         public int $transactionId

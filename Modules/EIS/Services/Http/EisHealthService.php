@@ -38,8 +38,8 @@ class EisHealthService
 
         $this->client = new Client([
             'handler' => $stack,
-            'connect_timeout' => 100000,
-            'timeout' => 1000000,
+            'connect_timeout' => 1000,
+            'timeout' => 1000,
         ]);
     }
 
@@ -51,7 +51,7 @@ class EisHealthService
 
         return Cache::remember(
             $cacheKey,
-            now()->addSeconds(30),
+            now()->addSeconds(30000),
             function () use ($token) {
 
                 try {

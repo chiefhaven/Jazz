@@ -134,6 +134,16 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/sell/split-bill/{id}', [SellController::class, 'splitBill'])->name('sell.splitBill');
     Route::post('/sell/process-split-bill', [SellController::class, 'processSplitBill'])->name('sell.processSplitBill');
     
+    Route::get('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBill'])
+        ->name('sells.clear-all-bill')
+        ->middleware(['auth']);
+    
+    Route::post('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBill'])
+        ->name('sells.clear-all-bill')
+        ->middleware(['auth']);
+
+    Route::get('/sells/check-unpaid-bills', [SellController::class, 'checkUnpaidBills'])
+        ->name('sells.check-unpaid-bills');
     
     //Route::resource('payment-account', 'PaymentAccountController');
 
