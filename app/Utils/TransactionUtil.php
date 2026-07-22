@@ -2690,11 +2690,11 @@ class TransactionUtil extends Util
     public function getVatTotals($business_id, $start_date = null, $end_date = null, $location_id = null, $created_by = null, $permitted_locations = null)
     {
         $query = Transaction::where('transactions.business_id', $business_id)
-        ->where('transactions.type', 'sell')
-        ->where('transactions.status', 'final')
-        ->select(
-            DB::raw('COALESCE(SUM(transactions.tax_amount), 0) as total_tax')
-        );
+            ->where('transactions.type', 'sell')
+            ->where('transactions.status', 'final')
+            ->select(
+                DB::raw('COALESCE(SUM(tax_amount), 0) as total_tax')
+            );
 
         // Check for permitted locations of a user
         if (!empty($permitted_locations) && $permitted_locations !== 'all') {
