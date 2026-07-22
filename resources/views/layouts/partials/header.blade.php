@@ -51,7 +51,7 @@
 
             <div class="tw-flex tw-flex-wrap tw-items-center tw-justify-end tw-gap-3">
                 <?php
-                    use Modules\EIS\Models\EisSetting;
+                    use Modules\EIS\Entities\EisSetting;
                     use Illuminate\Support\Facades\Cache;
 
                     try {
@@ -61,34 +61,43 @@
                             throw new \Exception('Business ID not found');
                         }
                         
-                        // Cache the token for 1 hour
-                        $cacheKey = 'eis_token_' . $businessId;
-                        $token = Cache::remember($cacheKey, 3600, function() use ($businessId) {
-                            $eisSetting = EisSetting::where('business_id', $businessId)->first();
-                            return $eisSetting->jwt_token ?? null;
-                        });
+                        // Get token
+                        $eisSetting = EisSetting::where('business_id', $businessId)->first();
+                        $token = $eisSetting->jw_token ?? null;
                         
                         if (empty($token)) {
                             throw new \Exception('EIS token not configured');
                         }
                         
-                        // Cache status for 5 minutes
+                        // Get cached status
                         $statusCacheKey = 'eis_status_' . $businessId;
                         $eisStatus = Cache::remember($statusCacheKey, 300, function() use ($businessId, $token) {
-                            $eisHealth = new \Modules\EIS\Services\Http\EisHealthService;
-                            return $eisHealth->isOnline($businessId, $token) ? 'online' : 'offline';
+                            try {
+                                $eisHealth = new \Modules\EIS\Services\Http\EisHealthService;
+                                return $eisHealth->isOnline($businessId, $token) ? 'online' : 'offline';
+                            } catch (\Exception $e) {
+                                \Log::error('EIS status check failed: ' . $e->getMessage());
+                                return 'offline';
+                            }
                         });
                         
                     } catch (\Exception $e) {
-                        \Log::error('EIS status check failed: ' . $e->getMessage());
+                        \Log::error('EIS status error: ' . $e->getMessage());
                         $eisStatus = 'offline';
                     }
 
+                    // Ensure only online or offline
+                    $eisStatus = ($eisStatus == 'online') ? 'online' : 'offline';
                     $statusColor = ($eisStatus == 'online') ? 'green' : 'red';
                 ?>
 
                 <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-1 tw-rounded-full tw-text-xs tw-font-medium tw-bg-<?php echo $statusColor; ?>-500/10 tw-text-<?php echo $statusColor; ?>-400 tw-border tw-border-<?php echo $statusColor; ?>-500/20">
-                    <span class="tw-inline-block tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-<?php echo $statusColor; ?>-500"></span>
+                    <span class="tw-relative tw-flex tw-h-1.5 tw-w-1.5">
+                        <span class="tw-inline-flex tw-rounded-full tw-h-1.5 tw-w-1.5 tw-bg-<?php echo $statusColor; ?>-500"></span>
+                        <?php if ($eisStatus == 'online'): ?>
+                        <span class="tw-animate-ping tw-absolute tw-inline-flex tw-h-full tw-w-full tw-rounded-full tw-bg-<?php echo $statusColor; ?>-400 tw-opacity-75"></span>
+                        <?php endif; ?>
+                    </span>
                     EIS: <?php echo ucfirst($eisStatus); ?>
                 </span>
 
