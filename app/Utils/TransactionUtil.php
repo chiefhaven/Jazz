@@ -2676,6 +2676,60 @@ class TransactionUtil extends Util
         return $output;
     }
 
+    /**
+    * Get total VAT (tax) amount for sales within the specified date range and filters
+    *
+    * @param  int  $business_id
+    * @param  string|null  $start_date
+    * @param  string|null  $end_date
+    * @param  int|null  $location_id
+    * @param  int|null  $created_by
+    * @param  array|string|null  $permitted_locations
+    * @return array
+    */
+    public function getVatTotals($business_id, $start_date = null, $end_date = null, $location_id = null, $created_by = null, $permitted_locations = null)
+    {
+        $query = Transaction::where('transactions.business_id', $business_id)
+        ->where('transactions.type', 'sell')
+        ->where('transactions.status', 'final')
+        ->join('eis_sales', 'transactions.id', '=', 'eis_sales.transaction_id') // Join with eis_sales
+        ->where('eis_sales.status', 'submitted') // Filter for submitted transactions only
+        ->select(
+            DB::raw('COALESCE(SUM(transactions.tax_amount), 0) as total_tax')
+        );
+
+        // Check for permitted locations of a user
+        if (!empty($permitted_locations) && $permitted_locations !== 'all') {
+            $query->whereIn('transactions.location_id', $permitted_locations);
+        }
+
+        // Apply date filters
+        if (!empty($start_date) && !empty($end_date)) {
+            $query->whereDate('transactions.transaction_date', '>=', $start_date)
+                ->whereDate('transactions.transaction_date', '<=', $end_date);
+        } elseif (!empty($end_date)) {
+            $query->whereDate('transactions.transaction_date', '<=', $end_date);
+        }
+
+        // Filter by location (if not already filtered by permitted_locations)
+        if (!empty($location_id) && (empty($permitted_locations) || $permitted_locations === 'all' || !in_array($location_id, $permitted_locations))) {
+            $query->where('transactions.location_id', $location_id);
+        }
+
+        // Filter by user
+        if (!empty($created_by)) {
+            $query->where('transactions.created_by', $created_by);
+        }
+
+        $vat_details = $query->first();
+
+        \Log::info('Total VAT', [$vat_details]);
+
+        return [
+            'total_tax' => $vat_details ? (float) $vat_details->total_tax : 0,
+        ];
+    }
+
     public function getTotalLedgerDiscount($business_id, $start_date = null, $end_date = null)
     {
         $query = Transaction::where('transactions.business_id', $business_id)

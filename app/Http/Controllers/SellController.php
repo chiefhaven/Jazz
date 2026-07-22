@@ -271,7 +271,7 @@ class SellController extends Controller
                             $html .= '<li><a href="#" data-href="'.action([\App\Http\Controllers\SellController::class, 'show'], [$row->id]).'" class="btn-modal" data-container=".view_modal"><i class="fas fa-eye" aria-hidden="true"></i> '.__('messages.view').'</a></li>';
                         }
                         if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view') || auth()->user()->can('view_own_sell_only')) {
-                            $html .= '<li><a href="#" data-href="'.action([\App\Http\Controllers\SellController::class, 'splitBill'], [$row->id]).'" class="btn-modal" data-container=".view_modal"><i class="fas fas-scissors" aria-hidden="true"></i> '.__('lang_v1.split_bill').'</a></li>';
+                            $html .= '<li><a href="#" data-href="'.action([\App\Http\Controllers\SellController::class, 'splitBill'], [$row->id]).'" class="btn-modal" data-container=".view_modal"><i class="fas fa-hand-scissors" aria-hidden="true"></i> '.__('lang_v1.split_bill').'</a></li>';
                         }
                         if (! $only_shipments) {
                             if ($row->is_direct_sale == 0) {

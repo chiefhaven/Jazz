@@ -232,6 +232,8 @@ class HomeController extends Controller
             $purchase_details = $this->transactionUtil->getPurchaseTotals($business_id, $start, $end, $location_id, $created_by);
 
             $sell_details = $this->transactionUtil->getSellTotals($business_id, $start, $end, $location_id, $created_by);
+            
+            $vat_details = $this->transactionUtil->getVatTotals($business_id, $start, $end, $location_id, $created_by);
 
             $total_ledger_discount = $this->transactionUtil->getTotalLedgerDiscount($business_id, $start, $end);
 
@@ -263,6 +265,7 @@ class HomeController extends Controller
             $output['total_sell_return_paid'] = $this->transactionUtil->getTotalSellReturnPaid($business_id, $start, $end, $location_id);
 
             $output['total_sell'] = $total_sell_inc_tax;
+            $output['total_vat'] = $vat_details['total_tax'];
             $output['total_sell_return'] = $total_sell_return_inc_tax;
 
             $output['invoice_due'] = $sell_details['invoice_due'] - $total_ledger_discount['total_sell_discount'];
