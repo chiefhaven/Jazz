@@ -91,8 +91,13 @@
                     $statusColor = ($eisStatus == 'online') ? 'green' : 'red';
                 ?>
 
-                <span class="tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-1.5 tw-rounded-full tw-text-sm tw-font-semibold tw-bg-<?php echo $statusColor; ?>-500/10 tw-text-<?php echo $statusColor; ?>-400 tw-border tw-border-<?php echo $statusColor; ?>-500/20 tw-shadow-sm">
-                    <span class="tw-inline-block tw-w-2 tw-h-2 tw-rounded-full tw-bg-<?php echo $statusColor; ?>-500 tw-shadow-lg tw-shadow-<?php echo $statusColor; ?>-500/30"></span>
+                <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-1 tw-rounded-full tw-text-xs tw-font-medium tw-bg-<?php echo $statusColor; ?>-500/10 tw-text-<?php echo $statusColor; ?>-400 tw-border tw-border-<?php echo $statusColor; ?>-500/20">
+                    <span class="tw-relative tw-flex tw-h-1.5 tw-w-1.5">
+                        <span class="tw-inline-flex tw-rounded-full tw-h-1.5 tw-w-1.5 tw-bg-<?php echo $statusColor; ?>-500"></span>
+                        <?php if ($eisStatus == 'online'): ?>
+                        <span class="tw-animate-ping tw-absolute tw-inline-flex tw-h-full tw-w-full tw-rounded-full tw-bg-<?php echo $statusColor; ?>-400 tw-opacity-75"></span>
+                        <?php endif; ?>
+                    </span>
                     EIS: <?php echo ucfirst($eisStatus); ?>
                 </span>
 
