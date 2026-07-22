@@ -107,7 +107,7 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return string
      */
-    public function generateInvoiceNumber(int $businessId, ?int $terminalPosition, ?int $taxpayerId): string
+    public function generateInvoiceNumber(int $businessId, int $transactionId, ?int $terminalPosition, ?int $taxpayerId): string
     {
         try {
             Log::info('Generating EIS invoice number', [
@@ -115,7 +115,7 @@ class InvoiceNumberGenerator
                 'terminal_position' => $terminalPosition
             ]);
 
-            return DB::transaction(function () use ($businessId, $terminalPosition, $taxpayerId) {
+            return DB::transaction(function () use ($businessId, $transactionId, $terminalPosition, $taxpayerId) {
                 // Get EIS settings
                 $setting = EisSetting::where('business_id', $businessId)->first();
                 if (!$setting) {
@@ -135,9 +135,7 @@ class InvoiceNumberGenerator
                 $terminalPos = $terminalPosition ?? 1;
 
                 // Get count for today
-                $count = EisSale::where('business_id', $businessId)
-                    ->whereDate('created_at', now()->toDateString())
-                    ->count() + 1;
+                $identifier = $businessId.$transactionId;
 
                     Log::info('Configuratons: ',[$configuration]);
                 
@@ -148,7 +146,7 @@ class InvoiceNumberGenerator
                 $encodedTaxpayerId = $this->base10ToBase64($taxpayerId);
                 $encodedTerminalPos = $this->base10ToBase64($terminalPos);
                 $encodedJulianDate = $this->base10ToBase64($julianDate);
-                $encodedCount = $this->base10ToBase64($count);
+                $encodedCount = $this->base10ToBase64($identifier);
 
                 // Build invoice number
                 $invoiceNumber = $encodedTaxpayerId . '-' . 

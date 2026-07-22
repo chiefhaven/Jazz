@@ -1671,7 +1671,7 @@ class TransactionUtil extends Util
 
             if ($transaction->status == 'final') {
 
-                $qr_code_text = $transaction->eisSale->qr_code;
+                $qr_code_text = $transaction->eisSale->qr_code ?? 'Null';
                 Log::info('Transation: ', [$transaction]);
                 $output['qr_code_text'] = $qr_code_text;
             }

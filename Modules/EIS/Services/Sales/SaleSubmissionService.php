@@ -66,6 +66,10 @@ class SaleSubmissionService
             ]
         );
 
+        if($transaction->payment_status != 'paid'){
+            return $eisSale;
+        }
+
         $payload = [];
 
         try {
@@ -141,6 +145,7 @@ class SaleSubmissionService
             // Generate invoice number
             $invoiceNumber = $this->invoiceGenerator->generateInvoiceNumber(
                 $transaction->business_id,
+                $transaction->id,
                 $terminalPosition,
                 $taxpayerId
             );
