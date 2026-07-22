@@ -2692,8 +2692,6 @@ class TransactionUtil extends Util
         $query = Transaction::where('transactions.business_id', $business_id)
         ->where('transactions.type', 'sell')
         ->where('transactions.status', 'final')
-        ->join('eis_sales', 'transactions.id', '=', 'eis_sales.transaction_id') // Join with eis_sales
-        ->where('eis_sales.status', 'submitted') // Filter for submitted transactions only
         ->select(
             DB::raw('COALESCE(SUM(transactions.tax_amount), 0) as total_tax')
         );
