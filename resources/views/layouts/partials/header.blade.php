@@ -75,7 +75,8 @@
                         // Cache status for 5 minutes
                         $statusCacheKey = 'eis_status_' . $businessId;
                         $eisStatus = Cache::remember($statusCacheKey, 300, function() use ($businessId, $token) {
-                            return \Modules\EIS\Services\Http\EisHealthService::isOnline($businessId, $token) ? 'online' : 'offline';
+                            $eisHealth = new \Modules\EIS\Services\Http\EisHealthService;
+                            return $eisHealth->isOnline($businessId, $token) ? 'online' : 'offline';
                         });
                         
                     } catch (\Exception $e) {
