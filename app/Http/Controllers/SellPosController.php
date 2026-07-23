@@ -173,6 +173,13 @@ class SellPosController extends Controller
             return $this->moduleUtil->quotaExpiredResponse('invoices', $business_id, action([\App\Http\Controllers\SellPosController::class, 'index']));
         }
 
+        try {
+            dispatch(new \Modules\EIS\Jobs\SyncProductsJob($business_id))
+                ->onQueue('eis-products');
+        } catch (\Exception $e) {
+            Log::error('EIS SyncProductsJob failed: ' . $e->getMessage());
+        }
+
         //like:repair
         $sub_type = request()->get('sub_type');
 
