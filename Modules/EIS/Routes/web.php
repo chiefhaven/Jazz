@@ -1,8 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\EIS\Http\Controllers\TerminalActivationController as WebTerminalController;
-
+use Modules\EIS\Http\Controllers\API\TerminalActivationController as WebTerminalController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes

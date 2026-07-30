@@ -60,6 +60,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
             }
 
             $existingSale = EisSale::where('transaction_id', $this->transactionId)->first();
+            
             if ($existingSale && $existingSale->status === 'submitted') {
                 Log::info('Transaction already submitted to EIS', [
                     'transaction_id' => $this->transactionId
@@ -68,6 +69,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
             }
 
             $settings = EisSetting::where('business_id', $this->businessId)->first();
+
             if (!$settings) {
                 Log::error('EIS settings not found', [
                     'business_id' => $this->businessId

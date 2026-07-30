@@ -1469,21 +1469,28 @@ class SellController extends Controller
         ]);
     }
 
-    public function eisSubmitAllBills()
-    {
-        try {
-            \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch();
-            return response()->json([
-                'success' => true,
-                'message' => 'Bills submitted successfully'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ], 500);
-        }
+public function eisSubmitAllBills()
+{
+    $business_id = request()->session()->get('user.business_id');
+
+    try {
+        \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch(
+            $business_id,  // business_id
+            50,            // chunk_size
+            null,          // date_from
+            null           // date_to
+        );
+        return response()->json([
+            'success' => true,
+            'message' => 'Bills submitted successfully'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Show the form for editing the specified resource.

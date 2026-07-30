@@ -3,7 +3,8 @@
 namespace Modules\EIS\Jobs;
 
 use App\Transaction;
-use Illuminate\Bus\Batch;
+use App\EisSetting;
+use App\EisSale;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,6 +13,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
+use Modules\EIS\Models\EisSetting as ModelsEisSetting;
 
 class DispatchAllUnsubmittedSalesJob implements ShouldQueue
 {
@@ -41,49 +44,99 @@ class DispatchAllUnsubmittedSalesJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info('DispatchAllUnsubmittedSalesJob started');
+            Log::info('DispatchAllUnsubmittedSalesJob started', [
+                'business_id' => $this->businessId,
+                'chunk_size' => $this->chunkSize,
+                'date_from' => $this->dateFrom,
+                'date_to' => $this->dateTo
+            ]);
 
-            $transactions = $this->getUnsubmittedTransactions();
+            $transactionIds = $this->getUnsubmittedTransactionIds();
 
-            if ($transactions->isEmpty()) {
+            if (empty($transactionIds)) {
                 Log::info('No unsubmitted transactions found');
                 return;
             }
 
-            $total = $transactions->count();
+            $total = count($transactionIds);
             Log::info("Found {$total} unsubmitted transactions");
 
-            // Create batch jobs
+            // Create batch jobs using chunked IDs
             $batchJobs = [];
-            foreach ($transactions->chunk($this->chunkSize) as $chunk) {
-                $batchJobs[] = new ProcessSalesChunkJob($chunk->pluck('id')->toArray());
+            $chunks = array_chunk($transactionIds, $this->chunkSize);
+            
+            foreach ($chunks as $index => $chunk) {
+                $batchJobs[] = new ProcessSalesChunkJob($chunk, $index + 1);
             }
 
             // Dispatch batch
             if (!empty($batchJobs)) {
-                Bus::batch($batchJobs)
-                    ->name('EIS Sale Submission Batch')
+                $batch = Bus::batch($batchJobs)
+                    ->name('EIS Sale Submission Batch - Business: ' . ($this->businessId ?? 'All'))
+                    ->onQueue('default')
+                    ->allowFailures(false)
+                    
+                    ->then(function ($batch) {
+                        // All jobs completed successfully
+                        Log::info('All EIS submission batches completed successfully', [
+                            'batch_id' => $batch->id
+                        ]);
+                    })
+                    ->catch(function ($batch, $e) {
+                        // A job failed
+                        Log::error('EIS submission batch failed', [
+                            'batch_id' => $batch->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    })
+                    ->finally(function ($batch) {
+                        // The batch has finished executing
+                        Log::info('EIS submission batch finished', [
+                            'batch_id' => $batch->id,
+                            'total_jobs' => $batch->totalJobs,
+                            'failed_jobs' => $batch->failedJobs,
+                            'pending_jobs' => $batch->pendingJobs
+                        ]);
+                    })
                     ->dispatch();
-            }
 
-            Log::info('DispatchAllUnsubmittedSalesJob completed', [
-                'total_transactions' => $total,
-                'total_batches' => count($batchJobs)
-            ]);
+                Log::info('DispatchAllUnsubmittedSalesJob dispatched batch', [
+                    'batch_id' => $batch->id,
+                    'total_transactions' => $total,
+                    'total_batches' => count($batchJobs)
+                ]);
+            }
 
         } catch (\Exception $e) {
             Log::error('DispatchAllUnsubmittedSalesJob failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
     }
 
-    protected function getUnsubmittedTransactions()
+    protected function getUnsubmittedTransactionIds(): array
     {
-        $query = Transaction::with(['business.eisSetting'])
-            ->where('status', 'completed')
+        // Get businesses with valid EIS settings
+        $validBusinessIds = ModelsEisSetting::where('status', 1)
+            ->whereNotNull('tpin')
+            ->whereNotNull('device_id')
+            ->whereNotNull('jwt_token')
+            ->pluck('business_id')
+            ->toArray();
+
+        if (empty($validBusinessIds)) {
+            Log::info('No businesses with valid EIS settings found');
+            return [];
+        }
+
+        $query = Transaction::query()
+            ->where('type', 'sell')
+            ->where('status', 'final')
+            ->where('payment_status', 'paid')
             ->whereNotNull('invoice_no')
+            ->whereIn('business_id', $validBusinessIds)
             ->whereDoesntHave('eisSale', function ($query) {
                 $query->where('status', 'submitted');
             });
@@ -100,18 +153,10 @@ class DispatchAllUnsubmittedSalesJob implements ShouldQueue
             $query->whereDate('transaction_date', '<=', $this->dateTo);
         }
 
-        $query->whereHas('business', function ($query) {
-            $query->whereHas('eisSetting', function ($query) {
-                $query->where('status', 1)
-                    ->whereNotNull('tpin')
-                    ->whereNotNull('device_id')
-                    ->whereNotNull('jw_token');
-            });
-        });
-
-        $query->orderBy('transaction_date', 'asc');
-
-        return $query->get();
+        // Order and get only IDs to reduce memory usage
+        return $query->orderBy('transaction_date', 'asc')
+            ->pluck('id')
+            ->toArray();
     }
 
     public function tags(): array
@@ -128,31 +173,5 @@ class DispatchAllUnsubmittedSalesJob implements ShouldQueue
             'business_id' => $this->businessId,
             'error' => $exception->getMessage()
         ]);
-    }
-}
-
-// New job to process chunk
-class ProcessSalesChunkJob implements ShouldQueue
-{
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    protected $transactionIds;
-
-    public function __construct(array $transactionIds)
-    {
-        $this->transactionIds = $transactionIds;
-    }
-
-    public function handle()
-    {
-        foreach ($this->transactionIds as $transactionId) {
-            $transaction = Transaction::find($transactionId);
-            if ($transaction) {
-                SubmitOfflineSalesJob::dispatch(
-                    $transaction->id,
-                    $transaction->business_id
-                );
-            }
-        }
     }
 }

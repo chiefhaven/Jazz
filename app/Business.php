@@ -95,6 +95,11 @@ class Business extends Model
         return $this->hasMany('\Modules\Superadmin\Entities\Subscription');
     }
 
+    public function eisSetting()
+    {
+        return $this->hasOne(\Modules\EIS\Models\EisSetting::class, 'business_id');
+    }
+
     /**
      * Creates a new business based on the input provided.
      *

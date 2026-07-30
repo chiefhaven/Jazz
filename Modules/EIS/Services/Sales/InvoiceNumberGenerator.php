@@ -155,7 +155,6 @@ class InvoiceNumberGenerator
                         'taxpayer_id' => $taxpayerId,
                         'terminal_position' => $terminalPos,
                         'julian_date' => $julianDate,
-                        'count' => $count,
                         'encoded_taxpayer_id' => $encodedTaxpayerId,
                         'encoded_terminal_pos' => $encodedTerminalPos,
                         'encoded_julian_date' => $encodedJulianDate,

@@ -43,7 +43,7 @@ class SaleResponseService
         // UPDATE EIS TRACKING
         // -------------------------
         $eisSale->update([
-            'status' => 'completed',
+            'status' => 'submitted',
             'response_payload' => $response,
             'fiscal_invoice_number' => $receiptNumber,
             'receipt_number' => $receiptNumber,
@@ -106,7 +106,7 @@ class SaleResponseService
      */
     private function isSuccessfulResponse(array $response): bool
     {
-        return ($response['data']['statusCode'] ?? null) === 1;
+        return ($response['statusCode'] ?? null) === 0;
     }
 
     /**

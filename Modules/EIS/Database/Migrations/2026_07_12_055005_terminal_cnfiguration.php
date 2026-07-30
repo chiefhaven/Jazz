@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::table('eis_settings', function (Blueprint $table) {
-            $table->dropColumn('base_url');
+            //$table->dropColumn('base_url');
         });
     }
 
