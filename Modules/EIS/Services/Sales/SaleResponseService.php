@@ -106,7 +106,7 @@ class SaleResponseService
      */
     private function isSuccessfulResponse(array $response): bool
     {
-        return ($response['statusCode'] ?? null) === 0;
+        return ($response['statusCode'] ?? null) === 1;
     }
 
     /**
