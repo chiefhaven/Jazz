@@ -27,9 +27,11 @@ use DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Modules\EIS\Events\SaleCompleted;
 use Spatie\Activitylog\Models\Activity;
 use Yajra\DataTables\Facades\DataTables;
+use Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob;
 
 class SellController extends Controller
 {
@@ -1304,7 +1306,7 @@ class SellController extends Controller
     }
 
     //Clear all bills
-    public function clearAllBill(){
+    public function clearAllBills(){
         $business_id = request()->session()->get('user.business_id');
         $user_id = auth()->user()->id;
 
@@ -1445,6 +1447,42 @@ class SellController extends Controller
             'count' => $count,
             'has_unpaid' => $count > 0
         ]);
+    }
+
+    public function checkUnsubmittedBills()
+    {
+        $business_id = request()->session()->get('user.business_id');
+        
+        $count = Transaction::with('eisSale')
+            ->where('business_id', $business_id)
+            ->where('type', 'sell')
+            ->where('status', 'final')
+            ->where('payment_status', 'paid')
+            ->whereHas('eisSale', function($query) {
+                $query->where('status', '!=', 'submitted');
+            })
+            ->count();
+
+        return response()->json([
+            'count' => $count,
+            'has_unsubmitted' => $count > 0
+        ]);
+    }
+
+    public function eisSubmitAllBills()
+    {
+        try {
+            \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch();
+            return response()->json([
+                'success' => true,
+                'message' => 'Bills submitted successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

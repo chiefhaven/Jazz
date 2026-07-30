@@ -9,7 +9,6 @@ use Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob;
 use Modules\EIS\Jobs\RetryAllFailedTransactionsJob;
 use Modules\EIS\Jobs\SubmitSaleJob;
 use Modules\EIS\Jobs\SyncEISConfigurationJob;
-
 class Kernel extends ConsoleKernel
 {
     /**
@@ -49,12 +48,13 @@ class Kernel extends ConsoleKernel
 
             // Schedule the EIS sale submission job
             $schedule->job(new DispatchAllUnsubmittedSalesJob())
-            ->dailyAt('02:00')
-            ->name('eis-sale-submission')
-            ->withoutOverlapping(300)
-            ->onFailure(function () {
-                Log::error('EIS Sale submission schedule failed');
-            });
+                ->dailyAt('02:00')
+                ->name('eis-sale-submission')
+                ->withoutOverlapping(300)
+                ->onFailure(function () {
+                    Log::error('EIS Sale submission schedule failed');
+                }
+            );
 
         if ($env === 'demo') {
             //IMPORTANT NOTE: This command will delete all business details and create dummy business, run only in demo server.
@@ -63,8 +63,9 @@ class Kernel extends ConsoleKernel
                     //->everyThirtyMinutes()
                     ->emailOutputTo($email);
         }
+    
+        }
     }
-
     /**
      * Register the Closure based commands for the application.
      *

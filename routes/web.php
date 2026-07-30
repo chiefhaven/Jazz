@@ -134,16 +134,23 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/sell/split-bill/{id}', [SellController::class, 'splitBill'])->name('sell.splitBill');
     Route::post('/sell/process-split-bill', [SellController::class, 'processSplitBill'])->name('sell.processSplitBill');
     
-    Route::get('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBill'])
+    Route::get('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBills'])
         ->name('sells.clear-all-bill')
         ->middleware(['auth']);
     
-    Route::post('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBill'])
+    Route::post('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBills'])
         ->name('sells.clear-all-bill')
+        ->middleware(['auth']);
+
+    Route::post('/sells/eis-submit-all-bills', [\App\Http\Controllers\SellController::class, 'eisSubmitAllBills'])
+        ->name('sells.eis-submit-all-bills')
         ->middleware(['auth']);
 
     Route::get('/sells/check-unpaid-bills', [SellController::class, 'checkUnpaidBills'])
         ->name('sells.check-unpaid-bills');
+
+    Route::get('/sells/check-unsubmitted-bills', [SellController::class, 'checkUnsubmittedBills'])
+        ->name('sells.check-unsubmitted-bills');
     
     //Route::resource('payment-account', 'PaymentAccountController');
 

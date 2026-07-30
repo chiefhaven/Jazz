@@ -53,7 +53,7 @@ class DispatchAllUnsubmittedSalesCommand extends Command
             );
 
             if ($total > 20) {
-                $this->info("... and {$total - 20} more transactions.");
+                $this->info('... and ' . ($total - 20) . ' more transactions.');
             }
 
             $this->info('Dry run completed. No jobs were dispatched.');

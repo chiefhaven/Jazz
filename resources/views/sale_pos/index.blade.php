@@ -18,7 +18,7 @@
     @component('components.widget', ['class' => 'box-primary', 'title' => __( 'sale.list_pos')])
         @can('sell.create')
             @slot('tool')
-                <div class="box-tools">
+                {{--  <div class="box-tools">
                     <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right"
                             href="{{action([\App\Http\Controllers\SellPosController::class, 'create'])}}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -29,6 +29,12 @@
                                 <path d="M5 12l14 0" />
                             </svg> @lang('messages.add')
                         </a>
+                </div>  --}}
+                <div class="box-tools tw-mr-2">
+                    <a class="submit-all-bills-btn tw-bg-gradient-to-r tw-dw-btn tw-from-green-600 tw-to-green-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right mr-2"
+                    href="{{ route('sells.eis-submit-all-bills') }}" >
+                        <i class="fa fa-cash"></i> @lang('lang_v1.eis_submit_all_bills')
+                    </a>
                 </div>
                 <div class="box-tools tw-mr-2">
                     <a class="clear-all-bills-btn tw-bg-gradient-to-r tw-dw-btn tw-from-green-600 tw-to-green-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right mr-2"
@@ -71,5 +77,6 @@
 @section('javascript')
 @include('sale_pos.partials.sale_table_javascript')
 @include('sale_pos.partials.clear_bills_javascript')
+@include('sale_pos.partials.eis_submit_bills_javascript')
 <script src="{{ asset('js/payment.js?v=' . $asset_v) }}"></script>
 @endsection
