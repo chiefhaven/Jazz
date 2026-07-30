@@ -32,6 +32,7 @@ use Modules\EIS\Events\SaleCompleted;
 use Spatie\Activitylog\Models\Activity;
 use Yajra\DataTables\Facades\DataTables;
 use Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob;
+use Modules\EIS\Models\EisSetting;
 
 class SellController extends Controller
 {
@@ -1452,6 +1453,38 @@ class SellController extends Controller
     public function checkUnsubmittedBills()
     {
         $business_id = request()->session()->get('user.business_id');
+
+        if (!$business_id) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Business ID not found in session'
+            ], 400);
+        }
+
+        // Get EIS settings - FIX: Add first() to execute the query
+        $eisSetting = EisSetting::where('business_id', $business_id)->first();
+        
+        if (!$eisSetting) {
+            return response()->json([
+                'success' => false,
+                'error' => 'EIS settings not configured for this business'
+            ], 400);
+        }
+
+        // Check EIS health - FIX: Pass the token correctly
+        $eisHealth = new \Modules\EIS\Services\Http\EisHealthService();
+        
+        if (!$eisHealth->isOnline($business_id, $eisSetting->jwt_token)) {
+            Log::warning('EIS is offline', [
+                'business_id' => $business_id,
+                'device_id' => $eisSetting->device_id
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Cannot submit sales now, EIS is offline. Please try again later.'
+            ], 500);
+        }
         
         $count = Transaction::with('eisSale')
             ->where('business_id', $business_id)
@@ -1469,28 +1502,72 @@ class SellController extends Controller
         ]);
     }
 
-public function eisSubmitAllBills()
-{
-    $business_id = request()->session()->get('user.business_id');
+    /**
+     * Check EIS health before submitting bills
+     */
+    public function eisSubmitAllBills(Request $request)
+    {
+        try {
+            $business_id = $request->session()->get('user.business_id');
+            
+            if (!$business_id) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Business ID not found in session'
+                ], 400);
+            }
 
-    try {
-        \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch(
-            $business_id,  // business_id
-            50,            // chunk_size
-            null,          // date_from
-            null           // date_to
-        );
-        return response()->json([
-            'success' => true,
-            'message' => 'Bills submitted successfully'
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ], 500);
+            // Get EIS settings - FIX: Add first() to execute the query
+            $eisSetting = EisSetting::where('business_id', $business_id)->first();
+            
+            if (!$eisSetting) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'EIS settings not configured for this business'
+                ], 400);
+            }
+
+            // Check EIS health - FIX: Pass the token correctly
+            $eisHealth = new \Modules\EIS\Services\Http\EisHealthService();
+            
+            if (!$eisHealth->isOnline($business_id, $eisSetting->jwt_token)) {
+                Log::warning('EIS is offline', [
+                    'business_id' => $business_id,
+                    'device_id' => $eisSetting->device_id
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Cannot submit sales now, EIS is offline. Please try again later.'
+                ], 503);
+            }
+
+            // Proceed with submission
+            \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch($business_id);
+
+            Log::info('EIS bills submission initiated', [
+                'business_id' => $business_id,
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bills submitted successfully. The process will run in the background.'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to submit bills', [
+                'business_id' => $business_id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to submit bills: ' . $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     /**
      * Show the form for editing the specified resource.

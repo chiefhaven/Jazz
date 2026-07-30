@@ -107,11 +107,15 @@ $(document).ready(function() {
                     toastr.info("{{ __('lang_v1.no_unsubmitted_bills_found') }}");
                 }
             },
-            error: function() {
+            error: function(xhr) {
                 // Reset button
                 btn.html(originalHtml);
                 btn.prop('disabled', false);
-                toastr.error("{{ __('messages.something_went_wrong') }}");
+                var errorMsg = "{{ __('messages.something_went_wrong') }}";
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                toastr.error(errorMsg);
             }
         });
 

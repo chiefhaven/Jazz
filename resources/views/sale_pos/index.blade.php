@@ -33,7 +33,7 @@
                 <div class="box-tools tw-mr-2">
                     <a class="submit-all-bills-btn tw-bg-gradient-to-r tw-dw-btn tw-from-green-600 tw-to-green-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right mr-2"
                     href="{{ route('sells.eis-submit-all-bills') }}" >
-                        <i class="fa fa-cash"></i> @lang('lang_v1.eis_submit_all_bills')
+                        <i class="fa fa-cash"></i> @lang('lang_v1.submit_to_eis')
                     </a>
                 </div>
                 <div class="box-tools tw-mr-2">

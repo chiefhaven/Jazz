@@ -92,13 +92,6 @@ class SaleSubmissionService
             // ----------------------------
             $this->responseService->handle($transaction, $response);
 
-            // ONLY mark EIS record
-            $eisSale->update([
-                'status' => 'submitted',
-                'response_payload' => $response,
-                'submitted_at' => now(),
-            ]);
-
             return $eisSale;
 
         } catch (EisSaleException $e) {
