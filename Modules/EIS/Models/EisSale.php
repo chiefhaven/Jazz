@@ -104,14 +104,12 @@ class EisSale extends Model
             $totalUnsubmitted = DB::table('eis_sales')
                 ->join('transactions', 'eis_sales.transaction_id', '=', 'transactions.id')
                 ->where('eis_sales.business_id', $business_id)
-                ->where('eis_sales.location_id', $location_id)
                 ->where('eis_sales.status', '!=', 'submitted')
                 ->sum('transactions.final_total');
             
             // Get the oldest unsubmitted sale using DB
             $oldestUnsubmittedSale = DB::table('eis_sales')
                 ->where('business_id', $business_id)
-                ->where('location_id', $location_id)
                 ->where('status', '!=', 'submitted')
                 ->orderBy('created_at', 'asc')
                 ->first();
