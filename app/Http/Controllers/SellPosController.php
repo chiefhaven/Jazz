@@ -751,9 +751,9 @@ class SellPosController extends Controller
         }
     }
 
-    public function checkSaleLimits(int $business_id, float $final_total)
+    public function checkSaleLimits(int $business_id, float $final_total, $location_id)
     {
-        $result = EisSale::checkOfflineLimits($business_id, $final_total);
+        $result = EisSale::checkOfflineLimits($business_id, $final_total, $location_id);
         
         // Handle different return types
         if (is_array($result)) {
