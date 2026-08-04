@@ -760,6 +760,7 @@ class SellPosController extends Controller
         if (is_array($result)) {
             // If result is array with details
             if (isset($result['success']) && $result['success'] === false) {
+                //here we go
                 return [
                     'success' => false,
                     'message' => $result['message'] ?? 'Offline limits exceeded',
