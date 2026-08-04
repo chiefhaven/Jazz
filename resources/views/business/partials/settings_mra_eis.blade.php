@@ -33,12 +33,12 @@
                             <button type="button"id="get_latest_eis_config_btn" class="btn btn-info">
                                 <i class="fa fa-refresh"></i> @lang("lang_v1.get_latest_config")
                             </button>
-                            <button type="button"id="deactivate_eis_terminal_btn" class="btn btn-danger">
+                            {{--  <button type="button"id="deactivate_eis_terminal_btn" class="btn btn-danger">
                                 <i class="fa fa-stop"></i> Deactivate Terminal
                             </button>
                             <button type="button" id="toggle_eis_terminal_btn" class="btn btn-warning">
                                 <i class="fa fa-exchange"></i> Toggle Status
-                            </button>
+                            </button>  --}}
                         </div>
                     </div>
                     <!-- Inactive Actions -->
