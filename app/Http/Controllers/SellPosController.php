@@ -759,7 +759,7 @@ class SellPosController extends Controller
         // Handle different return types
         if (is_array($result)) {
             // If result is array with details
-            if (isset($result['allowed']) && $result['allowed'] === false) {
+            if (isset($result['success']) && $result['success'] === false) {
                 return [
                     'success' => false,
                     'message' => $result['message'] ?? 'Offline limits exceeded',
