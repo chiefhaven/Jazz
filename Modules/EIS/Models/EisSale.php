@@ -166,6 +166,18 @@ class EisSale extends Model
                     ];
                 }
             }
+
+            \Log::info('Offline limits check passed', [
+                'business_id' => $business_id,
+                'cumulative_limit' => $offlineLimit,
+                'current_total' => $totalUnsubmitted,
+                'sale_amount' => $sale_amount,
+                'total_after_sale' => $totalUnsubmitted + $sale_amount,
+                'remaining' => $offlineLimit - ($totalUnsubmitted + $sale_amount),
+                'max_age_limit' => $maxTransactionAge,
+                'age_difference' => $ageDifferenceInHours,
+                'oldest_sale_date' => $oldestUnsubmittedSale->created_at ?? null
+            ]);
             
             // All checks passed
             return [

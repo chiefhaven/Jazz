@@ -526,9 +526,8 @@ class SellPosController extends Controller
                 //Check for final and do some processing.
                 if ($input['status'] == 'final') {
                     $limitCheck = $this->checkSaleLimits(
-                        $request->business_id,
-                        $request->final_total,
-                        $request->location_id
+                        $business_id,
+                        $transaction->final_total,
                     );
 
                     if (!$limitCheck['success']) {
@@ -538,7 +537,7 @@ class SellPosController extends Controller
                             'details' => $limitCheck['details'] ?? null
                         ], 422);
                     }
-                    
+
                     if (!$is_direct_sale) {
                         //set service staff timer
                         foreach ($input['products'] as $product_line) {
@@ -752,9 +751,9 @@ class SellPosController extends Controller
         }
     }
 
-    public function checkSaleLimits($business_id, $final_total, $location_id)
+    public function checkSaleLimits(int $business_id, float $final_total)
     {
-        $result = EisSale::checkOfflineLimits($business_id, $final_total, $location_id);
+        $result = EisSale::checkOfflineLimits($business_id, $final_total);
         
         // Handle different return types
         if (is_array($result)) {
