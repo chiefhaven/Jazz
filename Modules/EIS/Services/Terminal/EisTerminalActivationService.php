@@ -589,6 +589,8 @@ class EisTerminalActivationService
             'email_address' => $terminalData->emailAddress ?? null,
             'phone_number' => $terminalData->phoneNumber ?? null,
             'trading_name' => $terminalData->tradingName ?? null,
+            'max_transaction_age' => $terminalData->maxTransactionAgeInHours ?? null,
+            'max_cummulative_amount' => $terminalData->maxCummulativeAmount ?? null,
             'address_lines' => isset($terminalData->addressLines) 
                 ? json_encode($terminalData->addressLines) 
                 : null,

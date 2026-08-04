@@ -352,6 +352,8 @@ class ConfigurationSyncService
                 'email_address' => $terminalData->emailAddress ?? null,
                 'phone_number' => $terminalData->phoneNumber ?? null,
                 'trading_name' => $terminalData->tradingName ?? null,
+                'max_transaction_age' => $terminalData->maxTransactionAgeInHours ?? null,
+                'max_cummulative_amount' => $terminalData->maxCummulativeAmount ?? null,
                 'address_lines' => isset($terminalData->addressLines) 
                     ? json_encode($terminalData->addressLines) 
                     : null,
@@ -432,8 +434,8 @@ class ConfigurationSyncService
     {
         $limitData = [
             'terminal_configuration_id' => $terminalConfig->id,
-            'max_transaction_age_hours' => $offlineLimitData->maxTransactionAgeInHours ?? 72,
-            'max_cumulative_amount' => $offlineLimitData->maxCummulativeAmount ?? 0,
+            'max_transaction_age' => $offlineLimitData->maxTransactionAgeInHours ?? 72,
+            'max_cummulative_amount' => $offlineLimitData->maxCummulativeAmount ?? 0,
             'raw_data' => json_encode($offlineLimitData),
             'last_synced_at' => now()
         ];
@@ -445,8 +447,8 @@ class ConfigurationSyncService
 
         Log::debug('Offline limit synced', [
             'terminal_config_id' => $terminalConfig->id,
-            'max_hours' => $limitData['max_transaction_age_hours'],
-            'max_amount' => $limitData['max_cumulative_amount']
+            'max_hours' => $limitData['max_transaction_age'],
+            'max_amount' => $limitData['max_cummulative_amount']
         ]);
     }
 

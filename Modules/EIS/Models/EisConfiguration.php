@@ -36,7 +36,9 @@ class EisConfiguration extends Model
         'is_vat_registered',
         'tax_office_code',
         'raw_response',
-        'last_synced_at'
+        'last_synced_at',
+        'max_cummulative_amount',
+        'max_transaction_age'
     ];
 
     protected $casts = [

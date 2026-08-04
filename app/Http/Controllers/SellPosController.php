@@ -65,7 +65,7 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Events\SellCreatedOrModified;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Events\SaleCompleted;
-
+use Modules\EIS\Models\EisSale;
 
 class SellPosController extends Controller
 {
@@ -525,6 +525,20 @@ class SellPosController extends Controller
 
                 //Check for final and do some processing.
                 if ($input['status'] == 'final') {
+                    $limitCheck = $this->checkSaleLimits(
+                        $request->business_id,
+                        $request->final_total,
+                        $request->location_id
+                    );
+
+                    if (!$limitCheck['success']) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $limitCheck['message'],
+                            'details' => $limitCheck['details'] ?? null
+                        ], 422);
+                    }
+                    
                     if (!$is_direct_sale) {
                         //set service staff timer
                         foreach ($input['products'] as $product_line) {
@@ -736,6 +750,48 @@ class SellPosController extends Controller
                     ->with('status', $output);
             }
         }
+    }
+
+    public function checkSaleLimits($business_id, $final_total, $location_id)
+    {
+        $result = EisSale::checkOfflineLimits($business_id, $final_total, $location_id);
+        
+        // Handle different return types
+        if (is_array($result)) {
+            // If result is array with details
+            if (isset($result['allowed']) && $result['allowed'] === false) {
+                return [
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Offline limits exceeded',
+                    'details' => $result['details'] ?? null
+                ];
+            }
+            if (isset($result['error']) && $result['error'] === true) {
+                return [
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Error checking offline limits'
+                ];
+            }
+            return ['success' => true];
+        }
+        
+        // If result is boolean
+        if ($result === false) {
+            return [
+                'success' => false,
+                'message' => 'Offline limits exceeded'
+            ];
+        }
+        
+        // If result is object with status
+        if (is_object($result) && isset($result->success) && $result->success === false) {
+            return [
+                'success' => false,
+                'message' => $result->message ?? 'Offline limits exceeded'
+            ];
+        }
+        
+        return ['success' => true];
     }
 
     /**
