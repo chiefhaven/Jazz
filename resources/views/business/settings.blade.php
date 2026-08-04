@@ -301,7 +301,7 @@
                                 });
                             }
                         },
-                        error: function() {
+                        error: function(error) {
                             swal({
                                 text: 'An error occurred',
                                 icon: 'error'
@@ -341,19 +341,55 @@
                         });
                     }
                 },
-                error: function() {
+                error: function(error) {
                     swal({
-                        text: 'An error occurred',
+                        text: 'An error occurred while toggling terminal status',
                         icon: 'error'
                     });
                 }
             });
         });
 
-        $(document).on('click', '#regenerate_credentials_btn', function () {
+        // Get Latest Terminal Config
+        $(document).on('click', '#get_latest_eis_config_btn', function() {
+            var data = {
+                business_id: $('#business_id').val(),
+                token: $('#eis_token').val()
+            };
 
-            e.preventDefault();
-            e.stopPropagation();
+            $.ajax({
+                method: 'post',
+                data: data,
+                url: "{{ route('eis.terminal.get_latest_config') }}",
+                dataType: 'json',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(result) {
+                    if (result.success == true) {
+                        swal({
+                            text: result.msg || 'Latest terminal config fetched successfully',
+                            icon: 'success'
+                        });
+                        updateTerminalUI(result.data);
+                    } else {
+                        swal({
+                            text: result.msg || 'Failed to get latest terminal config',
+                            icon: 'error'
+                        });
+                    }
+                },
+                error: function(error) {
+                    swal({
+                        text: 'An error occurred while fetching latest terminal config',
+                        icon: 'error'
+                    });
+                }
+            });
+        });
+
+        $(document).on('click', '#regenerate_credentials_btn', function (e) {
+
             
             const btn = $(this);
 
@@ -444,7 +480,7 @@
                         updateTerminalUI(result.data);
                     }
                 },
-                error: function() {
+                error: function(error) {
                     $('#terminal_status_display').html('<span class="badge badge-danger">Error loading status</span>');
                 }
             });

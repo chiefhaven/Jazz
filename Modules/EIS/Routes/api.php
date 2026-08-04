@@ -45,6 +45,9 @@ Route::prefix('v1')->group(function () {
         // Toggle Terminal Status
         Route::post('toggle', [TerminalActivationController::class, 'toggle'])
             ->name('eis.terminal.toggle');
+
+        Route::post('get-latest-config', [TerminalActivationController::class, 'getLatestConfig'])
+            ->name('eis.terminal.get_latest_config');
         
         // Get Terminal Status
         Route::get('status/{businessId}', [TerminalActivationController::class, 'status'])
@@ -172,4 +175,7 @@ Route::prefix('v1/public')->group(function () {
     // Get Terminal Status (public)
     Route::get('terminal/status/{businessId}', [TerminalActivationController::class, 'status'])
         ->name('eis.public.terminal.status');
+
+    Route::get('configuration/{businessId}', [ConfigurationController::class, 'getConfiguration'])
+        ->name('eis.public.configuration.get');
 });

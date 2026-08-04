@@ -23,20 +23,6 @@
                     <h4>Terminal Status</h4>
                 </div>
                 <div class="card-body">
-                    <!-- Status Display -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <strong>Status:</strong>
-                            <span id="terminal_status_display">
-                                <span class="badge badge-secondary">Checking...</span>
-                            </span>
-                        </div>
-                        <div class="col-md-6 text-right mb-1">
-                            <button id="refresh_status_btn" class="btn btn-sm btn-info">
-                                <i class="fa fa-refresh"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- Active Actions -->
                     <div id="terminal_active_actions" class="row mb-3" style="display: none;">
@@ -44,15 +30,17 @@
                             <div class="alert alert-success">
                                 <i class="fa fa-check-circle"></i> Terminal is active
                             </div>
-                            <button id="deactivate_eis_terminal_btn" class="btn btn-danger">
+                            <button type="button"id="get_latest_eis_config_btn" class="btn btn-info">
+                                <i class="fa fa-refresh"></i> @lang("lang_v1.get_latest_config")
+                            </button>
+                            <button type="button"id="deactivate_eis_terminal_btn" class="btn btn-danger">
                                 <i class="fa fa-stop"></i> Deactivate Terminal
                             </button>
-                            <button id="toggle_eis_terminal_btn" class="btn btn-warning">
+                            <button type="button" id="toggle_eis_terminal_btn" class="btn btn-warning">
                                 <i class="fa fa-exchange"></i> Toggle Status
                             </button>
                         </div>
                     </div>
-
                     <!-- Inactive Actions -->
                     <div id="terminal_inactive_actions" class="row mb-3" style="display: none;">
                         <div class="col-md-12">
@@ -119,8 +107,8 @@
                                     </td>
                                 </tr>
                             </table>
-                            <button id="regenerate_credentials_btn" class="btn btn-sm btn-warning mt-2">
-                                <i class="fa fa-key"></i> Regenerate Credentials
+                            <button type="button" id="regenerate_credentials_btn" class="btn btn-sm btn-warning mt-2">
+                                <i class="fa fa-key"></i> @lang("lang_v1.regenerate_credentials")
                             </button>
                         </div>
                     </div>

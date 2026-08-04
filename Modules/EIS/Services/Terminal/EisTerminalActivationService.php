@@ -919,6 +919,34 @@ class EisTerminalActivationService
     }
 
     /**
+     * Dispatch a job to fetch the latest EIS configuration.
+     *
+     * @param int $businessId
+     * @param string $token
+     * @param int|null $toggledBy
+     * @return array
+     */
+    public function getLatestConfig(): array
+    {
+        try {
+            
+            $result = app(\Modules\EIS\Jobs\SyncEISConfigurationJob::class)->dispatchNow();
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('Failed to sync latest configuration', [
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch latest configuration: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Get terminal status.
      *
      * @param int $businessId

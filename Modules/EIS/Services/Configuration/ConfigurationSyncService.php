@@ -156,6 +156,53 @@ class ConfigurationSyncService
     }
 
     /**
+     * Get latest EIS configuration.
+     *
+     * @param array $settings
+     * @return array
+     */
+    public function getLatestConfig(array $settings): array
+    {
+        try {
+            Log::info('Requesting latest EIS configuration');
+
+            if (empty($settings['jwt_token'])) {
+                return [
+                    'success' => false,
+                    'message' => 'JWT token is required to fetch latest configuration'
+                ];
+            }
+
+            $response = $this->client->latest($settings['jwt_token']);
+
+            if (!$response->isSuccess()) {
+                return [
+                    'success' => false,
+                    'message' => $response->getErrorMessageString() ?: $response->getRemark() ?: 'Failed to fetch configuration',
+                    'errors' => $response->getFormattedErrors()
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Latest configuration retrieved successfully',
+                'data' => $response->getData()
+            ];
+
+        } catch (\Throwable $e) {
+
+            Log::error('EIS latest configuration failed', [
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Sync tax rates from EIS configuration.
      *
      * @param EisConfiguration $configuration

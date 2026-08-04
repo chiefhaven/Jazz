@@ -24,7 +24,7 @@ class SyncEISConfigurationJob implements ShouldQueue
     private const CHUNK_SIZE = 50;
     private const MAX_PROCESS_LIMIT = 500;
 
-    public function handle(ConfigurationSyncService $syncService): void
+    public function handle(ConfigurationSyncService $syncService): array
     {
         $startTime = microtime(true);
         $processedCount = 0;
@@ -83,6 +83,16 @@ class SyncEISConfigurationJob implements ShouldQueue
             'execution_time' => round($executionTime, 2),
             'memory_usage_mb' => round(memory_get_usage() / 1024 / 1024, 2)
         ]);
+
+        return [
+            'success' => true,
+            'processed' => $processedCount,
+            'successful' => $successCount,
+            'failed' => $failureCount,
+            'skipped' => $skippedCount,
+            'execution_time' => round($executionTime, 2),
+            'memory_usage_mb' => round(memory_get_usage() / 1024 / 1024, 2)
+        ];
     }
 
     protected function shouldSkipSync($setting): bool

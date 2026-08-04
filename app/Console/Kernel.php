@@ -39,7 +39,7 @@ class Kernel extends ConsoleKernel
 
             // Schedule the EIS configuration sync job
             $schedule->job(new SyncEISConfigurationJob())
-                ->daily()
+                ->hourly()
                 ->name('eis-configuration-sync')
                 ->withoutOverlapping(300)
                 ->onFailure(function () {
@@ -48,7 +48,7 @@ class Kernel extends ConsoleKernel
 
             // Schedule the EIS sale submission job
             $schedule->job(new DispatchAllUnsubmittedSalesJob())
-                ->dailyAt('02:00')
+                ->hourly()
                 ->name('eis-sale-submission')
                 ->withoutOverlapping(300)
                 ->onFailure(function () {

@@ -291,6 +291,39 @@ class TerminalActivationController extends Controller
     }
 
     /**
+     * Get the latest terminal configuration - Requires authentication.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getLatestConfig(Request $request)
+    {
+
+        try {
+            $result = $this->activationService->getLatestConfig();
+
+            if($result['processed'] === 0 || $result['failed'] > 0) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => $result['message'] ?? 'Failed to get latest config'
+                ], 400);
+            }
+
+            return response()->json($result, $result['success'] ? 200 : 400);
+
+        } catch (\Exception $e) {
+            Log::error('Terminal get latest config error', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => 0,
+                'msg' => 'Failed to get latest config: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get terminal status - No authentication required.
      *
      * @param int $businessId
