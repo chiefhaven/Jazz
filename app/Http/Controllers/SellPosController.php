@@ -528,6 +528,7 @@ class SellPosController extends Controller
                     $limitCheck = $this->checkSaleLimits(
                         $business_id,
                         $transaction->final_total,
+                        $transaction->location_id
                     );
 
                     if (!$limitCheck['success']) {
