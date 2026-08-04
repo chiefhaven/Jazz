@@ -532,11 +532,14 @@ class SellPosController extends Controller
                     );
 
                     if (!$limitCheck['success']) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => $limitCheck['message'],
+
+                        $output = [
+                            'success' => 0,
+                            'msg' => $limitCheck['message'],
                             'details' => $limitCheck['details'] ?? null
-                        ], 422);
+                        ];
+                        
+                        return $output;
                     }
 
                     if (!$is_direct_sale) {

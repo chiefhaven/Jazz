@@ -57,7 +57,7 @@ class EisSale extends Model
                 ]);
                 
                 return [
-                    'success' => false,
+                    'success' => 0,
                     'message' => 'Business settings not found',
                     'code' => 'BUSINESS_NOT_FOUND',
                     'details' => null
