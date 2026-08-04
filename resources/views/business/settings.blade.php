@@ -350,55 +350,85 @@
             });
         });
 
-        // Regenerate Credentials
-        $(document).on('click', '#regenerate_credentials_btn', function() {
-            var data = {
-                business_id: $('#business_id').val(),
-                token: $('#eis_token').val()
-            };
+        $(document).on('click', '#regenerate_credentials_btn', function () {
+
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const btn = $(this);
 
             swal({
                 title: 'Are you sure?',
-                text: 'This will regenerate terminal credentials. Old credentials will be invalid.',
+                text: 'This will regenerate terminal credentials. Existing credentials will immediately become invalid.',
                 icon: 'warning',
                 buttons: true,
                 dangerMode: true
-            }).then((willRegenerate) => {
-                if (willRegenerate) {
-                    $.ajax({
-                        method: 'post',
-                        data: data,
-                        url: "{{ route('eis.terminal.regenerate-credentials') }}",
-                        dataType: 'json',
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        },
-                        success: function(result) {
-                            if (result.success == true) {
-                                swal({
-                                    text: result.msg || 'Credentials regenerated successfully',
-                                    icon: 'success'
-                                });
-                                if (result.data) {
-                                    $('#jwt_token_display').text(result.data.jwt_token || 'N/A');
-                                    $('#secret_key_display').text(result.data.secret_key || 'N/A');
-                                }
-                            } else {
-                                swal({
-                                    text: result.msg || 'Failed to regenerate credentials',
-                                    icon: 'error'
-                                });
-                            }
-                        },
-                        error: function() {
-                            swal({
-                                text: 'An error occurred',
-                                icon: 'error'
-                            });
-                        }
-                    });
+            }).then(function (confirmed) {
+
+                if (!confirmed) {
+                    return;
                 }
+
+                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Regenerating...');
+
+                $.ajax({
+                    url: "{{ route('eis.terminal.regenerate-credentials') }}",
+                    type: "POST",
+                    dataType: "json",
+                    headers: {
+                        "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: {
+                        business_id: $('#business_id').val(),
+                        token: $('#eis_token').val()
+                    },
+
+                    success: function (response) {
+
+                        if (response.success) {
+
+                            swal(
+                                "Success",
+                                response.msg || "Credentials regenerated successfully.",
+                                "success"
+                            );
+
+                            if (response.data) {
+                                $('#jwt_token_display').text(response.data.jwt_token ?? 'N/A');
+                                $('#secret_key_display').text(response.data.secret_key ?? 'N/A');
+                            }
+
+                        } else {
+
+                            swal(
+                                "Failed",
+                                response.msg || "Unable to regenerate credentials.",
+                                "error"
+                            );
+                        }
+                    },
+
+                    error: function (xhr) {
+
+                        let message = "An unexpected error occurred.";
+
+                        if (xhr.responseJSON) {
+                            message = xhr.responseJSON.msg ||
+                                    xhr.responseJSON.message ||
+                                    message;
+                        }
+
+                        swal("Error", message, "error");
+                    },
+
+                    complete: function () {
+                        btn.prop('disabled', false)
+                        .html('@lang("lang_v1.regenerate_credentials")');
+                    }
+                });
+
             });
+
         });
 
         // Get Terminal Status
@@ -440,6 +470,7 @@
                 $('#terminal_label_display').text(data.terminal_label || 'N/A');
                 $('#terminal_id_display').text(data.terminal_id || 'N/A');
                 $('#trading_name_display').text(data.trading_name || 'N/A');
+                $('#activation_code').text(data.activation_code || 'N/A');
                 $('#email_address_display').text(data.email_address || 'N/A');
                 $('#phone_number_display').text(data.phone_number || 'N/A');
                 $('#activation_date_display').text(data.activation_date ? new Date(data.activation_date).toLocaleString() : 'N/A');

@@ -332,6 +332,8 @@ class BusinessController extends Controller
 
         $eis_settings = empty($business->eis_settings) ? $this->businessUtil->defaultEisSettings() : $business->eis_settings;
 
+        \Log::info('EIS Settings Retrieved', ['business_id' => $business_id, 'eis_settings' => $eis_settings]);
+
         $sms_settings = empty($business->sms_settings) ? $this->businessUtil->defaultSmsSettings() : $business->sms_settings;
 
         $modules = $this->moduleUtil->availableModules();

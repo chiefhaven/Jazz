@@ -1,21 +1,4 @@
 <div class="pos-tab-content">
-    <div class="row">
-        <div id="toggle_visibility" @if(!empty($eis_settings['use_superadmin_settings'])) class="hide" @endif>
-            <div class="col-xs-4">
-                <div class="form-group">
-                    {!! Form::label('terminal_activation_code', __('lang_v1.terminal_activation_code') . ':') !!}
-                    {!! Form::text('eis_settings[terminal_activation_code]', $eis_settings['terminal_activation_code'] ?? '', ['class' => 'form-control','placeholder' => __('lang_v1.terminal_activation_code'), 'id' => 'terminal_activation_code_input']); !!}
-                </div>
-            </div>
-            <div class="clearfix"></div>
-            <div class="col-xs-12 activate_eis_terminal_btn @if(!empty($eis_settings['use_superadmin_settings'])) hide @endif">
-                <button type="button" class="tw-dw-btn tw-dw-btn-success tw-text-white pull-right" id="activate_eis_terminal_btn">
-                    @lang('lang_v1.activate_eis_terminal')
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Hidden Fields -->
     <input type="hidden" id="business_id" value="{{ $businessId ?? auth()->user()->business_id ?? 1 }}">
     <input type="hidden" id="eis_token" value="{{ $eisToken ?? session('eis_token') }}">
@@ -26,7 +9,7 @@
             <div class="alert alert-info">
                 <strong>Activation Code:</strong>
                 <span id="activation_code_display">
-                    {{ $eis_settings['terminal_activation_code'] ?? 'Not yet activated' }}
+                    <span id="activation_code">N/A</span>
                 </span>
             </div>
         </div>
@@ -48,7 +31,7 @@
                                 <span class="badge badge-secondary">Checking...</span>
                             </span>
                         </div>
-                        <div class="col-md-6 text-right">
+                        <div class="col-md-6 text-right mb-1">
                             <button id="refresh_status_btn" class="btn btn-sm btn-info">
                                 <i class="fa fa-refresh"></i> Refresh
                             </button>
@@ -125,7 +108,7 @@
                             <table class="table table-bordered table-striped">
                                 <tr>
                                     <th width="40%">JWT Token</th>
-                                    <td id="jwt_token_display" class="text-break word-wrap" style="max-width: 300px; word-break: break-all; white-space: normal;">
+                                    <td id="jwt_token_display" class="text-break" style="overflow: hidden; max-width: 100px;">
                                         <span class="text-muted">N/A</span>
                                     </td>
                                 </tr>
@@ -140,6 +123,36 @@
                                 <i class="fa fa-key"></i> Regenerate Credentials
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div id="toggle_visibility" @if(!empty($eis_settings['use_superadmin_settings'])) class="hide" @endif>
+            <div class="col-xs-6">
+                <div class="form-group">
+                    {!! Form::label('terminal_activation_code', __('lang_v1.terminal_activation_code') . ':') !!}
+
+                    <div class="input-group">
+                        {!! Form::text(
+                            'eis_settings[terminal_activation_code]',
+                            $eis_settings['terminal_activation_code'] ?? '',
+                            [
+                                'class' => 'form-control',
+                                'placeholder' => __('lang_v1.terminal_activation_code'),
+                                'id' => 'terminal_activation_code_input'
+                            ]
+                        ) !!}
+
+                        <span class="input-group-btn activate_eis_terminal_btn @if(!empty($eis_settings['use_superadmin_settings'])) hide @endif">
+                            <button type="button"
+                                    class="btn btn-success"
+                                    id="activate_eis_terminal_btn">
+                                @lang('lang_v1.activate_eis_terminal')
+                            </button>
+                        </span>
                     </div>
                 </div>
             </div>
