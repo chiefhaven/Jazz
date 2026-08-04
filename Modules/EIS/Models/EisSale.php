@@ -66,7 +66,7 @@ class EisSale extends Model
             
             // Get terminal configuration
             $terminalConfig = DB::table('eis_terminal_configurations')
-                ->where('eis_setting_id', $eisSetting->id)
+                ->where('business_id', $business_id)
                 ->first();
                 
             if (!$terminalConfig) {
