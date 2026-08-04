@@ -3,6 +3,7 @@
 namespace Modules\EIS\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use DB;
 
 class EisSale extends Model
 {
@@ -41,17 +42,18 @@ class EisSale extends Model
      * @param float $sale_amount
      * @return array Returns ['success' => bool, 'message' => string, 'code' => string|null, 'details' => array|null]
      */
-    public static function checkOfflineLimits($business_id, $sale_amount)
+    public static function checkOfflineLimits($business_id, $sale_amount, $location_id)
     {
         try {
-            // Get business settings with terminal configuration
-            $eisSetting = EisSetting::where('business_id', $business_id)
-                ->with('eisTerminalConfiguration')
+            // Get business settings with terminal configuration using DB
+            $eisSetting = DB::table('eis_settings')
+                ->where('business_id', $business_id)
                 ->first();
                 
             if (!$eisSetting) {
                 \Log::warning('Business settings not found for offline limit check', [
                     'business_id' => $business_id,
+                    'location_id' => $location_id
                 ]);
                 
                 return [
@@ -62,11 +64,15 @@ class EisSale extends Model
                 ];
             }
             
-            // Check if terminal configuration exists
-            $terminalConfig = $eisSetting->eisTerminalConfiguration;
+            // Get terminal configuration
+            $terminalConfig = DB::table('terminal_configurations')
+                ->where('eis_setting_id', $eisSetting->id)
+                ->first();
+                
             if (!$terminalConfig) {
                 \Log::warning('Terminal configuration not found for offline limit check', [
                     'business_id' => $business_id,
+                    'location_id' => $location_id
                 ]);
                 
                 return [
@@ -94,27 +100,34 @@ class EisSale extends Model
                 ];
             }
             
-            // Get total unsubmitted sales for this business
-            $totalUnsubmitted = self::where('eis_sales.business_id', $business_id)
-            ->where('eis_sales.status', '!=', 'submitted')
-            ->join('transactions', 'eis_sales.transaction_id', '=', 'transactions.id')
-            ->sum('transactions.final_total');
-            
-            // Get the oldest unsubmitted sale
-            $oldestUnsubmittedSale = self::where('eis_sales.business_id', $business_id)
+            // ✅ Get total unsubmitted sales with transaction amounts using DB
+            $totalUnsubmitted = DB::table('eis_sales')
+                ->join('transactions', 'eis_sales.transaction_id', '=', 'transactions.id')
+                ->where('eis_sales.business_id', $business_id)
+                ->where('eis_sales.location_id', $location_id)
                 ->where('eis_sales.status', '!=', 'submitted')
-                ->orderBy('eis_sales.created_at', 'asc')
+                ->sum('transactions.final_total');
+            
+            // Get the oldest unsubmitted sale using DB
+            $oldestUnsubmittedSale = DB::table('eis_sales')
+                ->where('business_id', $business_id)
+                ->where('location_id', $location_id)
+                ->where('status', '!=', 'submitted')
+                ->orderBy('created_at', 'asc')
                 ->first();
             
             // Calculate age difference in hours
-            $ageDifferenceInHours = $oldestUnsubmittedSale 
-                ? now()->diffInHours($oldestUnsubmittedSale->created_at) 
-                : 0;
+            $ageDifferenceInHours = 0;
+            if ($oldestUnsubmittedSale) {
+                $createdAt = \Carbon\Carbon::parse($oldestUnsubmittedSale->created_at);
+                $ageDifferenceInHours = now()->diffInHours($createdAt);
+            }
             
             // Check age limit (max_transaction_age)
             if ($maxTransactionAge > 0 && $ageDifferenceInHours > $maxTransactionAge) {
                 \Log::warning('Transaction age limit exceeded', [
                     'business_id' => $business_id,
+                    'location_id' => $location_id,
                     'max_age_limit' => $maxTransactionAge,
                     'age_difference' => $ageDifferenceInHours,
                     'oldest_sale_id' => $oldestUnsubmittedSale->id ?? null,
@@ -144,6 +157,7 @@ class EisSale extends Model
                     
                     \Log::warning('Cumulative amount limit exceeded', [
                         'business_id' => $business_id,
+                        'location_id' => $location_id,
                         'cumulative_limit' => $offlineLimit,
                         'current_total' => $totalUnsubmitted,
                         'sale_amount' => $sale_amount,
@@ -166,18 +180,6 @@ class EisSale extends Model
                     ];
                 }
             }
-
-            \Log::info('Offline limits check passed', [
-                'business_id' => $business_id,
-                'cumulative_limit' => $offlineLimit,
-                'current_total' => $totalUnsubmitted,
-                'sale_amount' => $sale_amount,
-                'total_after_sale' => $totalUnsubmitted + $sale_amount,
-                'remaining' => $offlineLimit - ($totalUnsubmitted + $sale_amount),
-                'max_age_limit' => $maxTransactionAge,
-                'age_difference' => $ageDifferenceInHours,
-                'oldest_sale_date' => $oldestUnsubmittedSale->created_at ?? null
-            ]);
             
             // All checks passed
             return [
@@ -201,6 +203,7 @@ class EisSale extends Model
             // Log error but allow sale to proceed (fail-open strategy)
             \Log::error('Error checking offline limits - allowing sale', [
                 'business_id' => $business_id,
+                'location_id' => $location_id,
                 'sale_amount' => $sale_amount,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
