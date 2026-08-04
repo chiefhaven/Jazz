@@ -46,11 +46,11 @@ class EisSale extends Model
     {
         try {
             // Get business settings with terminal configuration using DB
-            $eisSetting = DB::table('eis_settings')
+            $eisConfigurations = DB::table('eis_configurations')
                 ->where('business_id', $business_id)
                 ->first();
                 
-            if (!$eisSetting) {
+            if (!$eisConfigurations) {
                 \Log::warning('Business settings not found for offline limit check', [
                     'business_id' => $business_id,
                     'location_id' => $location_id
@@ -66,7 +66,7 @@ class EisSale extends Model
             
             // Get terminal configuration
             $terminalConfig = DB::table('eis_terminal_configurations')
-                ->where('business_id', $business_id)
+                ->where('configuration_id', $eisConfigurations->id)
                 ->first();
                 
             if (!$terminalConfig) {
