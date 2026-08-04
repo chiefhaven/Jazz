@@ -39,10 +39,9 @@ class EisSale extends Model
      * 
      * @param int $business_id
      * @param float $sale_amount
-     * @param int $location_id
      * @return array Returns ['success' => bool, 'message' => string, 'code' => string|null, 'details' => array|null]
      */
-    public static function checkOfflineLimits($business_id, $sale_amount, $location_id)
+    public static function checkOfflineLimits($business_id, $sale_amount)
     {
         try {
             // Get business settings with terminal configuration
@@ -53,7 +52,6 @@ class EisSale extends Model
             if (!$eisSetting) {
                 \Log::warning('Business settings not found for offline limit check', [
                     'business_id' => $business_id,
-                    'location_id' => $location_id
                 ]);
                 
                 return [
@@ -69,7 +67,6 @@ class EisSale extends Model
             if (!$terminalConfig) {
                 \Log::warning('Terminal configuration not found for offline limit check', [
                     'business_id' => $business_id,
-                    'location_id' => $location_id
                 ]);
                 
                 return [
@@ -97,16 +94,14 @@ class EisSale extends Model
                 ];
             }
             
-            // Get total unsubmitted sales for this business/location
+            // Get total unsubmitted sales for this business
             $totalUnsubmitted = self::where('eis_sales.business_id', $business_id)
-            ->where('eis_sales.location_id', $location_id)
             ->where('eis_sales.status', '!=', 'submitted')
             ->join('transactions', 'eis_sales.transaction_id', '=', 'transactions.id')
             ->sum('transactions.final_total');
             
             // Get the oldest unsubmitted sale
             $oldestUnsubmittedSale = self::where('eis_sales.business_id', $business_id)
-                ->where('eis_sales.location_id', $location_id)
                 ->where('eis_sales.status', '!=', 'submitted')
                 ->orderBy('eis_sales.created_at', 'asc')
                 ->first();
@@ -120,7 +115,6 @@ class EisSale extends Model
             if ($maxTransactionAge > 0 && $ageDifferenceInHours > $maxTransactionAge) {
                 \Log::warning('Transaction age limit exceeded', [
                     'business_id' => $business_id,
-                    'location_id' => $location_id,
                     'max_age_limit' => $maxTransactionAge,
                     'age_difference' => $ageDifferenceInHours,
                     'oldest_sale_id' => $oldestUnsubmittedSale->id ?? null,
@@ -150,7 +144,6 @@ class EisSale extends Model
                     
                     \Log::warning('Cumulative amount limit exceeded', [
                         'business_id' => $business_id,
-                        'location_id' => $location_id,
                         'cumulative_limit' => $offlineLimit,
                         'current_total' => $totalUnsubmitted,
                         'sale_amount' => $sale_amount,
@@ -196,7 +189,6 @@ class EisSale extends Model
             // Log error but allow sale to proceed (fail-open strategy)
             \Log::error('Error checking offline limits - allowing sale', [
                 'business_id' => $business_id,
-                'location_id' => $location_id,
                 'sale_amount' => $sale_amount,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
