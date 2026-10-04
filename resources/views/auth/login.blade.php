@@ -121,6 +121,25 @@
                     <form method="POST" action="{{ route('login') }}" id="login-form">
                         {{ csrf_field() }}
 
+                        <div class="form-group has-feedback {{ $errors->has('username') ? ' has-error' : '' }}">
+                            <label class="tw-dw-form-control">
+                                <div class="tw-dw-label">
+                                    <span
+                                        class="tw-text-xs md:tw-text-sm tw-font-medium tw-text-black">@lang('business.username')</span>
+                                </div>
+
+                                <input
+                                    class="tw-border tw-border-[#D1D5DA] tw-outline-none tw-h-12 tw-bg-transparent tw-rounded-lg tw-px-3 tw-font-medium tw-text-black placeholder:tw-text-gray-500 placeholder:tw-font-medium"
+                                    id="username" type="text" name="username" value="{{ $username }}" required
+                                    autocomplete="username" placeholder="@lang('business.username')" />
+                            </label>
+                            @if ($errors->has('username'))
+                                <span class="help-block">
+                                    <strong>{{ $errors->first('username') }}</strong>
+                                </span>
+                            @endif
+                        </div>
+
                         <div class="form-group has-feedback {{ $errors->has('password') ? ' has-error' : '' }}">
                             <label class="tw-dw-form-control">
                                 <div class="tw-dw-label">

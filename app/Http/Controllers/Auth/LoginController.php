@@ -9,8 +9,7 @@ use App\Utils\ModuleUtil;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use App\User;
+use Illuminate\Support\Facades\Cookie;
 
 class LoginController extends Controller
 {
@@ -32,55 +31,47 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    /**
-     * Override username to use 'password' (PIN) as the only identifier.
-     */
     public function username()
     {
-        return 'password';
+        return 'username';
     }
 
-    /**
-     * Override validation to handle only the PIN (password field).
-     */
     protected function validateLogin(Request $request)
     {
         $request->validate([
-            'password' => 'required',
+            'username' => 'required|string',
+            'password' => 'required|string',
         ]);
     }
 
-    /**
-     * Override the attempt logic. 
-     * In a PIN-only system, we must check every user's hash until we find a match.
-     */
-    protected function attemptLogin(Request $request)
+    public function logout(Request $request)
     {
-        // Get all potential users (you can filter by business_id if needed)
-        $users = User::all();
-
-        foreach ($users as $user) {
-            // Check if the entered PIN matches the hashed password in the DB
-            if (Hash::check($request->password, $user->password)) {
-                Auth::login($user, $request->filled('remember'));
-                return true;
-            }
+        $user = auth()->user();
+        if ($user && ! $user->can('superadmin')) {
+            $this->businessUtil->activityLog($user, 'logout');
         }
 
-        return false;
-    }
-
-    public function logout()
-    {
-        $this->businessUtil->activityLog(auth()->user(), 'logout');
-        request()->session()->flush();
+        Cookie::queue(Cookie::forget(Auth::getRecallerName()));
         Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect('/login');
     }
 
     protected function authenticated(Request $request, $user)
     {
+        if ($user->can('superadmin')) {
+            return;
+        }
+
         $this->businessUtil->activityLog($user, 'login', null, [], false, $user->business_id);
+
+        if (empty($user->business)) {
+            Auth::logout();
+            return redirect('/login')->with('status', ['success' => 0, 'msg' => __('lang_v1.business_inactive')]);
+        }
 
         if (!$user->business->is_active) {
             Auth::logout();
@@ -97,6 +88,9 @@ class LoginController extends Controller
     protected function redirectTo()
     {
         $user = Auth::user();
+        if ($user->can('superadmin')) {
+            return '/superadmin';
+        }
         if (!$user->can('dashboard.data') && $user->can('sell.create')) {
             return '/pos/create';
         }

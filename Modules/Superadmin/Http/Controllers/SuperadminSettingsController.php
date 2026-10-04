@@ -2,6 +2,7 @@
 
 namespace Modules\Superadmin\Http\Controllers;
 
+use App\Business;
 use App\System;
 use App\Utils\BusinessUtil;
 use Illuminate\Http\Request;

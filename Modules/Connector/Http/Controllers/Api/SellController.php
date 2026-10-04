@@ -24,6 +24,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Modules\Connector\Transformers\SellResource;
+use Modules\EIS\Events\SaleCompleted;
+use Modules\EIS\Models\EisSale;
 
 /**
  * @group Sales management
@@ -286,7 +288,7 @@ class SellController extends ApiController
 
         $filters = request()->only(['location_id', 'contact_id', 'payment_status', 'start_date', 'end_date', 'user_id', 'service_staff_id', 'only_subscriptions', 'per_page', 'shipping_status', 'order_by_date', 'source', 'status']);
 
-        $with = ['sell_lines', 'payment_lines', 'contact'];
+        $with = ['sell_lines', 'payment_lines', 'contact', 'eisSale:id,transaction_id,qr_code'];
         $query = Transaction::where('business_id', $business_id)
                             ->where('type', 'sell');
 
@@ -629,7 +631,7 @@ class SellController extends ApiController
         $query = Transaction::where('business_id', $business_id)
                         ->whereIn('id', $sell_ids);
 
-        $with = ['sell_lines', 'payment_lines'];
+        $with = ['sell_lines', 'payment_lines', 'eisSale:id,transaction_id,qr_code'];
 
         if (! empty(request()->input('send_purchase_details')) && request()->input('send_purchase_details') == 1) {
             $with[] = 'sell_lines.sell_line_purchase_lines';
@@ -942,6 +944,13 @@ class SellController extends ApiController
                     }
 
                     if ($input['status'] == 'final') {
+                        //EIS: same offline limit gate as the web POS (SellPosController@store).
+                        //Throwing rolls this sell back and its message is returned in the response entry.
+                        $limit_check = $this->checkEisSaleLimits($business_id, $transaction->final_total, $transaction->location_id);
+                        if (! $limit_check['success']) {
+                            throw new \Exception($limit_check['message']);
+                        }
+
                         //Check for final and do some processing.
                         //update product stock
                         foreach ($input['products'] as $product) {
@@ -1002,6 +1011,22 @@ class SellController extends ApiController
                     $transaction->payment_link = $this->transactionUtil->getInvoicePaymentLink($transaction->id, $business_id);
 
                     DB::commit();
+
+                    DB::afterCommit(function () use ($transaction) {
+                        if ($transaction->type == 'sell' && $transaction->status == 'final') {
+                            // The sale is already committed: an EIS failure must not turn it into an error response.
+                            // Failed submissions are stored by EIS (eis_sales / eis_failed_transactions) and retried by the scheduler.
+                            try {
+                                event(new SaleCompleted($transaction));
+                            } catch (\Throwable $e) {
+                                \Log::error('EIS submission failed after sale commit', [
+                                    'transaction_id' => $transaction->id,
+                                    'message' => $e->getMessage(),
+                                ]);
+                            }
+                        }
+                    });
+
                     $output[] = $transaction;
                 } catch (ModelNotFoundException $e) {
                     DB::rollback();
@@ -1342,6 +1367,27 @@ class SellController extends ApiController
         return $output;
     }
 
+    /**
+     * Same offline limit gate the web POS applies before finalizing a sale
+     * (SellPosController::checkSaleLimits), so EIS limits also hold for API sales.
+     */
+    private function checkEisSaleLimits($business_id, $final_total, $location_id)
+    {
+        $result = EisSale::checkOfflineLimits($business_id, (float) $final_total, $location_id);
+
+        if (is_array($result)) {
+            if (isset($result['success']) && $result['success'] === false) {
+                return ['success' => false, 'message' => $result['message'] ?? 'Offline limits exceeded'];
+            }
+
+            if (isset($result['error']) && $result['error'] === true) {
+                return ['success' => false, 'message' => $result['message'] ?? 'Error checking offline limits'];
+            }
+        }
+
+        return ['success' => true];
+    }
+
     private function __getValue($key, $data, $obj, $default = null, $db_key = null)
     {
         $value = $default;
@@ -1454,9 +1500,18 @@ class SellController extends ApiController
                                 ->findOrFail($product_id);
 
                 $variation = $product->variations->where('id', $variation_id)->first();
+                if (empty($variation) && ! $product->variations->isEmpty()) {
+                    $variation = $product->variations->first();
+                }
+
+                if (empty($variation)) {
+                    throw new \Exception('Product #'.$product_id.' has no valid variation for the selected sale item.');
+                }
+
+                $variation_price = $variation->sell_price_inc_tax ?? $variation->default_sell_price ?? 0;
 
                 //Calculate line discount
-                $unit_price = $this->__getValue('unit_price', $product_data, $sell_line, $variation->sell_price_inc_tax, 'unit_price_before_discount');
+                $unit_price = $this->__getValue('unit_price', $product_data, $sell_line, $variation_price, 'unit_price_before_discount');
 
                 $discount_amount = $this->__getValue('discount_amount', $product_data, $sell_line, 0, 'line_discount_amount');
 

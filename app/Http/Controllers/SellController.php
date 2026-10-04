@@ -1219,6 +1219,12 @@ class SellController extends Controller
 
             DB::commit();
 
+            DB::afterCommit(function () use ($split_transaction) {
+                if ($split_transaction->type == 'sell' && $split_transaction->status == 'final') {
+                    event(new SaleCompleted($split_transaction));
+                }
+            });
+
             $output = [
                 'success' => true,
                 'msg' => __('lang_v1.split_bill_success'),

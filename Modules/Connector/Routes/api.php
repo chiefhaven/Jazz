@@ -26,6 +26,10 @@ Route::middleware('auth:api', 'timezone')->prefix('connector/api')->group(functi
     Route::resource('table', Modules\Connector\Http\Controllers\Api\TableController::class)->only('index', 'show');
 
     Route::get('user/loggedin', [Modules\Connector\Http\Controllers\Api\UserController::class, 'loggedin']);
+    Route::get('user/admin-usernames', [Modules\Connector\Http\Controllers\Api\UserController::class, 'adminUsernames']);
+    Route::get('user/admin-users', [Modules\Connector\Http\Controllers\Api\UserController::class, 'adminUsers']);
+    Route::get('admin-usernames', [Modules\Connector\Http\Controllers\Api\UserController::class, 'adminUsernames']);
+    Route::get('admin-users', [Modules\Connector\Http\Controllers\Api\UserController::class, 'adminUsers']);
     Route::post('user-registration', [Modules\Connector\Http\Controllers\Api\UserController::class, 'registerUser']);
     Route::resource('user', Modules\Connector\Http\Controllers\Api\UserController::class)->only('index', 'show');
 

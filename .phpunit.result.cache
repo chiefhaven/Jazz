@@ -1,0 +1,1 @@
+{"version":1,"defects":{"Tests\\Feature\\ExampleTest::testConfiguredAdminUsernamesAreReturned":4,"Tests\\Feature\\ExampleTest::testNewSellDoesNotCrashWhenOnlyOverduePermissionIsGranted":4},"times":{"Tests\\Feature\\ExampleTest::testConfiguredAdminUsernamesAreReturned":0.788,"Tests\\Feature\\ExampleTest::testNewSellDoesNotCrashWhenOnlyOverduePermissionIsGranted":1.334}}

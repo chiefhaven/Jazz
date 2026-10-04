@@ -756,18 +756,18 @@ class ProductSellController extends ApiController
 
             if (empty($payment_status_arr)) {
                 if (auth()->user()->can('view_overdue_sells_only')) {
-                    $sells->OverDue();
+                    $query->OverDue();
                 }
             } else {
                 if (auth()->user()->can('view_overdue_sells_only')) {
-                    $sells->where(function ($q) use ($payment_status_arr) {
+                    $query->where(function ($q) use ($payment_status_arr) {
                         $q->whereIn('transactions.payment_status', $payment_status_arr)
                         ->orWhere(function ($qr) {
                             $qr->OverDue();
                         });
                     });
                 } else {
-                    $sells->whereIn('transactions.payment_status', $payment_status_arr);
+                    $query->whereIn('transactions.payment_status', $payment_status_arr);
                 }
             }
         }
