@@ -24,8 +24,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Modules\Connector\Transformers\SellResource;
-use Modules\EIS\Events\SaleCompleted;
 use Modules\EIS\Models\EisSale;
+use Modules\EIS\Services\Sales\SaleSubmissionRule;
 
 /**
  * @group Sales management
@@ -1012,20 +1012,10 @@ class SellController extends ApiController
 
                     DB::commit();
 
-                    DB::afterCommit(function () use ($transaction) {
-                        if ($transaction->type == 'sell' && $transaction->status == 'final') {
-                            // The sale is already committed: an EIS failure must not turn it into an error response.
-                            // Failed submissions are stored by EIS (eis_sales / eis_failed_transactions) and retried by the scheduler.
-                            try {
-                                event(new SaleCompleted($transaction));
-                            } catch (\Throwable $e) {
-                                \Log::error('EIS submission failed after sale commit', [
-                                    'transaction_id' => $transaction->id,
-                                    'message' => $e->getMessage(),
-                                ]);
-                            }
-                        }
-                    });
+                    // A final sell paid in full initiates the EIS submission (see SaleSubmissionRule).
+                    // The sale is already committed: an EIS failure must not turn it into an error response.
+                    // Failed submissions are stored by EIS (eis_sales / eis_failed_transactions) and retried by the scheduler.
+                    SaleSubmissionRule::initiate($transaction);
 
                     $output[] = $transaction;
                 } catch (ModelNotFoundException $e) {
@@ -1353,6 +1343,8 @@ class SellController extends ApiController
 
             $this->transactionUtil->activityLog($updated_transaction, 'edited', $transaction_before, ['from_api' => $client->name]);
             DB::commit();
+
+            SaleSubmissionRule::initiate($updated_transaction);
         } catch (ModelNotFoundException $e) {
             DB::rollback();
             $output = $this->modelNotFoundExceptionResult($e);

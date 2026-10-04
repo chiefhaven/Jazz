@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Modules\EIS\Models\EisSetting as ModelsEisSetting;
+use Modules\EIS\Services\Sales\SaleSubmissionRule;
 
 class DispatchAllUnsubmittedSalesJob implements ShouldQueue
 {
@@ -134,12 +135,14 @@ class DispatchAllUnsubmittedSalesJob implements ShouldQueue
         $query = Transaction::query()
             ->where('type', 'sell')
             ->where('status', 'final')
-            ->where('payment_status', 'paid')
             ->whereNotNull('invoice_no')
             ->whereIn('business_id', $validBusinessIds)
             ->whereDoesntHave('eisSale', function ($query) {
                 $query->where('status', 'submitted');
             });
+
+        // Paid in full: the same rule that initiates a submission when a sale is saved.
+        SaleSubmissionRule::constrainPaid($query);
 
         if ($this->businessId) {
             $query->where('business_id', $this->businessId);

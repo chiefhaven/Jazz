@@ -66,7 +66,8 @@ class SaleSubmissionService
             ]
         );
 
-        if($transaction->payment_status != 'paid'){
+        // Only a sale paid in full is submitted (see SaleSubmissionRule).
+        if (! SaleSubmissionRule::isPaid($transaction)) {
             return $eisSale;
         }
 
@@ -78,7 +79,10 @@ class SaleSubmissionService
             // ----------------------------
             $payload = $this->transformer->transform($transaction, $settings, $eisInvoiceNumber);
 
+            $validationUrl = $payload['invoiceSummary']['validationURL'] ?? null;
+
             $eisSale->update([
+                'qr_code' => $validationUrl,
                 'request_payload' => $payload,
             ]);
 
