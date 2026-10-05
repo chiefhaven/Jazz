@@ -40,8 +40,17 @@ class SellResource extends JsonResource
         }
 
         $commonUtil = new Util;
-        $array['invoice_url'] = $commonUtil->getInvoiceUrl($array['id'], $array['business_id']);
-        $array['payment_link'] = $commonUtil->getInvoicePaymentLink($array['id'], $array['business_id']);
+        // Only legacy rows without tokens need the existing token-initialization path.
+        $token = $array['invoice_token'] ?? null;
+        if (empty($token)) {
+            $array['invoice_url'] = $commonUtil->getInvoiceUrl($array['id'], $array['business_id']);
+            $token = \App\Transaction::where('business_id', $array['business_id'])
+                ->where('id', $array['id'])->value('invoice_token');
+        } else {
+            $array['invoice_url'] = route($array['is_quotation'] == 1 ? 'show_quote' : 'show_invoice', ['token' => $token]);
+        }
+        $array['payment_link'] = $array['payment_status'] != 'paid' && $array['status'] == 'final'
+            ? route('invoice_payment', ['token' => $token]) : '';
 
         return $array;
     }

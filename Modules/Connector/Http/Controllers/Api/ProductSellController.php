@@ -385,10 +385,13 @@ class ProductSellController extends ApiController
         }
 
         if (! empty($filters['product_ids'])) {
-            $query->whereIn('id', $filters['product_ids']);
+            $query->whereIn('products.id', $filters['product_ids']);
         }
 
-        $query->groupBy('products.id');
+        // Only the custom-location join can multiply product rows.
+        if (! empty($filters['location_custom_field_1'])) {
+            $query->groupBy('products.id');
+        }
 
         if (! empty($search)) {
             $query->where(function ($query) use ($search) {
