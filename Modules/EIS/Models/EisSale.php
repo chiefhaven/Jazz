@@ -3,11 +3,23 @@
 namespace Modules\EIS\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 class EisSale extends Model
 {
     protected $table = 'eis_sales';
+
+    protected static function booted()
+    {
+        static::saving(function ($model) {
+            // MyISAM tracking cannot be rolled back. Reject draft/split tracking
+            // BEFORE writing it, including direct submission-service callers.
+            $header = \App\Services\Sales\SavedSaleWriteGuard::fiscal($model->getConnection(), $model->transaction_id);
+            if ($header && $header->type === 'sell' && $header->status === 'draft') {
+                throw new \App\Services\Sales\SavedSplitException('draft_fiscal_state_blocked', 'Draft sales must not create fiscal tracking.');
+            }
+        });
+    }
 
     protected $fillable = [
         'business_id',
@@ -42,7 +54,7 @@ class EisSale extends Model
      * @param float $sale_amount
      * @return array Returns ['success' => bool, 'message' => string, 'code' => string|null, 'details' => array|null]
      */
-    public static function checkOfflineLimits($business_id, $sale_amount, $location_id)
+    public static function checkOfflineLimits($business_id, $sale_amount, int $location_id)
     {
         try {
             // Get business settings with terminal configuration using DB
@@ -57,7 +69,7 @@ class EisSale extends Model
                 ]);
                 
                 return [
-                    'success' => 0,
+                    'success' => false,
                     'message' => 'Business settings not found',
                     'code' => 'BUSINESS_NOT_FOUND',
                     'details' => null

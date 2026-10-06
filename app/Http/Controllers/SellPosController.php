@@ -754,7 +754,7 @@ class SellPosController extends Controller
         }
     }
 
-    public function checkSaleLimits(int $business_id, float $final_total, $location_id)
+    public function checkSaleLimits(int $business_id, float $final_total, int $location_id)
     {
         $result = EisSale::checkOfflineLimits($business_id, $final_total, $location_id);
         
@@ -1392,6 +1392,8 @@ class SellPosController extends Controller
                 //if edit pos not allowed and only edit payment allowed
                 if ($only_payment) {
                     DB::beginTransaction();
+                    \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
+                    $transaction_before = Transaction::where('business_id', $business_id)->lockForUpdate()->findOrFail($id);
                     $this->onlyUpdatePayment($transaction_before, $input);
                     DB::commit();
 
@@ -1411,6 +1413,13 @@ class SellPosController extends Controller
                 //Begin transaction
                 DB::beginTransaction();
 
+                // The earlier web read is for form checks only. Reject a saved split
+                // and refresh status/reward snapshots before any graph side effects.
+                \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
+                $transaction_before = Transaction::where('business_id', $business_id)->lockForUpdate()->findOrFail($id);
+                $status_before = $transaction_before->status;
+                $rp_earned_before = $transaction_before->rp_earned;
+                $rp_redeemed_before = $transaction_before->rp_redeemed;
                 $transaction = $this->transactionUtil->updateSellTransaction($id, $business_id, $input, $invoice_total, $user_id);
 
                 //update service staff timer
@@ -2117,13 +2126,24 @@ class SellPosController extends Controller
 
     public function confirmPayment($id, Request $request)
     {
+        $payment_link = url('/'); // Safe redirect if a split fence rejects token generation.
         try {
-            $transaction = Transaction::with(['business'])->find($id);
+            // Retain the sale lock across the gateway attempt: a short preflight
+            // followed by releasing it would let a split commit before charging
+            // the old total. Split bills are rejected before gateway/counter work.
+            DB::beginTransaction();
+            \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
+            $transaction = Transaction::with(['business'])->lockForUpdate()->findOrFail($id);
 
             $transaction_before = $transaction->replicate();
 
             $payment_link = $this->transactionUtil->getInvoicePaymentLink($transaction->id, $transaction->business_id);
 
+            // Never contact a payment gateway for a draft (including a split
+            // draft). A later database rejection cannot undo an external charge.
+            if ($transaction->type !== 'sell' || $transaction->status !== 'final') {
+                throw new \App\Services\Sales\SavedSplitException('draft_gateway_payment_blocked', 'Only final sales may use a payment gateway.');
+            }
             $paid_amount = $this->transactionUtil->getTotalPaid($transaction->id);
             $total_payable = $transaction->final_total - $paid_amount;
 
@@ -2132,7 +2152,6 @@ class SellPosController extends Controller
             $payment_id = $this->$pay_function($transaction, $total_payable, $request);
 
             if (!empty($payment_id)) {
-                DB::beginTransaction();
                 $ref_count = $this->transactionUtil->setAndGetReferenceCount('sell_payment', $transaction->business_id);
                 $payment_ref_no = $this->transactionUtil->generateReferenceNumber('sell_payment', $ref_count, $transaction->business_id);
 
@@ -2164,6 +2183,7 @@ class SellPosController extends Controller
                     'msg' => __('purchase.payment_added_success'),
                 ];
             } else {
+                DB::rollBack();
                 $output = [
                     'success' => 0,
                     'msg' => __('messages.something_went_wrong'),
@@ -2641,6 +2661,10 @@ class SellPosController extends Controller
             }
 
             DB::beginTransaction();
+            \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
+            $transaction = Transaction::with(['sell_lines', 'sell_lines.product', 'sell_lines.variations', 'contact'])
+                ->where('business_id', $business_id)->where('status', 'draft')->lockForUpdate()->findOrFail($id);
+            $transaction_before = $transaction->replicate();
             //Check if there is a open register, if no then redirect to Create Register screen.
             if (!$is_direct_sale && $this->cashRegisterUtil->countOpenedRegister() == 0) {
                 return redirect()->action([\App\Http\Controllers\CashRegisterController::class, 'create']);

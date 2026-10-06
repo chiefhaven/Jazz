@@ -102,6 +102,8 @@ class TransactionPaymentController extends Controller
 
                 DB::beginTransaction();
 
+                \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction_id);
+                $transaction = Transaction::where('business_id', $business_id)->with(['contact'])->lockForUpdate()->findOrFail($transaction_id);
                 $ref_count = $this->transactionUtil->setAndGetReferenceCount($prefix_type);
                 //Generate reference number
                 $inputs['payment_ref_no'] = $this->transactionUtil->generateReferenceNumber($prefix_type, $ref_count);

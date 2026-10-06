@@ -161,6 +161,8 @@ class TransactionUtil extends Util
      */
     public function updateSellTransaction($transaction_id, $business_id, $input, $invoice_total, $user_id, $uf_data = true, $change_invoice_number = true)
     {
+        $id = is_object($transaction_id) ? $transaction_id->id : $transaction_id;
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
         $transaction = $transaction_id;
 
         if (! is_object($transaction)) {
@@ -286,6 +288,7 @@ class TransactionUtil extends Util
      */
     public function createOrUpdateSellLines($transaction, $products, $location_id, $return_deleted = false, $status_before = null, $extra_line_parameters = [], $uf_data = true)
     {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), is_object($transaction) ? $transaction->id : $transaction);
         $lines_formatted = [];
         $modifiers_array = [];
         $edit_ids = [0];
@@ -555,6 +558,8 @@ class TransactionUtil extends Util
      */
     public function editSellLine($product, $location_id, $status_before, $multiplier = 1, $uf_data = true)
     {
+        $header_id = DB::table('transaction_sell_lines')->where('id', $product['transaction_sell_lines_id'])->value('transaction_id');
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $header_id);
         //Get the old order quantity
         $sell_line = TransactionSellLine::with(['product', 'warranties'])
                     ->find($product['transaction_sell_lines_id']);
@@ -644,6 +649,11 @@ class TransactionUtil extends Util
      */
     public function deleteSellLines($transaction_line_ids, $location_id, $adjust_qty = true)
     {
+        $header_ids = DB::table('transaction_sell_lines')->whereIn('id', $transaction_line_ids)
+            ->orderBy('transaction_id')->distinct()->pluck('transaction_id');
+        foreach ($header_ids as $header_id) {
+            \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $header_id);
+        }
         if (! empty($transaction_line_ids)) {
             $sell_lines = TransactionSellLine::whereIn('id', $transaction_line_ids)
                         ->get();
@@ -699,8 +709,9 @@ class TransactionUtil extends Util
      * @param  array  $payments
      * @return bool
      */
-    public function createOrUpdatePaymentLines($transaction, $payments, $business_id = null, $user_id = null, $uf_data = true)
+    public function createOrUpdatePaymentLines($transaction, $payments, $business_id = null, $user_id = null, $uf_data = true, $defer_saved_checkout_events = false)
     {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), is_object($transaction) ? $transaction->id : $transaction);
         $payments_formatted = [];
         $edit_ids = [0];
         $account_transactions = [];
@@ -809,7 +820,17 @@ class TransactionUtil extends Util
                 $payment = $payment_lines->where('payment_ref_no', $account_transaction['payment_ref_no'])->first();
 
                 if (! empty($payment)) {
-                    event(new TransactionPaymentAdded($payment, $account_transaction));
+                    if ($defer_saved_checkout_events) {
+                        if (!\App\Services\Sales\SavedSaleWriteGuard::isCheckout(DB::connection(), $transaction->id) || !empty($account_transaction['account_id'])) {
+                            throw new \App\Services\Sales\SavedSplitException('checkout_event_contract', 'Deferred saved checkout requires its server scope and no account posting.');
+                        }
+                        DB::afterCommit(function () use ($payment, $account_transaction) {
+                            try { event(new TransactionPaymentAdded($payment, $account_transaction)); }
+                            catch (\Throwable $e) { \Log::error('Saved checkout payment event failed after commit', ['payment_id' => $payment->id, 'message' => $e->getMessage()]); }
+                        });
+                    } else {
+                        event(new TransactionPaymentAdded($payment, $account_transaction));
+                    }
                 }
             }
 
@@ -834,6 +855,8 @@ class TransactionUtil extends Util
      */
     public function editPaymentLine($payment, $transaction = null, $uf_data = true)
     {
+        $header_id = DB::table('transaction_payments')->where('id', $payment['payment_id'])->value('transaction_id');
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $header_id);
         $payment_id = $payment['payment_id'];
         unset($payment['payment_id']);
 
@@ -2597,6 +2620,7 @@ class TransactionUtil extends Util
     */
     public function updateSellTransactionTotals($transaction_id)
     {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction_id);
         $transaction = Transaction::findOrFail($transaction_id);
         
         $totals = TransactionSellLine::where('transaction_id', $transaction_id)
@@ -3198,6 +3222,7 @@ class TransactionUtil extends Util
      */
     public function updatePaymentStatus($transaction_id, $final_amount = null)
     {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction_id);
         $status = $this->calculatePaymentStatus($transaction_id, $final_amount);
 
         $transaction = Transaction::find($transaction_id);
@@ -3394,6 +3419,11 @@ class TransactionUtil extends Util
 
         $qty_selling = null;
         foreach ($transaction_lines as $line) {
+            $saved_decimal_checkout = $mapping_type === 'purchase' && !empty($line->transaction_id)
+                && \App\Services\Sales\SavedSaleWriteGuard::isCheckout(DB::connection(), $line->transaction_id);
+            if ($mapping_type === 'purchase' && !empty($line->transaction_id)) {
+                \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $line->transaction_id);
+            }
             //Check if stock is not enabled then no need to assign purchase & sell
             $product = Product::find($line->product_id);
             if (empty($product) || $product->enable_stock != 1) {
@@ -3442,28 +3472,30 @@ class TransactionUtil extends Util
 
             $rows = $query->select(
                 'PL.id as purchase_lines_id',
-                DB::raw("(PL.quantity - ( $qty_sum_query )) AS quantity_available"),
+                DB::raw($saved_decimal_checkout
+                    ? "CAST((PL.quantity - ( $qty_sum_query )) AS CHAR) AS quantity_available"
+                    : "(PL.quantity - ( $qty_sum_query )) AS quantity_available"),
                 'PL.quantity_sold as quantity_sold',
                 'PL.quantity_adjusted as quantity_adjusted',
                 'PL.quantity_returned as quantity_returned',
                 'PL.mfg_quantity_used as mfg_quantity_used',
                 'transactions.invoice_no'
-                    )->get();
+                    )->orderBy('PL.id')->lockForUpdate()->get();
 
             $purchase_sell_map = [];
 
             //Iterate over the rows, assign the purchase line to sell lines.
-            $qty_selling = $line->quantity;
+            $qty_selling = $saved_decimal_checkout ? \App\Services\Sales\SavedSaleSplitService::decimal($line->getRawOriginal('quantity')) : $line->quantity;
             foreach ($rows as $k => $row) {
                 $qty_allocated = 0;
 
                 //Check if qty_available is more or equal
-                if ($qty_selling <= $row->quantity_available) {
+                if ($saved_decimal_checkout ? bccomp($qty_selling, \App\Services\Sales\SavedSaleSplitService::decimal($row->quantity_available), 4) <= 0 : $qty_selling <= $row->quantity_available) {
                     $qty_allocated = $qty_selling;
                     $qty_selling = 0;
                 } else {
-                    $qty_selling = $qty_selling - $row->quantity_available;
-                    $qty_allocated = $row->quantity_available;
+                    $qty_selling = $saved_decimal_checkout ? bcsub($qty_selling, \App\Services\Sales\SavedSaleSplitService::decimal($row->quantity_available), 4) : $qty_selling - $row->quantity_available;
+                    $qty_allocated = $saved_decimal_checkout ? \App\Services\Sales\SavedSaleSplitService::decimal($row->quantity_available) : $row->quantity_available;
                 }
 
                 //Check for sell mapping or stock adjsutment mapping
@@ -3493,7 +3525,7 @@ class TransactionUtil extends Util
                         ];
                         //Update purchase line
                         PurchaseLine::where('id', $row->purchase_lines_id)
-                            ->update(['quantity_sold' => $row->quantity_sold + $qty_allocated]);
+                            ->update(['quantity_sold' => $saved_decimal_checkout ? bcadd(\App\Services\Sales\SavedSaleSplitService::decimal($row->quantity_sold), $qty_allocated, 4) : $row->quantity_sold + $qty_allocated]);
                     }
                 } elseif ($mapping_type == 'production_purchase') {
                     //Mapping of purchase
@@ -3591,6 +3623,7 @@ class TransactionUtil extends Util
         $business,
         $deleted_line_ids = []
     ) {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction->id);
         if ($status_before == 'final' && $transaction->status == 'draft') {
             //Get sell lines used for the transaction.
             $sell_purchases = Transaction::join('transaction_sell_lines AS SL', 'transactions.id', '=', 'SL.transaction_id')
@@ -4979,6 +5012,7 @@ class TransactionUtil extends Util
      */
     public function deleteSale($business_id, $transaction_id)
     {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction_id);
         //Check if return exist then not allowed
         if ($this->isReturnExist($transaction_id)) {
             $output = [
@@ -6261,6 +6295,7 @@ class TransactionUtil extends Util
 
     public function addSellReturn($input, $business_id, $user_id, $uf_number = true)
     {
+        \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $input['transaction_id']);
         $discount = [
             'discount_type' => $input['discount_type'] ?? 'fixed',
             'discount_amount' => $input['discount_amount'] ?? 0,

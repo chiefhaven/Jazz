@@ -31,6 +31,9 @@ class SaleSubmissionService
      */
     public function submit(Transaction $transaction, object $settings): EisSale
     {
+        // Fence before invoice counters, MyISAM tracking or any external call.
+        \App\Services\Sales\SavedSaleWriteGuard::fiscal($transaction->getConnection(), $transaction->id);
+        $transaction->refresh();
         // ----------------------------
         // IDEMPOTENCY CHECK (BEFORE DB TX)
         // ----------------------------

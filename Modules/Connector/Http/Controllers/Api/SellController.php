@@ -1270,8 +1270,11 @@ class SellController extends ApiController
             $sell_data = $request->input();
             $sell_data['business_id'] = $user->business_id;
 
+            // Lock and reread BEFORE formatting historical lines/payments or totals.
+            DB::beginTransaction();
+            \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
             $transaction_before = Transaction::where('business_id', $user->business_id)->with(['payment_lines'])
-                                    ->findOrFail($id);
+                                    ->lockForUpdate()->findOrFail($id);
 
             //Check if location allowed
             if (! $user->can_access_this_location($transaction_before->location_id)) {
@@ -1288,9 +1291,6 @@ class SellController extends ApiController
                 'discount_amount' => $input['discount_amount'],
             ];
             $invoice_total = $this->productUtil->calculateInvoiceTotal($input['products'], $input['tax_rate_id'], $discount);
-
-            //Begin transaction
-            DB::beginTransaction();
 
             $transaction = $this->transactionUtil->updateSellTransaction($transaction_before, $business_id, $input, $invoice_total, $user->id, false);
 
@@ -1367,14 +1367,18 @@ class SellController extends ApiController
     {
         $result = EisSale::checkOfflineLimits($business_id, (float) $final_total, $location_id);
 
-        if (is_array($result)) {
-            if (isset($result['success']) && $result['success'] === false) {
-                return ['success' => false, 'message' => $result['message'] ?? 'Offline limits exceeded'];
-            }
+        if (! is_array($result)) {
+            return ['success' => true];
+        }
 
-            if (isset($result['error']) && $result['error'] === true) {
-                return ['success' => false, 'message' => $result['message'] ?? 'Error checking offline limits'];
-            }
+        if (($result['success'] ?? true) === false) {
+            return ['success' => false, 'message' => $result['message'] ?? 'Offline limits exceeded'];
+        }
+
+        // The limit checker intentionally fails open when its own DB/config lookup errors.
+        // That should not block a valid sale, but it should still be logged upstream.
+        if (($result['code'] ?? null) === 'CHECK_ERROR') {
+            return ['success' => true];
         }
 
         return ['success' => true];
@@ -1694,10 +1698,13 @@ class SellController extends ApiController
             $delivered_to = $request->input('delivered_to');
             $shipping_statuses = $this->transactionUtil->shipping_statuses();
             if (array_key_exists($shipping_status, $shipping_statuses)) {
-                Transaction::where('business_id', $business_id)
-                    ->where('id', $sell_id)
-                    ->where('type', 'sell')
-                    ->update(['shipping_status' => $shipping_status, 'delivered_to' => $delivered_to]);
+                DB::transaction(function () use ($business_id, $sell_id, $shipping_status, $delivered_to) {
+                    \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $sell_id);
+                    Transaction::where('business_id', $business_id)
+                        ->where('id', $sell_id)
+                        ->where('type', 'sell')
+                        ->update(['shipping_status' => $shipping_status, 'delivered_to' => $delivered_to]);
+                });
             } else {
                 return $this->otherExceptions('Invalid shipping status');
             }

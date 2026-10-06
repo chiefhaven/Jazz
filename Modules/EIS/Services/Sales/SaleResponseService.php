@@ -54,11 +54,8 @@ class SaleResponseService
         // -------------------------
         // UPDATEPOS TRANSACTION
         // -------------------------
-        $transaction->update([
-            'is_fiscalized' => 1,
-            'fiscal_invoice_number' => $receiptNumber,
-            'receipt_number' => $receiptNumber,
-        ]);
+        \App\Services\Sales\SavedSaleWriteGuard::recordFiscalReceipt($transaction->getConnection(), $transaction->id);
+        $transaction->refresh();
 
         // -------------------------
         // LOG SUCCESS

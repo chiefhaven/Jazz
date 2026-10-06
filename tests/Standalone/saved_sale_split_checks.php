@@ -1,0 +1,577 @@
+<?php
+
+/** Run directly with PHP. NEVER artisan/phpunit application bootstrap/.env.
+ * Every database is a brand-new SQLite :memory: connection. No network/events.
+ */
+require dirname(__DIR__, 2).'/vendor/autoload.php';
+
+use App\Services\Sales\SavedSaleSplitService;
+use App\Services\Sales\SavedSaleWriteGuard;
+use App\Services\Sales\SavedSplitException;
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Events\Dispatcher;
+use Illuminate\Container\Container;
+
+final class SplitActor
+{
+    public $id = 7;
+    public $business_id = 1;
+    public $admin = false;
+    public $permissions = ['sell.create', 'sell.update', 'location.2'];
+    public function hasRole($name) { return $this->admin && $name === 'Admin#'.$this->business_id; }
+    public function can($name) { return in_array($name, $this->permissions, true); }
+}
+
+$checks = 0;
+function check($condition, $message)
+{
+    global $checks;
+    ++$checks;
+    if (!$condition) { throw new RuntimeException('FAIL: '.$message); }
+}
+function rejects(callable $fn, $code)
+{
+    try { $fn(); } catch (SavedSplitException $e) {
+        check($e->errorCode === $code, 'expected '.$code.', received '.$e->errorCode);
+        return;
+    }
+    throw new RuntimeException('FAIL: expected rejection '.$code);
+}
+function fixture()
+{
+    $capsule = new Capsule();
+    $capsule->addConnection(['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']);
+    $capsule->setEventDispatcher(new Dispatcher(new Container()));
+    $capsule->setAsGlobal();
+    $capsule->bootEloquent();
+    Illuminate\Database\Eloquent\Model::clearBootedModels(); // New dispatcher needs fresh model event hooks.
+    $container = $capsule->getContainer();
+    Container::setInstance($container);
+    $container->instance('db', $capsule->getDatabaseManager());
+    Illuminate\Support\Facades\Facade::setFacadeApplication($container);
+    Illuminate\Support\Facades\Facade::clearResolvedInstances();
+    $db = $capsule->getConnection();
+    check($db->getDriverName() === 'sqlite' && $db->getDatabaseName() === ':memory:', 'isolated database');
+    $schema = $db->getSchemaBuilder();
+    $schema->create('transactions', function (Blueprint $t) {
+        $t->increments('id');
+        foreach (['business_id', 'location_id', 'type', 'status', 'payment_status', 'contact_id',
+            'created_by', 'transaction_date', 'invoice_no', 'invoice_token', 'total_before_tax', 'final_total',
+            'tax_amount', 'exchange_rate', 'is_suspend', 'is_direct_sale', 'is_created_from_api',
+            'return_parent_id', 'transfer_parent_id', 'recur_parent_id', 'mfg_parent_production_purchase_id',
+            'additional_notes', 'staff_note', 'custom_field_1', 'essentials_duration', 'essentials_amount_per_unit_duration',
+            'created_at', 'updated_at', 'is_quotation', 'sub_status', 'discount_amount', 'shipping_charges',
+            'packing_charge', 'round_off_amount', 'rp_earned', 'rp_redeemed', 'rp_redeemed_amount',
+            'journal_entry_id', 'woocommerce_order_id', 'sales_order_ids', 'is_recurring', 'tax_id',
+            'additional_expense_value_1', 'prefer_payment_account', 'source', 'unknown_module_state'] as $c) {
+            $t->text($c)->nullable(); // TEXT prevents SQLite converting decimal strings to floats.
+        }
+    });
+    $schema->create('transaction_sell_lines', function (Blueprint $t) {
+        $t->increments('id');
+        foreach (['transaction_id', 'product_id', 'variation_id', 'quantity', 'unit_price_before_discount',
+            'unit_price', 'unit_price_inc_tax', 'item_tax', 'tax_id', 'sell_line_note', 'parent_sell_line_id',
+            'quantity_returned', 'secondary_unit_quantity', 'sub_unit_id', 'so_line_id', 'discount_id',
+            'line_discount_type', 'line_discount_amount', 'lot_no_line_id', 'woocommerce_line_items_id',
+            'created_at', 'updated_at'] as $c) { $t->text($c)->nullable(); }
+        $t->text('children_type')->default('');
+    });
+        foreach (['transaction_payments' => ['transaction_id', 'amount', 'parent_id', 'is_return', 'business_id', 'method',
+            'card_transaction_number', 'card_number', 'card_type', 'card_holder_name', 'card_month', 'card_security',
+            'cheque_number', 'bank_account_number', 'note', 'paid_on', 'created_by', 'payment_for', 'payment_ref_no', 'account_id', 'created_at', 'updated_at'],
+        'transaction_sell_lines_purchase_lines' => ['sell_line_id', 'purchase_line_id', 'quantity', 'qty_returned'],
+        'purchase_lines' => ['quantity_sold', 'transaction_id', 'product_id', 'variation_id', 'quantity', 'quantity_adjusted', 'quantity_returned', 'mfg_quantity_used'], 'account_transactions' => ['transaction_id', 'transfer_transaction_id'],
+        'cash_register_transactions' => ['transaction_id'], 'eis_sales' => ['transaction_id', 'status'],
+        'eis_failed_transactions' => ['transaction_id'], 'sell_line_warranties' => ['sell_line_id', 'warranty_id'],
+        'business' => ['transaction_edit_days', 'pos_settings', 'enable_rp', 'enable_product_expiry', 'accounting_method'], 'business_locations' => ['business_id', 'default_payment_accounts'], 'users' => ['business_id'],
+        'contacts' => ['business_id', 'type', 'balance', 'deleted_at'], 'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at'],
+        'variations' => ['product_id'], 'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id'],
+        'reference_counts' => ['business_id', 'ref_type', 'ref_count'],
+        'variation_location_details' => ['qty_available', 'product_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
+        'eis_configurations' => ['business_id'], 'eis_terminal_configurations' => ['configuration_id', 'max_cummulative_amount', 'max_transaction_age']] as $table => $columns) {
+        $schema->create($table, function (Blueprint $t) use ($columns) {
+            $t->increments('id'); foreach (array_unique(array_merge($columns, ['created_at', 'updated_at'])) as $c) { $t->text($c)->nullable(); }
+        });
+    }
+    $schema->create('saved_sale_split_operations', function (Blueprint $t) {
+        $t->increments('id');
+        foreach (['business_id', 'user_id', 'operation_id', 'source_id', 'result_id', 'payload_hash',
+            'expected_version', 'allocation_json', 'response_json', 'created_at', 'updated_at'] as $c) { $t->text($c)->nullable(); }
+        $t->unique(['business_id', 'operation_id']);
+    });
+    $db->table('business')->insert(['id' => 1, 'transaction_edit_days' => '30', 'accounting_method' => 'fifo']);
+    $db->table('business_locations')->insert(['id' => 2, 'business_id' => 1, 'default_payment_accounts' => '{"cash":{"is_enabled":1,"account":null}}']);
+    $db->table('users')->insert([['id' => 7, 'business_id' => 1], ['id' => 8, 'business_id' => 1]]);
+    $db->table('contacts')->insert(['id' => 3, 'business_id' => 1, 'type' => 'customer']);
+    $db->table('units')->insert(['id' => 1, 'business_id' => 1, 'allow_decimal' => 1]);
+    $db->table('products')->insert(['id' => 4, 'business_id' => 1, 'type' => 'single', 'unit_id' => 1, 'enable_stock' => '0']);
+    $db->table('variations')->insert(['id' => 5, 'product_id' => 4]);
+    $db->table('tax_rates')->insert(['id' => 6, 'business_id' => 1]);
+    $db->table('purchase_lines')->insert(['id' => 1, 'quantity_sold' => '123.4567']);
+    $db->table('variation_location_details')->insert(['id' => 1, 'qty_available' => '987.6543']);
+    $db->table('transactions')->insert(['id' => 1, 'business_id' => 1, 'location_id' => 2, 'type' => 'sell',
+        'status' => 'draft', 'payment_status' => 'due', 'created_by' => 7, 'contact_id' => 3,
+        'transaction_date' => date('Y-m-d H:i:s'), 'invoice_no' => 'DRAFT-001', 'invoice_token' => 'original-token',
+        'total_before_tax' => '70.0000', 'final_total' => '70.0000', 'tax_amount' => '0.0000', 'exchange_rate' => '1.000',
+        'is_suspend' => '1', 'is_direct_sale' => '0', 'is_created_from_api' => '1', 'additional_notes' => 'historic note',
+        'custom_field_1' => 'safe metadata', 'created_at' => '2026-01-01 00:00:00', 'updated_at' => '2026-01-01 00:00:00']);
+    foreach ([1 => ['4.0000', '10.0000', '2.0000', '12.0000'], 2 => ['2.0000', '11.0000', '0.0000', '11.0000']] as $id => $v) {
+        $db->table('transaction_sell_lines')->insert(['id' => $id, 'transaction_id' => 1, 'product_id' => 4,
+            'variation_id' => 5, 'quantity' => $v[0], 'unit_price_before_discount' => $v[1], 'unit_price' => $v[1],
+            'item_tax' => $v[2], 'unit_price_inc_tax' => $v[3], 'tax_id' => $id === 1 ? 6 : null,
+            'sell_line_note' => 'saved line '.$id, 'children_type' => '', 'created_at' => '2026-01-01 00:00:00']);
+    }
+    return [$db, new SavedSaleSplitService($db), new SplitActor()];
+}
+function requestFor($service, $actor, $lines = [['id' => 1, 'quantity' => '1.5000']], $op = null)
+{
+    return ['operation_id' => $op ?? (string) Illuminate\Support\Str::uuid(),
+        'expected_version' => $service->preview(1, $actor)['expected_version'], 'lines' => $lines];
+}
+function snapshot($db)
+{
+    $out = [];
+    foreach ($db->getSchemaBuilder()->getAllTables() as $row) {
+        $name = $row->name;
+        if ($name !== 'sqlite_sequence') { $out[$name] = $db->table($name)->orderBy('id')->get()->toJson(); }
+    }
+    return $out;
+}
+
+[$db, $service, $actor] = fixture();
+$before = snapshot($db);
+$preview = $service->preview(1, $actor);
+check($preview['eligible'] && $preview['supported_statuses'] === ['draft', 'final'], 'ordinary unpaid draft eligible');
+check(snapshot($db) === $before, 'preview read-only');
+check($preview['source']['lines'][0]['quantity'] === '4.0000', 'saved quantities are decimal strings');
+$request = requestFor($service, $actor, [['id' => 1, 'quantity' => '1.5000'], ['id' => 2, 'quantity' => '2.0000']]);
+$response = $service->split(1, $actor, $request);
+check($response['bill_a']['final_total'] === '30.0000' && $response['bill_b']['final_total'] === '40.0000', 'historic totals partition');
+check($response['bill_a']['invoice_no'] === 'DRAFT-001' && str_starts_with($response['bill_b']['invoice_no'], 'SPLIT-'), 'dedicated invoice identity');
+check($db->table('transactions')->where('id', $response['result_id'])->value('invoice_token') !== 'original-token', 'fresh token');
+check($db->table('transactions')->where('id', $response['result_id'])->value('created_by') === '7', 'creator preserved');
+check($db->table('transaction_sell_lines')->where('id', 2)->value('transaction_id') == $response['result_id'], 'whole line keeps id');
+check($db->table('transaction_sell_lines')->where('id', 1)->value('quantity') === '2.5000', 'partial remainder');
+check(count($response['line_allocations']) === 2 && $response['line_allocations'][0]['bill_b_line_id'] !== 1, 'partial line fresh id');
+foreach (['purchase_lines', 'variation_location_details', 'transaction_payments', 'account_transactions',
+    'cash_register_transactions', 'eis_sales', 'eis_failed_transactions', 'transaction_sell_lines_purchase_lines'] as $table) {
+    check(snapshot($db)[$table] === $before[$table], 'no mutation '.$table);
+}
+$after = snapshot($db);
+check($service->split(1, $actor, $request) === $response && snapshot($db) === $after, 'durable exact retry no writes');
+$reordered = $request; $reordered['lines'] = array_reverse($request['lines']);
+check($service->split(1, $actor, $reordered) === $response, 'canonical payload ignores input ordering');
+$collision = $request; $collision['lines'][0]['quantity'] = '1.0000';
+rejects(function () use ($service, $actor, $collision) { $service->split(1, $actor, $collision); }, 'operation_collision');
+$actor->admin = true; $actor->id = 8;
+rejects(function () use ($service, $actor, $request) { $service->split(1, $actor, $request); }, 'operation_collision');
+$actor->id = 7; $actor->admin = false;
+foreach ([1, $response['result_id']] as $id) {
+    rejects(function () use ($db, $id) { $db->transaction(function () use ($db, $id) { SavedSaleWriteGuard::lock($db, $id); }); }, 'split_write_fenced');
+    rejects(function () use ($db, $id) {
+        $db->transaction(function () use ($id) { $m = App\Transaction::find($id); $m->status = 'final'; $m->save(); });
+    }, 'split_write_fenced');
+    rejects(function () use ($db, $id) {
+        $db->transaction(function () use ($id) { App\TransactionPayment::create(['transaction_id' => $id, 'amount' => '1.0000']); });
+    }, 'split_write_fenced');
+}
+rejects(function () use ($db) {
+    $db->transaction(function () { $m = App\TransactionSellLine::find(1); $m->quantity = '99'; $m->save(); });
+}, 'split_write_fenced');
+check(snapshot($db) === $after, 'legacy model rejections rollback without side effects');
+
+[$db, $service, $actor] = fixture();
+$staleHeader = App\Transaction::find(1); $staleLine = App\TransactionSellLine::find(1);
+$r = $service->split(1, $actor, requestFor($service, $actor));
+rejects(function () use ($db, $staleHeader) {
+    $db->transaction(function () use ($staleHeader) { $staleHeader->status = 'final'; $staleHeader->save(); });
+}, 'split_write_fenced');
+rejects(function () use ($db, $staleLine) {
+    $db->transaction(function () use ($staleLine) { $staleLine->quantity = '4'; $staleLine->save(); });
+}, 'split_write_fenced');
+rejects(function () use ($db, $staleHeader) {
+    $db->transaction(function () use ($staleHeader) { $staleHeader->delete(); });
+}, 'split_write_fenced');
+rejects(function () use ($db) {
+    $db->transaction(function () { Modules\EIS\Models\EisSale::create(['transaction_id' => 1, 'business_id' => 1, 'status' => 'pending']); });
+}, 'split_write_fenced');
+check($db->table('eis_sales')->count() === 0, 'split fiscal fence before tracking write');
+
+// Execute the REAL common helpers: every call must stop at its shared fence,
+// before repricing, stock, reference counters, payments, accounting or events.
+$util = new App\Utils\TransactionUtil();
+foreach ([
+    function () use ($util) { $util->updateSellTransaction(1, 1, [], [], 7); },
+    function () use ($util) { $util->createOrUpdateSellLines(1, [], 2); },
+    function () use ($util) { $util->editSellLine(['transaction_sell_lines_id' => 1], 2, 'draft'); },
+    function () use ($util) { $util->deleteSellLines([1], 2); },
+    function () use ($util) { $util->createOrUpdatePaymentLines(1, []); },
+    function () use ($util) { $util->updatePaymentStatus(1); },
+    function () use ($util) { $util->updateSellTransactionTotals(1); },
+    function () use ($util) { $util->deleteSale(1, 1); },
+    function () use ($util) { $util->addSellReturn(['transaction_id' => 1], 1, 7); },
+    function () use ($util) { $util->adjustMappingPurchaseSell('draft', (object) ['id' => 1], []); },
+] as $call) {
+    rejects(function () use ($db, $call) { $db->transaction($call); }, 'split_write_fenced');
+}
+check($db->table('transaction_payments')->count() === 0 && $db->table('eis_sales')->count() === 0, 'helpers never reach postings/events');
+
+// Thin controller envelope/status tests, without an HTTP server or kernel.
+$factory = Mockery::mock(Illuminate\Contracts\Routing\ResponseFactory::class);
+$factory->shouldReceive('json')->andReturnUsing(function ($data, $status = 200) {
+    return new Illuminate\Http\JsonResponse($data, $status);
+});
+Container::getInstance()->instance(Illuminate\Contracts\Routing\ResponseFactory::class, $factory);
+$controller = new Modules\Connector\Http\Controllers\Api\SavedSaleSplitController();
+$http = Illuminate\Http\Request::create('/connector/api/sell/1/split-preview', 'GET');
+$http->setUserResolver(function () use ($actor) { return $actor; });
+$json = $controller->preview($http, 1);
+check($json->getStatusCode() === 200 && $json->getData(true)['data']['eligible'], 'controller preview data envelope');
+$http = Illuminate\Http\Request::create('/connector/api/sell/1/split', 'POST', ['operation_id' => 'bad']);
+$http->setUserResolver(function () use ($actor) { return $actor; });
+$json = $controller->split($http, 1);
+check($json->getStatusCode() === 422 && $json->getData(true)['error']['code'] === 'invalid_split_request', 'controller error envelope');
+$json = $controller->preview($http, 999);
+check($json->getStatusCode() === 404 && $json->getData(true)['error']['code'] === 'split_not_found', 'controller not-found status');
+Mockery::close();
+
+[$db, $service, $actor] = fixture();
+rejects(function () use ($db) {
+    $db->transaction(function () { Modules\EIS\Models\EisSale::create(['transaction_id' => 1, 'business_id' => 1, 'status' => 'pending']); });
+}, 'draft_fiscal_state_blocked');
+check($db->table('eis_sales')->count() === 0, 'ordinary draft fiscal fence before MyISAM-equivalent write');
+
+// Engine verifier branch exercised over a synthetic metadata database attached
+// IN MEMORY. This does NOT certify real MySQL locks, isolation or SQL dialect.
+[$db, $service, $actor] = fixture();
+$tableNames = array_map(function ($r) { return $r->name; }, $db->getSchemaBuilder()->getAllTables());
+$db->statement("ATTACH DATABASE ':memory:' AS information_schema");
+$db->statement('CREATE TABLE information_schema.TABLES (TABLE_SCHEMA TEXT, TABLE_NAME TEXT, ENGINE TEXT)');
+foreach ($tableNames as $name) {
+    $db->table('information_schema.TABLES')->insert(['TABLE_SCHEMA' => 'synthetic', 'TABLE_NAME' => $name, 'ENGINE' => 'InnoDB']);
+}
+$metadataDb = new class($db->getPdo(), 'synthetic', '', []) extends Illuminate\Database\SQLiteConnection {
+    public function getDriverName() { return 'mysql'; }
+};
+$engineService = new SavedSaleSplitService($metadataDb);
+check($engineService->preview(1, $actor)['eligible'], 'all InnoDB metadata accepted');
+foreach (['transactions', 'transaction_sell_lines', 'transaction_sell_lines_purchase_lines',
+    'purchase_lines', 'transaction_payments', 'saved_sale_split_operations'] as $table) {
+    $db->table('information_schema.TABLES')->where('TABLE_NAME', $table)->update(['ENGINE' => 'MyISAM']);
+    rejects(function () use ($engineService, $actor) { $engineService->preview(1, $actor); }, 'split_storage_unavailable');
+    $db->table('information_schema.TABLES')->where('TABLE_NAME', $table)->update(['ENGINE' => 'InnoDB']);
+}
+$db->table('information_schema.TABLES')->where('TABLE_NAME', 'eis_sales')->update(['ENGINE' => 'MyISAM']);
+check($engineService->preview(1, $actor)['eligible'], 'empty MyISAM fiscal table only read, never part of core writes');
+
+// Fresh synthetic fixtures for each authorization/eligibility blocker.
+foreach (['sell.create', 'sell.update', 'location.2'] as $permission) {
+    [$db, $service, $actor] = fixture(); $actor->permissions = array_values(array_diff($actor->permissions, [$permission]));
+    rejects(function () use ($service, $actor) { $service->preview(1, $actor); }, 'split_forbidden');
+}
+[$db, $service, $actor] = fixture(); $actor->id = 8;
+rejects(function () use ($service, $actor) { $service->preview(1, $actor); }, 'split_forbidden');
+$actor->admin = true; $r = $service->split(1, $actor, requestFor($service, $actor));
+check($db->table('transactions')->where('id', $r['result_id'])->value('created_by') === '7', 'admin preserves original creator');
+[$db, $service, $actor] = fixture(); $actor->business_id = 9;
+rejects(function () use ($service, $actor) { $service->preview(1, $actor); }, 'split_not_found');
+
+$blockers = [
+    ['transactions', 'status', 'ordered', 'unsupported_sale_status'],
+    ['transactions', 'payment_status', 'paid', 'sale_not_completely_unpaid'],
+    ['transactions', 'payment_status', 'partial', 'sale_not_completely_unpaid'],
+    ['transactions', 'final_total', '71.0000', 'unexplained_totals'],
+    ['transactions', 'exchange_rate', '2.000', 'unsupported_header'],
+    ['transactions', 'transaction_date', '2000-01-01', 'sale_edit_expired'],
+    ['contacts', 'business_id', '2', 'unsupported_sale_graph'],
+    ['products', 'business_id', '2', 'unsupported_sale_graph'],
+    ['products', 'type', 'combo', 'unsupported_sale_graph'],
+    ['variations', 'product_id', '99', 'unsupported_sale_graph'],
+    ['tax_rates', 'business_id', '99', 'unsupported_sale_graph'],
+];
+foreach (['discount_amount', 'shipping_charges', 'packing_charge', 'round_off_amount', 'rp_earned',
+    'rp_redeemed', 'rp_redeemed_amount', 'journal_entry_id', 'woocommerce_order_id', 'sales_order_ids',
+    'is_recurring', 'tax_id', 'tax_amount', 'additional_expense_value_1', 'prefer_payment_account',
+    'source', 'unknown_module_state', 'is_quotation', 'sub_status'] as $field) {
+    $blockers[] = ['transactions', $field, '1', 'unsupported_header'];
+}
+foreach (['parent_sell_line_id', 'quantity_returned', 'secondary_unit_quantity', 'sub_unit_id', 'so_line_id',
+    'line_discount_amount', 'discount_id', 'lot_no_line_id', 'woocommerce_line_items_id', 'children_type'] as $field) {
+    $blockers[] = ['transaction_sell_lines', $field, '1', 'unsupported_line'];
+}
+$blockers[] = ['transaction_sell_lines', 'unit_price_before_discount', '9.0000', 'unexplained_line_pricing'];
+foreach ($blockers as [$table, $field, $value, $code]) {
+    [$db, $service, $actor] = fixture();
+    $db->table($table)->where('id', $table === 'contacts' ? 3 : ($table === 'products' ? 4 : ($table === 'variations' ? 5 : ($table === 'tax_rates' ? 6 : 1))))->update([$field => $value]);
+    if ($field === 'parent_sell_line_id') {
+        $db->table($table)->where('id', 1)->update([$field => '99']); // Avoid also making this line its own child.
+    }
+    $p = $service->preview(1, $actor);
+    check(!$p['eligible'] && $p['reason']['code'] === $code, 'preview blocker '.$table.'.'.$field);
+    $before = snapshot($db);
+    rejects(function () use ($service, $actor) { $service->split(1, $actor, requestFor($service, $actor)); }, $code);
+    check(snapshot($db) === $before, 'rejection no writes '.$field);
+}
+foreach (['transaction_payments', 'account_transactions', 'cash_register_transactions', 'eis_sales',
+    'eis_failed_transactions', 'sell_line_warranties', 'transaction_sell_lines_purchase_lines'] as $table) {
+    [$db, $service, $actor] = fixture();
+    $row = in_array($table, ['sell_line_warranties', 'transaction_sell_lines_purchase_lines'], true)
+        ? ['sell_line_id' => 1] : ['transaction_id' => 1];
+    if ($table === 'transaction_payments') { $row += ['amount' => '0.0000', 'is_return' => '1']; }
+    if ($table === 'transaction_sell_lines_purchase_lines') { $row += ['purchase_line_id' => 1, 'quantity' => '4.0000', 'qty_returned' => '0.0000']; }
+    $db->table($table)->insert($row);
+    $p = $service->preview(1, $actor); check(!$p['eligible'], 'related blocker '.$table);
+    $before = snapshot($db);
+    rejects(function () use ($service, $actor) { $service->split(1, $actor, requestFor($service, $actor)); }, $p['reason']['code']);
+    check(snapshot($db) === $before, 'related rejection no writes '.$table);
+}
+[$db, $service, $actor] = fixture();
+$db->table('transactions')->insert(['id' => 2, 'return_parent_id' => 1]);
+check(!$service->preview(1, $actor)['eligible'], 'linked return rejected');
+[$db, $service, $actor] = fixture();
+$db->table('transaction_sell_lines')->insert(['id' => 3, 'transaction_id' => 99, 'parent_sell_line_id' => 1]);
+check(!$service->preview(1, $actor)['eligible'], 'cross-transaction child rejected');
+
+foreach (['1e0', 'NaN', '-1', '0', '1.00001', 1.0, 1, ' 1', '9999999999999999999'] as $quantity) {
+    [$db, $service, $actor] = fixture(); $req = requestFor($service, $actor);
+    $req['lines'][0]['quantity'] = $quantity; $before = snapshot($db);
+    try { $service->split(1, $actor, $req); throw new RuntimeException('accepted invalid quantity'); }
+    catch (SavedSplitException $e) { check($e->httpStatus === 422, 'invalid decimal rejected'); }
+    check(snapshot($db) === $before, 'invalid quantity no writes');
+}
+foreach ([
+    [[['id' => 1, 'quantity' => '5']], 'invalid_split_quantity'],
+    [[['id' => 99, 'quantity' => '1']], 'invalid_split_partition'],
+    [[['id' => 1, 'quantity' => '4'], ['id' => 2, 'quantity' => '2']], 'invalid_split_partition'],
+    [[['id' => 1, 'quantity' => '1'], ['id' => 1, 'quantity' => '1']], 'invalid_split_request'],
+] as [$lines, $code]) {
+    [$db, $service, $actor] = fixture(); $req = requestFor($service, $actor, $lines);
+    rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, $code);
+}
+[$db, $service, $actor] = fixture(); $req = requestFor($service, $actor); $req['prices'] = 'forbidden';
+rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, 'invalid_split_request');
+[$db, $service, $actor] = fixture(); $req = requestFor($service, $actor); $req['operation_id'] = 'not-uuid';
+rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, 'invalid_split_request');
+[$db, $service, $actor] = fixture(); $req = requestFor($service, $actor);
+$db->table('transaction_sell_lines')->where('id', 1)->update(['sell_line_note' => 'concurrent edit']);
+rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, 'stale_split_version');
+[$db, $service, $actor] = fixture(); $req = requestFor($service, $actor);
+$db->table('transaction_payments')->insert(['transaction_id' => 1, 'amount' => '0']);
+rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, 'stale_split_version');
+[$db, $service, $actor] = fixture(); $db->table('units')->update(['allow_decimal' => '0']); $req = requestFor($service, $actor);
+rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, 'invalid_unit_quantity');
+[$db, $service, $actor] = fixture(); $db->getSchemaBuilder()->drop('saved_sale_split_operations');
+rejects(function () use ($service, $actor) { $service->preview(1, $actor); }, 'split_storage_unavailable');
+[$db, $service, $actor] = fixture(); $db->setDatabaseName('not-memory');
+rejects(function () use ($service, $actor) { $service->preview(1, $actor); }, 'split_storage_unavailable');
+
+// Inject failures AFTER operation/header/line insertion using only SQLite triggers.
+foreach (['transactions', 'transaction_sell_lines', 'saved_sale_split_operations'] as $table) {
+    [$db, $service, $actor] = fixture(); $req = requestFor($service, $actor); $before = snapshot($db);
+    $db->statement("CREATE TRIGGER fail_write BEFORE UPDATE ON $table BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END");
+    try { $service->split(1, $actor, $req); throw new RuntimeException('missing injected failure'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'synthetic failure'), 'injected late failure'); }
+    check(snapshot($db) === $before, 'atomic rollback '.$table);
+}
+[$db, $service, $actor] = fixture();
+rejects(function () use ($db) { SavedSaleWriteGuard::lock($db, 1); }, 'draft_write_requires_transaction');
+$db->transaction(function () use ($db) { check(SavedSaleWriteGuard::lock($db, 1)->status === 'draft', 'ordinary draft lock within transaction'); });
+
+// Fractional partitions with exact historical pricing; deterministic pseudo-random
+// quantities, not catalog repricing. Fresh fixture for every persisted split.
+mt_srand(7102026);
+for ($i = 0; $i < 100; ++$i) {
+    [$db, $service, $actor] = fixture();
+    $q = bcdiv((string) mt_rand(1, 39999), '10000', 4);
+    $r = $service->split(1, $actor, requestFor($service, $actor, [['id' => 1, 'quantity' => $q]]));
+    check(bcadd($r['bill_a']['final_total'], $r['bill_b']['final_total'], 4) === '70.0000', 'random amount conservation');
+    $a = $db->table('transaction_sell_lines')->where('id', 1)->value('quantity');
+    check(bcadd($a, $q, 4) === '4.0000', 'random quantity conservation');
+    check($r['bill_b']['lines'][0]['unit_price_inc_tax'] === '12.0000', 'historic inline tax price unchanged');
+    check($db->table('purchase_lines')->value('quantity_sold') === '123.4567', 'purchase consumption unchanged');
+}
+
+// A rounding-only penny cannot be silently invented as a header adjustment.
+[$db, $service, $actor] = fixture();
+$db->table('transaction_sell_lines')->where('id', 2)->delete();
+$db->table('transaction_sell_lines')->where('id', 1)->update(['quantity' => '1.0000',
+    'unit_price' => '0.0001', 'unit_price_before_discount' => '0.0001', 'item_tax' => '0.0000', 'unit_price_inc_tax' => '0.0001']);
+$db->table('transactions')->where('id', 1)->update(['total_before_tax' => '0.0001', 'final_total' => '0.0001']);
+$req = requestFor($service, $actor, [['id' => 1, 'quantity' => '0.5000']]);
+rejects(function () use ($service, $actor, $req) { $service->split(1, $actor, $req); }, 'split_rounding_not_conserved');
+
+// Exercise the supplied migration itself, ONLY on the synthetic :memory: schema.
+[$db, $service, $actor] = fixture();
+check($db->getDatabaseName() === ':memory:' && $db->getDriverName() === 'sqlite', 'migration isolated-memory guard');
+$db->getSchemaBuilder()->drop('saved_sale_split_operations');
+Container::getInstance()->instance('db.schema', $db->getSchemaBuilder());
+Illuminate\Support\Facades\Schema::clearResolvedInstance('db.schema');
+$migration = require dirname(__DIR__, 2).'/database/migrations/2026_10_06_000001_create_saved_sale_split_operations_table.php';
+$migration->up();
+$req = requestFor($service, $actor);
+$r = $service->split(1, $actor, $req);
+check($service->split(1, $actor, $req) === $r, 'actual migration schema supports durable replay');
+check($db->table('saved_sale_split_operations')->count() === 1, 'actual migration ledger persisted once');
+try {
+    $db->table('saved_sale_split_operations')->insert([
+        'business_id' => 1, 'user_id' => 8, 'operation_id' => $req['operation_id'], 'source_id' => 1,
+        'payload_hash' => str_repeat('a', 64), 'expected_version' => str_repeat('b', 64), 'allocation_json' => '{}']);
+    throw new RuntimeException('missing migration uniqueness');
+} catch (Illuminate\Database\QueryException $e) {
+    check($e->getCode() === '23000', 'migration tenant UUID unique constraint');
+}
+$migration->down();
+check(!$db->getSchemaBuilder()->hasTable('saved_sale_split_operations'), 'migration down isolated schema only');
+
+// Verify route registration and auth metadata without dispatching/booting a kernel.
+$container = Container::getInstance();
+$router = new Illuminate\Routing\Router(new Dispatcher($container), $container);
+$container->instance('router', $router);
+Illuminate\Support\Facades\Route::clearResolvedInstance('router');
+require dirname(__DIR__, 2).'/Modules/Connector/Routes/api.php';
+$splitRoutes = [];
+foreach ($router->getRoutes() as $route) {
+    if (in_array($route->uri(), ['connector/api/sell/{id}/split-preview', 'connector/api/sell/{id}/split'], true)) {
+        $splitRoutes[] = $route;
+        check(in_array('auth:api', $route->middleware(), true) && in_array('timezone', $route->middleware(), true), 'split route authentication/timezone');
+    }
+}
+check(count($splitRoutes) === 2 && in_array('GET', $splitRoutes[0]->methods(), true)
+    && $splitRoutes[1]->methods() === ['POST'], 'exact preview/split endpoint methods');
+
+// FINAL splitting: preserve purchase consumption/stock while distributing each
+// historical mapping, including one selection spanning multiple purchase rows.
+function allocatedFixture($final = true)
+{
+    [$db, $service, $actor] = fixture();
+    $db->table('products')->update(['enable_stock' => '1']);
+    $db->table('variation_location_details')->update(['product_id' => 4, 'variation_id' => 5, 'location_id' => 2, 'qty_available' => '20.0000']);
+    $db->table('transactions')->insert(['id' => 100, 'business_id' => 1, 'location_id' => 2, 'type' => 'purchase',
+        'status' => 'received', 'transaction_date' => '2026-01-01 00:00:00', 'invoice_no' => 'P100']);
+    $db->table('purchase_lines')->where('id', 1)->update(['transaction_id' => 100, 'product_id' => 4, 'variation_id' => 5,
+        'quantity' => '30.0000', 'quantity_sold' => $final ? '10.0000' : '0.0000', 'quantity_adjusted' => '0.0000', 'quantity_returned' => '0.0000', 'mfg_quantity_used' => '0.0000']);
+    $db->table('purchase_lines')->insert(['id' => 2, 'transaction_id' => 100, 'product_id' => 4, 'variation_id' => 5,
+        'quantity' => '30.0000', 'quantity_sold' => $final ? '20.0000' : '0.0000', 'quantity_adjusted' => '0.0000', 'quantity_returned' => '0.0000', 'mfg_quantity_used' => '0.0000']);
+    if ($final) {
+        $db->table('transactions')->where('id', 1)->update(['status' => 'final', 'is_suspend' => '0']);
+        $db->table('transaction_sell_lines_purchase_lines')->insert([
+            ['sell_line_id' => 1, 'purchase_line_id' => 1, 'quantity' => '1.0000', 'qty_returned' => '0.0000'],
+            ['sell_line_id' => 1, 'purchase_line_id' => 2, 'quantity' => '3.0000', 'qty_returned' => '0.0000'],
+            ['sell_line_id' => 2, 'purchase_line_id' => 2, 'quantity' => '2.0000', 'qty_returned' => '0.0000']]);
+    }
+    return [$db, $service, $actor];
+}
+[$db, $service, $actor] = allocatedFixture();
+$before = snapshot($db);
+check($service->preview(1, $actor)['eligible'], 'ordinary allocated unpaid final eligible');
+$req = requestFor($service, $actor, [['id' => 1, 'quantity' => '1.5000'], ['id' => 2, 'quantity' => '2.0000']]);
+$r = $service->split(1, $actor, $req);
+check($r['bill_a']['status'] === 'final' && $r['bill_b']['status'] === 'final', 'final status preserved in both bills');
+check($r['bill_a']['final_total'] === '30.0000' && $r['bill_b']['final_total'] === '40.0000', 'final historical total conservation');
+$newLine = $r['line_allocations'][0]['bill_b_line_id'];
+check($db->table('transaction_sell_lines_purchase_lines')->where('sell_line_id', $newLine)->count() === 2, 'partial allocation crosses purchase rows');
+check($db->table('transaction_sell_lines_purchase_lines')->where('sell_line_id', 1)->value('quantity') === '2.5000', 'source retains mapping remainder');
+foreach (['purchase_lines', 'variation_location_details', 'transaction_payments', 'eis_sales'] as $table) {
+    check(snapshot($db)[$table] === $before[$table], 'final no consumption/stock/payment/fiscal mutation '.$table);
+}
+$after = snapshot($db);
+check($service->split(1, $actor, $req) === $r && snapshot($db) === $after, 'final durable replay unchanged');
+rejects(function () use ($db) { $db->transaction(function () { $m = App\TransactionSellLinesPurchaseLines::first(); $m->quantity = '99'; $m->save(); }); }, 'split_write_fenced');
+foreach (['0.0000', '5.0000'] as $quantity) {
+    [$db, $service, $actor] = allocatedFixture();
+    $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update(['quantity' => $quantity]);
+    check(!$service->preview(1, $actor)['eligible'], 'nonpositive/incomplete final mapping rejected');
+}
+foreach (['qty_returned' => '1', 'purchase_line_id' => '0'] as $field => $value) {
+    [$db, $service, $actor] = allocatedFixture();
+    $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update([$field => $value]);
+    check(!$service->preview(1, $actor)['eligible'], 'complex/oversold final mapping rejected');
+}
+[$db, $service, $actor] = allocatedFixture();
+$db->table('transactions')->where('id', 100)->update(['business_id' => 2]);
+check(!$service->preview(1, $actor)['eligible'], 'cross-tenant purchase rejected');
+[$db, $service, $actor] = allocatedFixture();
+$db->table('transaction_payments')->insert(['transaction_id' => 1, 'amount' => '0']);
+check(!$service->preview(1, $actor)['eligible'], 'any zero final payment rejected');
+
+// REAL stock/mapping/payment utils, but standalone Capsule, in-memory stock,
+// local session/dispatcher, and a no-network after-commit fiscal observer.
+class IsolatedCheckoutService extends SavedSaleSplitService
+{
+    public $scheduled = 0;
+    protected function scheduleFiscal($id)
+    {
+        Capsule::connection()->afterCommit(function () { ++$this->scheduled; });
+    }
+}
+function checkoutFixture($final = false)
+{
+    [$db, $unused, $actor] = allocatedFixture($final);
+    $container = Container::getInstance();
+    $container->instance('session', new Illuminate\Session\Store('synthetic', new Illuminate\Session\ArraySessionHandler(120)));
+    $container->instance('events', $db->getEventDispatcher());
+    $db->setTransactionManager(new Illuminate\Database\DatabaseTransactionsManager());
+    if (!class_exists('Carbon', false)) { class_alias(Carbon\Carbon::class, 'Carbon'); }
+    $db->table('eis_configurations')->insert(['id' => 1, 'business_id' => 1]);
+    $db->table('eis_terminal_configurations')->insert(['configuration_id' => 1, 'max_cummulative_amount' => '0', 'max_transaction_age' => '0']);
+    return [$db, new IsolatedCheckoutService($db), $actor];
+}
+function cashRequest($service, $actor, $id = 1)
+{
+    $p = $service->checkoutPreview($id, $actor);
+    return ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $p['expected_version'],
+        'method' => 'cash', 'amount' => $p['source']['final_total']];
+}
+foreach ([false, true] as $final) {
+    [$db, $service, $actor] = checkoutFixture($final);
+    $split = $service->split(1, $actor, requestFor($service, $actor));
+    $lines = $db->table('transaction_sell_lines')->orderBy('id')->get()->toJson();
+    $stock = $db->table('variation_location_details')->value('qty_available');
+    $purchases = snapshot($db)['purchase_lines']; $mappings = snapshot($db)['transaction_sell_lines_purchase_lines'];
+    $request = cashRequest($service, $actor);
+    $response = $service->checkout(1, $actor, $request);
+    check($response['bill']['payment_status'] === 'paid' && $response['bill']['status'] === 'final', 'real utils checkout paid final');
+    check($db->table('transaction_sell_lines')->orderBy('id')->get()->toJson() === $lines, 'checkout saved lines/ids/prices unchanged');
+    check($db->table('transaction_payments')->count() === 1 && $db->table('transaction_payments')->value('amount') === '52.0000', 'one exact persisted cash payment');
+    check($service->scheduled === 1 && $db->table('eis_sales')->count() === 0, 'only local after-commit fiscal observer, no external events');
+    $after = snapshot($db);
+    check($service->checkout(1, $actor, $request) === $response && snapshot($db) === $after && $service->scheduled === 1, 'paid durable retry no duplicate payment/stock/events');
+    if ($final) {
+        check(snapshot($db)['purchase_lines'] === $purchases && snapshot($db)['transaction_sell_lines_purchase_lines'] === $mappings, 'final checkout no allocation consumption change');
+        check($db->table('variation_location_details')->value('qty_available') === $stock, 'final checkout no stock decrease');
+    } else {
+        check(bccomp(SavedSaleSplitService::decimal($db->table('variation_location_details')->value('qty_available')), bcsub($stock, '4.5000', 4), 4) === 0, 'draft stock decreases only retained saved quantities');
+        check(bccomp(SavedSaleSplitService::decimal($db->table('purchase_lines')->where('id', 1)->value('quantity_sold')), '4.5000', 4) === 0, 'draft existing utils allocate purchase consumption once');
+    }
+    rejects(function () use ($db) { $db->transaction(function () { SavedSaleWriteGuard::lock($db = Capsule::connection(), 1); }); }, 'split_write_fenced');
+    rejects(function () use ($service, $actor) { $service->checkout(1, $actor, cashRequest($service, $actor)); }, 'sale_not_completely_unpaid');
+    check(SavedSaleWriteGuard::fiscal($db, 1)->payment_status === 'paid', 'committed paid checkout permits fiscal tracking');
+    $collision = $request; $collision['amount'] = '1.0000';
+    rejects(function () use ($service, $actor, $collision) { $service->checkout(1, $actor, $collision); }, 'operation_collision');
+}
+foreach (['transactions', 'transaction_sell_lines_purchase_lines', 'transaction_payments', 'saved_sale_split_operations'] as $table) {
+    [$db, $service, $actor] = checkoutFixture(); $request = cashRequest($service, $actor); $before = snapshot($db);
+    $db->statement("CREATE TRIGGER checkout_fail BEFORE ".($table === 'transactions' || $table === 'saved_sale_split_operations' ? 'UPDATE' : 'INSERT')." ON $table BEGIN SELECT RAISE(ABORT, 'checkout failure'); END");
+    try { $service->checkout(1, $actor, $request); throw new RuntimeException('missing checkout failure'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'checkout failure'), 'late checkout failure'); }
+    check(snapshot($db) === $before && $service->scheduled === 0, 'checkout complete rollback without deferred events '.$table);
+}
+foreach ([['business', 'pos_settings', '{"disable_express_checkout":1}'], ['business_locations', 'default_payment_accounts', '{}'],
+    ['business_locations', 'default_payment_accounts', '{"cash":{"is_enabled":1,"account":4}}'], ['business', 'enable_rp', '1'],
+    ['business', 'enable_product_expiry', '1'], ['business', 'pos_settings', '{"allow_overselling":1}']] as [$table, $field, $value]) {
+    [$db, $service, $actor] = checkoutFixture();
+    $db->table($table)->update([$field => $value]);
+    check(!$service->checkoutPreview(1, $actor)['eligible'], 'configuration checkout gate '.$field);
+}
+[$db, $service, $actor] = checkoutFixture(); $request = cashRequest($service, $actor);
+$db->table('transaction_sell_lines')->where('id', 1)->update(['sell_line_note' => 'new version']);
+rejects(function () use ($service, $actor, $request) { $service->checkout(1, $actor, $request); }, 'stale_split_version');
+[$db, $service, $actor] = checkoutFixture(); $request = cashRequest($service, $actor); $request['amount'] = '71.0000';
+rejects(function () use ($service, $actor, $request) { $service->checkout(1, $actor, $request); }, 'invalid_checkout_amount');
+[$db, $service, $actor] = checkoutFixture(); $actor->permissions[] = 'disable_express_checkout';
+check(!$service->checkoutPreview(1, $actor)['eligible'], 'cash disable permission respected');
+$actor->admin = true;
+check($service->checkoutPreview(1, $actor)['eligible'], 'admin overrides disable permission, not settings');
+
+echo "PASS: $checks isolated saved-sale split checks. No application/kernel/live database boot.\n";

@@ -83,6 +83,7 @@ class DataController extends Controller
         $table_id = request()->get('res_table_id');
         $res_waiter_id = request()->get('res_waiter_id');
 
+        \App\Services\Sales\SavedSaleWriteGuard::lock(\Illuminate\Support\Facades\DB::connection(), $input['transaction_id']);
         Transaction::where('id', $input['transaction_id'])
             ->where('type', 'sell')
             ->where('business_id', $input['business_id'])

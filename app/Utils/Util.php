@@ -312,9 +312,14 @@ class Util
             $business_id = request()->session()->get('user.business_id');
         }
 
+        // Serialize absent counter creation too. Cooperating transactional
+        // writers share this lock with saved checkout's business configuration.
+        if (\Illuminate\Support\Facades\DB::connection()->transactionLevel() > 0) {
+            \Illuminate\Support\Facades\DB::table('business')->where('id', $business_id)->lockForUpdate()->first();
+        }
         $ref = ReferenceCount::where('ref_type', $type)
             ->where('business_id', $business_id)
-            ->first();
+            ->lockForUpdate()->first();
         if (! empty($ref)) {
             $ref->ref_count += 1;
             $ref->save();

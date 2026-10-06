@@ -932,8 +932,10 @@ class SellController extends Controller
 
             DB::beginTransaction();
 
+            \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $request->transaction_id);
             $original_transaction = Transaction::where('business_id', $business_id)
                                     ->where('id', $request->transaction_id)
+                                    ->lockForUpdate()
                                     ->with(['sell_lines' => function($q) {
                                         $q->whereNull('parent_sell_line_id');
                                     }])

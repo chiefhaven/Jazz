@@ -18,6 +18,16 @@ class Transaction extends Model
      */
     protected $guarded = ['id'];
 
+    protected static function booted()
+    {
+        static::saving(function ($model) {
+            \App\Services\Sales\SavedSaleWriteGuard::model($model, true);
+        });
+        static::deleting(function ($model) {
+            \App\Services\Sales\SavedSaleWriteGuard::model($model, true);
+        });
+    }
+
     /**
      * The attributes that should be cast to native types.
      *
