@@ -21,7 +21,7 @@ class SavedSaleSplitService
         'contact_id', 'customer_group_id', 'transaction_date', 'created_by', 'is_suspend',
         'is_direct_sale', 'is_created_from_api', 'exchange_rate', 'additional_notes', 'staff_note',
         'custom_field_1', 'custom_field_2', 'custom_field_3', 'custom_field_4',
-        'selling_price_group_id', 'pay_term_number', 'pay_term_type'];
+        'selling_price_group_id', 'pay_term_number', 'pay_term_type', 'source'];
     private const LINE_COPY = ['product_id', 'variation_id', 'quantity', 'unit_price_before_discount',
         'unit_price', 'unit_price_inc_tax', 'item_tax', 'tax_id', 'sell_line_note', 'children_type'];
     // Inactive configuration defaults do not represent a linked sale.
@@ -64,8 +64,12 @@ class SavedSaleSplitService
         if (!extension_loaded('bcmath')) {
             $this->fail('split_storage_unavailable', 'Saved splitting requires BCMath.', 503);
         }
+
+        $requiredTables = array_merge(self::TABLES, $extra, ['eis_sales', 'eis_failed_transactions']);
+        $innoDbTables = array_merge(self::TABLES, $extra);
+
         $schema = $this->db->getSchemaBuilder();
-        foreach (array_merge(self::TABLES, $extra, ['eis_sales', 'eis_failed_transactions']) as $table) {
+        foreach ($requiredTables as $table) {
             if (!$schema->hasTable($table)) {
                 $this->fail('split_storage_unavailable', 'Missing required table: '.$table.'. Deploy the split migration; no automatic migration is performed.', 503);
             }
@@ -76,10 +80,14 @@ class SavedSaleSplitService
         if ($this->db->getDriverName() !== 'mysql') {
             $this->fail('split_storage_unavailable', 'Saved splitting requires verified MySQL InnoDB tables.', 503);
         }
+
+        // EIS sales tables are read-only for split preview and may be MyISAM in legacy deployments.
+        // Only the split operational tables require InnoDB transactional guarantees.
         $engines = $this->db->table('information_schema.TABLES')
             ->where('TABLE_SCHEMA', $this->db->getDatabaseName())
-            ->whereIn('TABLE_NAME', array_merge(self::TABLES, $extra))->pluck('ENGINE', 'TABLE_NAME');
-        foreach (array_merge(self::TABLES, $extra) as $table) {
+            ->whereIn('TABLE_NAME', $innoDbTables)
+            ->pluck('ENGINE', 'TABLE_NAME');
+        foreach ($innoDbTables as $table) {
             if (strtoupper($engines[$table] ?? '') !== 'INNODB') {
                 $this->fail('split_storage_unavailable', 'Non-transactional or missing table: '.$table.'. Splitting is disabled.', 503);
             }
@@ -178,6 +186,11 @@ class SavedSaleSplitService
             if ($rows) {
                 $this->fail('unsupported_sale_graph', 'Unsupported saved sale relationship: '.$name.'.');
             }
+        }
+        // Desktop origin is provenance, not a linked external order. Preserve it
+        // on both bills; unknown integration sources must still fail closed.
+        if (!self::zero($h['source'] ?? null) && $h['source'] !== 'desktop_pos') {
+            $this->fail('unsupported_header', 'Unsupported nonempty header field: source.');
         }
         $allowed = array_merge(self::HEADER_COPY, self::INERT_HEADER,
             ['id', 'invoice_no', 'invoice_token', 'created_at', 'updated_at', 'total_before_tax', 'final_total']);

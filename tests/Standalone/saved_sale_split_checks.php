@@ -139,6 +139,34 @@ function snapshot($db)
     return $out;
 }
 
+foreach (['draft', 'final'] as $status) {
+    [$db, $service, $actor] = fixture();
+    $db->table('transactions')->where('id', 1)->update(['status' => $status, 'source' => 'desktop_pos']);
+    $before = snapshot($db);
+    $preview = $service->preview(1, $actor);
+    check($preview['eligible'], 'desktop origin eligible for '.$status);
+    check(snapshot($db) === $before, 'desktop origin preview read-only');
+    $request = requestFor($service, $actor);
+    $response = $service->split(1, $actor, $request);
+    foreach ([1, $response['result_id']] as $id) {
+        check($db->table('transactions')->where('id', $id)->value('source') === 'desktop_pos', 'desktop provenance preserved on both bills');
+    }
+    $after = snapshot($db);
+    check($service->split(1, $actor, $request) === $response && snapshot($db) === $after, 'desktop origin durable retry');
+}
+foreach (['woocommerce', 'external_integration', 'Desktop_Pos'] as $source) {
+    [$db, $service, $actor] = fixture();
+    $request = requestFor($service, $actor);
+    $db->table('transactions')->where('id', 1)->update(['source' => $source]);
+    $before = snapshot($db);
+    $preview = $service->preview(1, $actor);
+    check(!$preview['eligible'] && $preview['reason']['code'] === 'unsupported_header', 'unknown/external origin remains blocked');
+    rejects(function () use ($service, $actor, $request) { $service->split(1, $actor, $request); }, 'stale_split_version');
+    $request['expected_version'] = $preview['expected_version'];
+    rejects(function () use ($service, $actor, $request) { $service->split(1, $actor, $request); }, 'unsupported_header');
+    check(snapshot($db) === $before, 'rejected external source leaves graph unchanged');
+}
+
 [$db, $service, $actor] = fixture();
 $before = snapshot($db);
 $preview = $service->preview(1, $actor);
