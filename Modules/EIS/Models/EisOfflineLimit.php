@@ -17,6 +17,29 @@ class EisOfflineLimit extends Model
         'last_synced_at'
     ];
 
+    /**
+     * Normalize legacy and canonical field names to the current EIS contract.
+     */
+    public static function normalizeLimitPayload($payload): array
+    {
+        $data = is_object($payload) ? (array) $payload : (array) ($payload ?? []);
+
+        $maxTransactionAge = $data['maxTransactionAgeInHours']
+            ?? $data['max_transaction_age_hours']
+            ?? $data['max_transaction_age']
+            ?? 72;
+
+        $maxCumulativeAmount = $data['maxCummulativeAmount']
+            ?? $data['max_cumulative_amount']
+            ?? $data['max_cummulative_amount']
+            ?? 0;
+
+        return [
+            'max_transaction_age_hours' => (int) $maxTransactionAge,
+            'max_cumulative_amount' => (float) $maxCumulativeAmount,
+        ];
+    }
+
     protected $casts = [
         'max_transaction_age_hours' => 'integer',
         'max_cumulative_amount' => 'float',

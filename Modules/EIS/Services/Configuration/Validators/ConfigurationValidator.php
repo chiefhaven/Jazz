@@ -137,21 +137,29 @@ class ConfigurationValidator
      */
     private function validateOfflineLimit(object $offlineLimit): void
     {
-        if (!isset($offlineLimit->maxTransactionAgeInHours) || 
-            !is_numeric($offlineLimit->maxTransactionAgeInHours)) {
+        $maxTransactionAge = $offlineLimit->maxTransactionAgeInHours
+            ?? $offlineLimit->max_transaction_age_hours
+            ?? $offlineLimit->max_transaction_age
+            ?? null;
+
+        if (!is_numeric($maxTransactionAge)) {
             throw new ValidationException('Invalid max transaction age in hours');
         }
 
-        if ($offlineLimit->maxTransactionAgeInHours < 0) {
+        if ((float) $maxTransactionAge < 0) {
             throw new ValidationException('Max transaction age cannot be negative');
         }
 
-        if (!isset($offlineLimit->maxCummulativeAmount) || 
-            !is_numeric($offlineLimit->maxCummulativeAmount)) {
+        $maxCumulativeAmount = $offlineLimit->maxCummulativeAmount
+            ?? $offlineLimit->max_cumulative_amount
+            ?? $offlineLimit->max_cummulative_amount
+            ?? null;
+
+        if (!is_numeric($maxCumulativeAmount)) {
             throw new ValidationException('Invalid max cumulative amount');
         }
 
-        if ($offlineLimit->maxCummulativeAmount < 0) {
+        if ((float) $maxCumulativeAmount < 0) {
             throw new ValidationException('Max cumulative amount cannot be negative');
         }
     }

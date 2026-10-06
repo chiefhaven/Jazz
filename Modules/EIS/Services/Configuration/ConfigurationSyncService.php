@@ -479,23 +479,25 @@ class ConfigurationSyncService
      */
     private function syncOfflineLimit(EisTerminalConfiguration $terminalConfig, object $offlineLimitData): void
     {
-        $limitData = [
+        $limitData = EisOfflineLimit::normalizeLimitPayload($offlineLimitData);
+
+        $payload = [
             'terminal_configuration_id' => $terminalConfig->id,
-            'max_transaction_age' => $offlineLimitData->maxTransactionAgeInHours ?? 72,
-            'max_cummulative_amount' => $offlineLimitData->maxCummulativeAmount ?? 0,
+            'max_transaction_age_hours' => $limitData['max_transaction_age_hours'],
+            'max_cumulative_amount' => $limitData['max_cumulative_amount'],
             'raw_data' => json_encode($offlineLimitData),
             'last_synced_at' => now()
         ];
 
         EisOfflineLimit::updateOrCreate(
             ['terminal_configuration_id' => $terminalConfig->id],
-            $limitData
+            $payload
         );
 
         Log::debug('Offline limit synced', [
             'terminal_config_id' => $terminalConfig->id,
-            'max_hours' => $limitData['max_transaction_age'],
-            'max_amount' => $limitData['max_cummulative_amount']
+            'max_hours' => $payload['max_transaction_age_hours'],
+            'max_amount' => $payload['max_cumulative_amount']
         ]);
     }
 

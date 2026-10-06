@@ -95,9 +95,24 @@ class EisSale extends Model
                 ];
             }
             
-            // Get offline limits from terminal configuration
-            $offlineLimit = $terminalConfig->max_cummulative_amount ?? 0;
-            $maxTransactionAge = $terminalConfig->max_transaction_age ?? 0;
+            // Prefer the canonical offline-limit record, but fall back to the legacy terminal fields.
+            $offlineLimitRow = DB::table('eis_offline_limits')
+                ->where('terminal_configuration_id', $terminalConfig->id)
+                ->first();
+
+            $offlineLimit = (float) (
+                $offlineLimitRow->max_cumulative_amount ??
+                $terminalConfig->max_cummulative_amount ??
+                $terminalConfig->max_cumulative_amount ??
+                0
+            );
+
+            $maxTransactionAge = (int) (
+                $offlineLimitRow->max_transaction_age_hours ??
+                $terminalConfig->max_transaction_age ??
+                $terminalConfig->max_transaction_age_hours ??
+                0
+            );
             
             // If no limits set, allow sale
             if ($offlineLimit == 0 && $maxTransactionAge == 0) {

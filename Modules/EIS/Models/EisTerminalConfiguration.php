@@ -21,6 +21,11 @@ class EisTerminalConfiguration extends Model
         'address_lines',
         'raw_data',
         'last_synced_at',
+        // Legacy / compatibility fields for EIS offline limits.
+        'max_transaction_age',
+        'max_cummulative_amount',
+        'max_transaction_age_hours',
+        'max_cumulative_amount',
         // Activation fields
         'activated_at',
         'activated_by',

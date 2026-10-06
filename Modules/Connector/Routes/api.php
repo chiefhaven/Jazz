@@ -2,6 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 
+// The module provider supplies the api group (including throttle:api).
+// This deliberately has no auth:api: it exchanges credentials for a token.
+Route::post('connector/api/desktop-login', [Modules\Connector\Http\Controllers\Api\DesktopLoginController::class, 'login'])
+    ->middleware('throttle:5,1');
+
 Route::middleware('auth:api', 'timezone')->prefix('connector/api')->group(function () {
     Route::resource('business-location', Modules\Connector\Http\Controllers\Api\BusinessLocationController::class)->only('index', 'show');
 
