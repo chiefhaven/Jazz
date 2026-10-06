@@ -2,6 +2,7 @@
 
 namespace Modules\Connector\Http\Controllers;
 
+use App\Utils\ModuleUtil;
 use App\Utils\Util;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
