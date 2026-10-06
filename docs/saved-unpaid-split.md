@@ -1,5 +1,24 @@
 # Saved unpaid split and version-aware cash checkout
 
+## Optional protected migration route
+
+POST `/connector/api/admin/migrate-saved-split` is under `auth:api` and
+`throttle:2,1`. It requires the system `superadmin` permission (a business
+Admin role is insufficient), and is disabled by default. Temporarily set
+`CONNECTOR_ALLOW_SPLIT_MIGRATION_ROUTE=true` on the deployed server and refresh
+its configuration/route caches through normal deployment procedures.
+Send JSON `{"confirm":"create_saved_sale_split_operations"}` with a valid
+system-superadmin bearer token. No other parameters are accepted.
+
+Only the fixed split-ledger migration is run; arbitrary commands, paths,
+connections and other pending migrations are not exposed. A MySQL advisory
+lock serializes invocations of this endpoint. It does not coordinate unrelated
+CLI deployers, so do not run concurrent manual migrations. Successful operations
+are audit logged. Disable the environment switch and refresh configuration
+after use. Migration failures may leave DDL applied and require operator review.
+This route does not repair non-InnoDB tables, enable BCMath, or certify concurrency.
+No migration has been executed as part of adding the route.
+
 ## Current implementation (supersedes draft-only notes below)
 
 Ordinary completely unpaid draft AND final sales can be split. Final-sale

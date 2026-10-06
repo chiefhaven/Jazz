@@ -39,6 +39,8 @@ Route::middleware('auth:api', 'timezone')->prefix('connector/api')->group(functi
 
     Route::get('payment-methods', [Modules\Connector\Http\Controllers\Api\CommonResourceController::class, 'getPaymentMethods']);
 
+    Route::post('admin/migrate-saved-split', [Modules\Connector\Http\Controllers\Api\SplitMigrationController::class, 'migrate'])->middleware('throttle:2,1');
+
     Route::get('sell/{id}/split-preview', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'preview']);
     Route::post('sell/{id}/split', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'split']);
     Route::get('sell/{id}/checkout-preview', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'checkoutPreview']);
