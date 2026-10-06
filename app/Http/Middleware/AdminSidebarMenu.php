@@ -22,10 +22,6 @@ class AdminSidebarMenu
             return $next($request);
         }
 
-        if (auth()->check() && auth()->user()->can('superadmin') && request()->segment(1) == 'superadmin') {
-            return $next($request);
-        }
-
         Menu::create('admin-sidebar-menu', function ($menu) {
             $enabled_modules = !empty(session('business.enabled_modules')) ? session('business.enabled_modules') : [];
 
