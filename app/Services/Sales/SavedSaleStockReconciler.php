@@ -71,8 +71,11 @@ final class SavedSaleStockReconciler
         $validator = new SavedSaleSplitService($this->db);
         $validator->stockReconciliationStorage();
         return $this->db->transaction(function () use ($receiptId, $saveAllocation, $validator) {
-            // Discover candidates without locking purchase rows first. All sale
-            // graphs are then locked in id order, before mapping/purchase writes.
+            // Use a CURRENT locking discovery read, not an MVCC snapshot taken
+            // before waiting for a concurrent split. Otherwise a moved bill B
+            // could be missed while the receipt still has available supply.
+            // No purchase rows are locked by this discovery. All sale graphs
+            // are then loaded in id order before mapping/purchase writes.
             // Receipt controllers may already hold receipt locks: a MySQL
             // deadlock must roll back/retry the whole receipt, never skip a debt.
             $receipt = $this->db->table('transactions')->where('id', $receiptId)->first();
@@ -92,7 +95,15 @@ final class SavedSaleStockReconciler
                 ->join('transactions as t', 't.id', '=', 'l.transaction_id')
                 ->where('m.purchase_line_id', 0)->where('t.business_id', $receipt->business_id)
                 ->where('t.location_id', $receipt->location_id)->where('t.type', 'sell')->where('t.status', 'final')
-                ->orderBy('t.id')->orderBy('m.id')->get(['t.id', 'l.product_id', 'l.variation_id']);
+                ->where(function ($q) use ($receiptLines) {
+                    if ($receiptLines->isEmpty()) { $q->whereRaw('1 = 0'); }
+                    foreach ($receiptLines as $p) {
+                        $q->orWhere(function ($pair) use ($p) {
+                            $pair->where('l.product_id', $p->product_id)->where('l.variation_id', $p->variation_id);
+                        });
+                    }
+                })
+                ->orderBy('t.id')->orderBy('m.id')->lockForUpdate()->get(['t.id', 'l.product_id', 'l.variation_id']);
             $graphs = [];
             foreach ($candidates as $candidate) {
                 if (!isset($pairs[$candidate->product_id.':'.$candidate->variation_id]) || isset($graphs[$candidate->id])) { continue; }
