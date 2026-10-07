@@ -11,6 +11,51 @@ use Illuminate\Database\Connection;
 class SavedSaleWriteGuard
 {
     private static $checkout = [];
+    private static $stockAllocation = [];
+
+    /** No callback is supplied by a caller. Only the verified reconciliation
+     * implementation receives an exact-model, exact-attributes saving capability.
+     * lock(), header, line, payment and fiscal model guards remain unchanged.
+     */
+    public static function reconcileStock($transaction)
+    {
+        $db = $transaction->getConnection();
+        if ($db->transactionLevel() < 1 || self::$checkout || self::$stockAllocation) {
+            throw new SavedSplitException('stock_reconciliation_invalid', 'Purchase reconciliation requires an enclosing transaction.');
+        }
+        return (new SavedSaleStockReconciler($db))->reconcile($transaction->getKey(), function ($model) use ($db) {
+            if (!$model instanceof \App\TransactionSellLinesPurchaseLines || $model->getConnection() !== $db) {
+                throw new SavedSplitException('stock_reconciliation_invalid', 'Invalid stock allocation capability.');
+            }
+            $key = spl_object_id($model);
+            if (isset(self::$stockAllocation[$key])) {
+                throw new SavedSplitException('stock_reconciliation_invalid', 'Reentrant allocation write.');
+            }
+            self::$stockAllocation[$key] = [$db, $db->transactionLevel(), $model->getAttributes(), $model->getRawOriginal()];
+            $expected = $model->getAttributes();
+            try {
+                if ($model->save() !== true) {
+                    throw new SavedSplitException('stock_reconciliation_invalid', 'An allocation observer cancelled the exact stock write.');
+                }
+                $persisted = (array) $db->table('transaction_sell_lines_purchase_lines')->where('id', $model->getKey())->first();
+                foreach ($expected as $field => $value) {
+                    if (in_array($field, ['created_at', 'updated_at'], true)) { continue; }
+                    if (!array_key_exists($field, $persisted) || ($value === null ? $persisted[$field] !== null :
+                        (string) $persisted[$field] !== (string) $value)) {
+                        throw new SavedSplitException('stock_reconciliation_invalid', 'An allocation observer changed the exact planned stock write.');
+                    }
+                }
+            } finally { unset(self::$stockAllocation[$key]); }
+        });
+    }
+
+    public static function isStockAllocation($model)
+    {
+        $scope = self::$stockAllocation[spl_object_id($model)] ?? null;
+        return $scope && $model instanceof \App\TransactionSellLinesPurchaseLines
+            && $model->getConnection() === $scope[0] && $scope[0]->transactionLevel() === $scope[1]
+            && $model->getAttributes() === $scope[2] && $model->getRawOriginal() === $scope[3];
+    }
 
     /** Server-only scope, entered AFTER version/authorization/eligibility checks.
      * It never survives the callback, exception, transaction or request.

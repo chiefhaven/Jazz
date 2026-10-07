@@ -49,6 +49,8 @@ function fixture()
     $container = $capsule->getContainer();
     Container::setInstance($container);
     $container->instance('db', $capsule->getDatabaseManager());
+    $container->instance('log', new Psr\Log\NullLogger());
+    if (!class_exists('Log', false)) { class_alias(Illuminate\Support\Facades\Log::class, 'Log'); }
     Illuminate\Support\Facades\Facade::setFacadeApplication($container);
     Illuminate\Support\Facades\Facade::clearResolvedInstances();
     $db = $capsule->getConnection();
@@ -86,10 +88,11 @@ function fixture()
         'eis_failed_transactions' => ['transaction_id'], 'sell_line_warranties' => ['sell_line_id', 'warranty_id'],
         'business' => ['transaction_edit_days', 'pos_settings', 'enable_rp', 'enable_product_expiry', 'accounting_method'], 'business_locations' => ['business_id', 'default_payment_accounts'], 'users' => ['business_id'],
         'contacts' => ['business_id', 'type', 'balance', 'deleted_at'], 'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at'],
-        'variations' => ['product_id'], 'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id'],
+        'variations' => ['product_id', 'product_variation_id', 'deleted_at'], 'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id'],
         'reference_counts' => ['business_id', 'ref_type', 'ref_count'],
-        'variation_location_details' => ['qty_available', 'product_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
-        'eis_configurations' => ['business_id'], 'eis_terminal_configurations' => ['configuration_id', 'max_cummulative_amount', 'max_transaction_age']] as $table => $columns) {
+        'variation_location_details' => ['qty_available', 'product_id', 'product_variation_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
+        'eis_configurations' => ['business_id'], 'eis_terminal_configurations' => ['configuration_id', 'max_cummulative_amount', 'max_transaction_age'],
+        'eis_offline_limits' => ['terminal_configuration_id', 'max_cumulative_amount', 'max_transaction_age_hours']] as $table => $columns) {
         $schema->create($table, function (Blueprint $t) use ($columns) {
             $t->increments('id'); foreach (array_unique(array_merge($columns, ['created_at', 'updated_at'])) as $c) { $t->text($c)->nullable(); }
         });
@@ -587,7 +590,7 @@ foreach (['transactions', 'transaction_sell_lines_purchase_lines', 'transaction_
 }
 foreach ([['business', 'pos_settings', '{"disable_express_checkout":1}'], ['business_locations', 'default_payment_accounts', '{}'],
     ['business_locations', 'default_payment_accounts', '{"cash":{"is_enabled":1,"account":4}}'], ['business', 'enable_rp', '1'],
-    ['business', 'enable_product_expiry', '1'], ['business', 'pos_settings', '{"allow_overselling":1}']] as [$table, $field, $value]) {
+    ['business', 'enable_product_expiry', '1']] as [$table, $field, $value]) {
     [$db, $service, $actor] = checkoutFixture();
     $db->table($table)->update([$field => $value]);
     check(!$service->checkoutPreview(1, $actor)['eligible'], 'configuration checkout gate '.$field);
@@ -602,4 +605,342 @@ check(!$service->checkoutPreview(1, $actor)['eligible'], 'cash disable permissio
 $actor->admin = true;
 check($service->checkoutPreview(1, $actor)['eligible'], 'admin overrides disable permission, not settings');
 
-echo "PASS: $checks isolated saved-sale split checks. No application/kernel/live database boot.\n";
+// Ordinary overselling debt: explicit 0 references, never missing purchases.
+function sentinelFixture($mixed = false)
+{
+    [$db, $service, $actor] = checkoutFixture(true);
+    $db->table('business')->update(['pos_settings' => '{"allow_overselling":1}']);
+    $db->table('transaction_sell_lines_purchase_lines')->whereIn('id', $mixed ? [2, 3] : [1, 2, 3])
+        ->update(['purchase_line_id' => '0']);
+    $db->table('variation_location_details')->update(['qty_available' => '-6.0000']);
+    return [$db, $service, $actor];
+}
+function allocationLedger($db)
+{
+    $totals = [];
+    foreach ($db->table('transaction_sell_lines_purchase_lines')->orderBy('id')->get() as $m) {
+        $totals[$m->purchase_line_id] = bcadd($totals[$m->purchase_line_id] ?? '0', $m->quantity, 4);
+    }
+    ksort($totals, SORT_NUMERIC);
+    return $totals;
+}
+function receiveSynthetic($db, $quantity, $type = 'purchase', $business = 1, $location = 2)
+{
+    // Only synthetic receipt graph rows. This intentionally models stock having
+    // ALREADY been added by the receipt controller before reconciliation.
+    $id = $db->table('transactions')->insertGetId(['business_id' => $business, 'location_id' => $location,
+        'type' => $type, 'status' => 'received', 'transaction_date' => date('Y-m-d H:i:s')]);
+    $db->table('purchase_lines')->insert(['transaction_id' => $id, 'product_id' => 4, 'variation_id' => 5,
+        'quantity' => $quantity, 'quantity_sold' => '0.0000', 'quantity_adjusted' => '0.0000',
+        'quantity_returned' => '0.0000', 'mfg_quantity_used' => '0.0000']);
+    $before = SavedSaleSplitService::decimal($db->table('variation_location_details')->where('id', 1)->value('qty_available'));
+    $db->table('variation_location_details')->where('id', 1)->update(['qty_available' => bcadd($before, $quantity, 4)]);
+    return App\Transaction::findOrFail($id);
+}
+function reconcileReceipt($db, $receipt)
+{
+    $db->transaction(function () use ($receipt) { (new App\Utils\ProductUtil())->adjustStockOverSelling($receipt); });
+}
+foreach ([false, true] as $mixed) {
+    foreach ([['1.5000', false], ['4.0000', false], ['1.5000', true]] as [$quantity, $wholeSecond]) {
+        [$db, $service, $actor] = sentinelFixture($mixed);
+        $before = snapshot($db); $ledger = allocationLedger($db);
+        $p = $service->preview(1, $actor);
+        check($p['eligible'] && snapshot($db) === $before, 'sentinel/mixed preview read-only');
+        $lines = [['id' => 1, 'quantity' => $quantity]];
+        if ($wholeSecond) { $lines[] = ['id' => 2, 'quantity' => '2.0000']; }
+        $req = requestFor($service, $actor, $lines);
+        $response = $service->split(1, $actor, $req);
+        check(allocationLedger($db) === $ledger, 'split conserves every real/sentinel allocation quantity');
+        foreach (['purchase_lines', 'variation_location_details', 'transaction_payments', 'eis_sales'] as $table) {
+            check(snapshot($db)[$table] === $before[$table], 'oversold final split no mutation '.$table);
+        }
+        $after = snapshot($db);
+        check($service->split(1, $actor, $req) === $response && snapshot($db) === $after, 'sentinel split durable replay');
+        foreach ([1, $response['result_id']] as $id) {
+            $cash = cashRequest($service, $actor, $id);
+            $paid = $service->checkout($id, $actor, $cash);
+            check($paid['bill']['payment_status'] === 'paid', 'each oversold final bill checked out');
+            check(snapshot($db)['variation_location_details'] === $before['variation_location_details'] &&
+                snapshot($db)['purchase_lines'] === $before['purchase_lines'], 'final cash never decrements stock/consumption');
+            $committed = snapshot($db);
+            check($service->checkout($id, $actor, $cash) === $paid && snapshot($db) === $committed, 'sentinel cash UUID retry exact');
+        }
+        check(allocationLedger($db) === $ledger && $service->scheduled === 2, 'two payments but unchanged stock allocations');
+    }
+}
+foreach ([null, '', '00', '-0', '0.0', ' 0', '0e0', 'abc', '-1', '99999'] as $reference) {
+    [$db, $service, $actor] = sentinelFixture();
+    $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update(['purchase_line_id' => $reference]);
+    $p = $service->preview(1, $actor); $before = snapshot($db);
+    check(!$p['eligible'] && $p['reason']['code'] === 'unsupported_purchase_mapping', 'invalid reference rejected '.var_export($reference, true));
+    rejects(function () use ($service, $actor) { $service->split(1, $actor, requestFor($service, $actor)); }, 'unsupported_purchase_mapping');
+    rejects(function () use ($service, $actor) { $service->checkout(1, $actor, cashRequest($service, $actor)); }, 'unsupported_purchase_mapping');
+    check(snapshot($db) === $before, 'invalid sentinel reference leaves all rows unchanged');
+}
+foreach (['0', '-1', '0.00001', 'oops'] as $quantity) {
+    [$db, $service, $actor] = sentinelFixture();
+    $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update(['quantity' => $quantity]);
+    $p = $service->preview(1, $actor);
+    check(!$p['eligible'], 'nonpositive/malformed/excess precision sentinel rejected');
+}
+foreach (['absent', 'partial', 'returned', 'unknown'] as $state) {
+    [$db, $service, $actor] = sentinelFixture();
+    if ($state === 'absent') { $db->table('transaction_sell_lines_purchase_lines')->where('sell_line_id', 1)->delete(); }
+    if ($state === 'partial') { $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update(['quantity' => '0.5000']); }
+    if ($state === 'returned') { $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update(['qty_returned' => '0.0001']); }
+    if ($state === 'unknown') {
+        $db->getSchemaBuilder()->table('transaction_sell_lines_purchase_lines', function (Blueprint $t) { $t->text('module_state')->nullable(); });
+        $db->table('transaction_sell_lines_purchase_lines')->where('id', 1)->update(['module_state' => 'x']);
+    }
+    check(!$service->preview(1, $actor)['eligible'], 'sentinel mapping coverage/metadata blocked '.$state);
+}
+foreach ([null, '{}', '{"allow_overselling":0}', '{"allow_overselling":false}'] as $settings) {
+    [$db, $service, $actor] = sentinelFixture();
+    $db->table('business')->update(['pos_settings' => $settings]);
+    check(!$service->preview(1, $actor)['eligible'] && !$service->checkoutPreview(1, $actor)['eligible'], 'existing sentinel needs enabled tenant flag for split/cash');
+    [$db, $service, $actor] = checkoutFixture(true);
+    $db->table('business')->update(['pos_settings' => $settings]);
+    check($service->checkoutPreview(1, $actor)['eligible'], 'real allocated final checkout independent of flag');
+}
+
+// Draft checkout uses canonical exact stock/mapping helpers, never synthetic supply.
+foreach (['0.0000', '-2.3456', '1.1234', null] as $stock) {
+    foreach ([false, true] as $enabled) {
+        [$db, $service, $actor] = checkoutFixture(false);
+        $db->table('business')->update(['pos_settings' => json_encode(['allow_overselling' => $enabled])]);
+        $db->table('purchase_lines')->update(['quantity' => '0.0000']);
+        if ($stock === null) { $db->table('variation_location_details')->delete(); }
+        else { $db->table('variation_location_details')->update(['qty_available' => $stock]); }
+        $req = cashRequest($service, $actor); $before = snapshot($db);
+        if (!$enabled) {
+            rejects(function () use ($service, $actor, $req) { $service->checkout(1, $actor, $req); }, 'checkout_stock_unavailable');
+            check(snapshot($db) === $before && $service->scheduled === 0, 'disabled overselling refuses low/missing stock atomically');
+            continue;
+        }
+        $paid = $service->checkout(1, $actor, $req);
+        check($paid['bill']['payment_status'] === 'paid', 'draft shortage allowed only by tenant flag');
+        check($db->table('variation_location_details')->value('qty_available') === bcsub($stock ?? '0', '6', 4), 'draft canonical negative stock exact');
+        check(allocationLedger($db) === [0 => '6.0000'], 'no fabricated positive purchase supply');
+        check(snapshot($db)['purchase_lines'] === $before['purchase_lines'], 'zero receipt supply never consumed');
+        $after = snapshot($db);
+        check($service->checkout(1, $actor, $req) === $paid && snapshot($db) === $after, 'negative stock retry consumes once');
+    }
+}
+foreach ([false, true] as $enabled) {
+    [$db, $service, $actor] = checkoutFixture(false);
+    $db->table('business')->update(['pos_settings' => json_encode(['allow_overselling' => $enabled])]);
+    $db->table('purchase_lines')->where('id', 1)->update(['quantity' => '1.2345']);
+    $db->table('purchase_lines')->where('id', 2)->update(['quantity' => '0']);
+    $req = cashRequest($service, $actor); $before = snapshot($db);
+    if (!$enabled) {
+        rejects(function () use ($service, $actor, $req) { $service->checkout(1, $actor, $req); }, 'checkout_stock_unavailable');
+        check(snapshot($db) === $before, 'canonical purchase supply shortage rollback despite positive location stock');
+    } else {
+        $service->checkout(1, $actor, $req);
+        check(allocationLedger($db) === [0 => '4.7655', 1 => '1.2345'], 'canonical mixed real supply plus exact sentinel shortage');
+        check($db->table('purchase_lines')->where('id', 1)->value('quantity_sold') === '1.2345', 'only real available supply consumed');
+    }
+}
+
+// Later receipts consume historical debt across both split participants. Paid
+// fiscal graphs remain protected; flag changes do not erase historical debt.
+foreach (['purchase', 'purchase_transfer', 'opening_stock', 'production_purchase'] as $type) {
+    foreach ([false, true] as $mixed) {
+        [$db, $service, $actor] = sentinelFixture($mixed);
+        $split = $service->split(1, $actor, requestFor($service, $actor, [['id' => 1, 'quantity' => '1.5000'], ['id' => 2, 'quantity' => '2']]));
+        $service->checkout(1, $actor, cashRequest($service, $actor));
+        $db->table('business')->update(['pos_settings' => '{}']);
+        $db->table('eis_sales')->insert(['transaction_id' => 1, 'status' => 'submitted']);
+        $initial = allocationLedger($db); $debt = $initial[0];
+        $stale = requestFor($service, $actor);
+        $receipt = receiveSynthetic($db, '0.7500', $type);
+        $stockBefore = snapshot($db)['variation_location_details'];
+        $protected = snapshot($db);
+        reconcileReceipt($db, $receipt);
+        $purchaseId = $db->table('purchase_lines')->where('transaction_id', $receipt->id)->value('id');
+        check($db->table('purchase_lines')->where('id', $purchaseId)->value('quantity_sold') === '0.7500', 'receipt partial exact consumption '.$type);
+        check(allocationLedger($db)[0] === bcsub($debt, '0.7500', 4), 'partial receipt debt reduction across split');
+        foreach (['transactions', 'transaction_sell_lines', 'transaction_payments', 'eis_sales', 'saved_sale_split_operations', 'variation_location_details'] as $table) {
+            check(snapshot($db)[$table] === $protected[$table], 'receipt preserves protected graph '.$table);
+        }
+        check(snapshot($db)['variation_location_details'] === $stockBefore, 'receipt reconciliation never decrements stock twice');
+        $after = snapshot($db); reconcileReceipt($db, $receipt);
+        check(snapshot($db) === $after, 'partial receipt repeated reconciliation inert');
+        rejects(function () use ($service, $actor, $stale) { $service->split(1, $actor, $stale); }, 'stale_split_version');
+        $receipt = receiveSynthetic($db, '10.0000', $type);
+        $beforeStock = snapshot($db)['variation_location_details'];
+        reconcileReceipt($db, $receipt);
+        $purchaseId = $db->table('purchase_lines')->where('transaction_id', $receipt->id)->value('id');
+        check(!isset(allocationLedger($db)[0]), 'later receipt completely reconciles sentinel debt');
+        check($db->table('purchase_lines')->where('id', $purchaseId)->value('quantity_sold') === bcsub($debt, '0.7500', 4), 'complete receipt consumes only outstanding debt');
+        check(snapshot($db)['variation_location_details'] === $beforeStock, 'complete debt reconciliation no stock decrement');
+        if ($mixed) { check(allocationLedger($db)[1] === $initial[1], 'old real purchase allocation remains invariant'); }
+        $after = snapshot($db); reconcileReceipt($db, $receipt);
+        check(snapshot($db) === $after, 'complete receipt replay inert');
+        foreach ([1, $split['result_id']] as $id) {
+            rejects(function () use ($db, $id) { $db->transaction(function () use ($db, $id) { SavedSaleWriteGuard::lock($db, $id); }); }, 'split_write_fenced');
+        }
+        rejects(function () use ($db) { $db->transaction(function () { $m = App\TransactionSellLinesPurchaseLines::first(); $m->quantity = '99'; $m->save(); }); }, 'split_write_fenced');
+    }
+}
+// Multiple receipt lines for the same variant must refresh residual debt ids.
+[$db, $service, $actor] = sentinelFixture();
+$service->split(1, $actor, requestFor($service, $actor));
+$receipt = receiveSynthetic($db, '0.2500');
+$db->table('purchase_lines')->insert(['transaction_id' => $receipt->id, 'product_id' => 4, 'variation_id' => 5,
+    'quantity' => '0.8750', 'quantity_sold' => '0', 'quantity_adjusted' => '0', 'quantity_returned' => '0', 'mfg_quantity_used' => '0']);
+reconcileReceipt($db, $receipt);
+check(allocationLedger($db)[0] === '4.8750', 'same-variant receipt rows consume residual ids exactly once');
+
+// Scope denies unrelated legacy model writes even DURING an allocation save.
+foreach (['header', 'line', 'payment', 'fiscal', 'allocation', 'allocation_delete'] as $kind) {
+    [$db, $service, $actor] = sentinelFixture();
+    $service->split(1, $actor, requestFor($service, $actor));
+    $receipt = receiveSynthetic($db, '0.2500');
+    new App\TransactionSellLinesPurchaseLines(); // Register real booted guards before the synthetic observer.
+    App\TransactionSellLinesPurchaseLines::saving(function () use ($kind) {
+        if ($kind === 'header') { $m = App\Transaction::find(1); $m->final_total = '999'; $m->save(); }
+        if ($kind === 'line') { $m = App\TransactionSellLine::find(1); $m->quantity = '99'; $m->save(); }
+        if ($kind === 'payment') { App\TransactionPayment::create(['transaction_id' => 1, 'amount' => '1']); }
+        if ($kind === 'fiscal') { Modules\EIS\Models\EisSale::create(['transaction_id' => 1, 'business_id' => 1, 'status' => 'pending']); }
+        if ($kind === 'allocation') { $m = App\TransactionSellLinesPurchaseLines::find(1); $m->quantity = '99'; $m->save(); }
+        if ($kind === 'allocation_delete') { App\TransactionSellLinesPurchaseLines::find(1)->delete(); }
+    });
+    $before = snapshot($db);
+    rejects(function () use ($db, $receipt) { reconcileReceipt($db, $receipt); }, 'split_write_fenced');
+    check(snapshot($db) === $before, 'allocation scope never authorizes '.$kind.' legacy write');
+}
+foreach (['allocation', 'consumption', 'protected_header', 'stock'] as $failure) {
+    [$db, $service, $actor] = sentinelFixture(true);
+    $service->split(1, $actor, requestFor($service, $actor));
+    $receipt = receiveSynthetic($db, '0.7500'); $before = snapshot($db);
+    if ($failure === 'allocation') {
+        $db->statement("CREATE TRIGGER reconciliation_fail BEFORE INSERT ON transaction_sell_lines_purchase_lines BEGIN SELECT RAISE(ABORT, 'reconciliation failure'); END");
+    } elseif ($failure === 'consumption') {
+        $db->statement("CREATE TRIGGER reconciliation_fail BEFORE UPDATE ON purchase_lines BEGIN SELECT RAISE(ABORT, 'reconciliation failure'); END");
+    } elseif ($failure === 'protected_header') {
+        $db->statement("CREATE TRIGGER reconciliation_corruption AFTER UPDATE ON purchase_lines BEGIN UPDATE transactions SET final_total = '999' WHERE id=1; END");
+    } else {
+        $db->statement("CREATE TRIGGER reconciliation_corruption AFTER UPDATE ON purchase_lines BEGIN UPDATE variation_location_details SET qty_available = '999' WHERE id=1; END");
+    }
+    try { reconcileReceipt($db, $receipt); throw new RuntimeException('missing reconciliation failure'); }
+    catch (SavedSplitException $e) { check($e->errorCode === 'stock_reconciliation_invalid', 'protected invariant detects corruption'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'reconciliation failure'), 'late allocation/consumption injected failure'); }
+    check(snapshot($db) === $before, 'complete reconciliation rollback '.$failure);
+    rejects(function () use ($db) { $db->transaction(function () { $m = App\TransactionSellLinesPurchaseLines::first(); $m->quantity = '99'; $m->save(); }); }, 'split_write_fenced');
+}
+foreach (['business', 'location', 'product', 'status', 'overconsumed'] as $invalid) {
+    [$db, $service, $actor] = sentinelFixture();
+    $service->split(1, $actor, requestFor($service, $actor));
+    $receipt = receiveSynthetic($db, '1.0000');
+    if ($invalid === 'business') { $db->table('transactions')->where('id', $receipt->id)->update(['business_id' => 2]); }
+    if ($invalid === 'location') { $db->table('transactions')->where('id', $receipt->id)->update(['location_id' => 999]); }
+    if ($invalid === 'product') { $db->table('products')->where('id', 4)->update(['business_id' => 2]); }
+    if ($invalid === 'status') { $db->table('transactions')->where('id', $receipt->id)->update(['status' => 'draft']); }
+    if ($invalid === 'overconsumed') { $db->table('purchase_lines')->where('transaction_id', $receipt->id)->update(['quantity_sold' => '2']); }
+    $before = snapshot($db);
+    rejects(function () use ($db, $receipt) { reconcileReceipt($db, $receipt); }, $invalid === 'product' ? 'unsupported_purchase_mapping' : 'stock_reconciliation_invalid');
+    check(snapshot($db) === $before, 'bad receipt graph rollback '.$invalid);
+}
+[$db, $service, $actor] = sentinelFixture();
+$receipt = receiveSynthetic($db, '1');
+rejects(function () use ($receipt) { (new App\Utils\ProductUtil())->adjustStockOverSelling($receipt); }, 'stock_reconciliation_invalid');
+rejects(function () { (new App\Utils\ProductUtil())->decreaseProductQuantity(4, 5, 2, '1', 0, 1); }, 'checkout_invariant_failed');
+
+// Fiscal adapter remains fail-closed when the REAL changed API reports CHECK_ERROR.
+[$db, $service, $actor] = checkoutFixture();
+$db->getSchemaBuilder()->drop('eis_offline_limits');
+$req = cashRequest($service, $actor); $before = snapshot($db);
+rejects(function () use ($service, $actor, $req) { $service->checkout(1, $actor, $req); }, 'checkout_fiscal_limits');
+check(snapshot($db) === $before && $service->scheduled === 0, 'real fiscal CHECK_ERROR never fail-open');
+
+foreach (['same_model_delete', 'cancel', 'redirect'] as $action) {
+    [$db, $service, $actor] = sentinelFixture();
+    $service->split(1, $actor, requestFor($service, $actor));
+    $receipt = receiveSynthetic($db, '0.2500');
+    new App\TransactionSellLinesPurchaseLines();
+    App\TransactionSellLinesPurchaseLines::saving(function ($m) use ($action) {
+        if ($action === 'same_model_delete') { $m->delete(); }
+        if ($action === 'cancel') { return false; }
+        if ($action === 'redirect') { $m->purchase_line_id = 1; }
+    });
+    $before = snapshot($db);
+    rejects(function () use ($db, $receipt) { reconcileReceipt($db, $receipt); },
+        $action === 'same_model_delete' ? 'split_write_fenced' : 'stock_reconciliation_invalid');
+    check(snapshot($db) === $before, 'exact saving capability rejects '.$action);
+}
+[$db, $service, $actor] = sentinelFixture();
+$db->transaction(function () use ($db, $service) {
+    $g = $service->lockedStockGraph(1, 1);
+    foreach ([0.0, false, true, [], null] as $reference) {
+        $invalid = $g; $invalid['mappings'][0]['purchase_line_id'] = $reference;
+        rejects(function () use ($service, $invalid) { $service->validateMappings($invalid, true); }, 'unsupported_purchase_mapping');
+    }
+    foreach ([0, '0'] as $reference) {
+        $valid = $g; $valid['mappings'][0]['purchase_line_id'] = $reference;
+        $service->validateMappings($valid, true); check(true, 'explicit numeric zero sentinel accepted');
+    }
+});
+foreach (['quantity', 'quantity_sold', 'quantity_adjusted', 'quantity_returned', 'mfg_quantity_used'] as $field) {
+    [$db, $service, $actor] = allocatedFixture();
+    $db->table('purchase_lines')->where('id', 1)->update([$field => $field === 'quantity' ? '0' : '99']);
+    check(!$service->preview(1, $actor)['eligible'], 'invalid real supply/consumption blocked '.$field);
+}
+// Canonical receipt-edit bulk repair must never rewrite real split allocations.
+foreach (['shrink', 'unreceive', 'delete'] as $action) {
+    [$db, $service, $actor] = allocatedFixture();
+    $service->split(1, $actor, requestFor($service, $actor));
+    $receipt = App\Transaction::find(100);
+    if ($action === 'shrink') { $db->table('purchase_lines')->where('id', 1)->update(['quantity' => '0.5000']); }
+    if ($action === 'unreceive') { $receipt->status = 'pending'; }
+    $deleted = $action === 'delete' ? App\PurchaseLine::where('id', 1)->get() : null;
+    $before = snapshot($db);
+    rejects(function () use ($db, $receipt, $deleted) {
+        $db->transaction(function () use ($receipt, $deleted) {
+            (new App\Utils\TransactionUtil())->adjustMappingPurchaseSellAfterEditingPurchase('received', $receipt, $deleted);
+        });
+    }, 'split_write_fenced');
+    check(snapshot($db) === $before, 'legacy receipt repair cannot change existing split consumption '.$action);
+}
+// A normal unsplit sale remains reconcilable through the same canonical entry.
+[$db, $service, $actor] = sentinelFixture(true);
+$receipt = receiveSynthetic($db, '0.4321');
+reconcileReceipt($db, $receipt);
+check(allocationLedger($db)[0] === '4.5679', 'ordinary non-split sale receipt reconciliation retained');
+$before = snapshot($db); reconcileReceipt($db, $receipt);
+check(snapshot($db) === $before, 'ordinary non-split receipt repeated exactly once');
+
+// Non-sale debt keeps the legacy transfer path, without bypassing saved fences.
+[$db, $service, $actor] = sentinelFixture();
+$service->split(1, $actor, requestFor($service, $actor));
+$db->table('transactions')->insert(['id' => 200, 'business_id' => 1, 'location_id' => 2, 'type' => 'sell_transfer', 'status' => 'final']);
+$db->table('transaction_sell_lines')->insert(['id' => 200, 'transaction_id' => 200, 'product_id' => 4, 'variation_id' => 5, 'quantity' => '1.0000']);
+$db->table('transaction_sell_lines_purchase_lines')->insert(['sell_line_id' => 200, 'purchase_line_id' => 0, 'quantity' => '1.0000']);
+$receipt = receiveSynthetic($db, '10.0000');
+reconcileReceipt($db, $receipt);
+check(!isset(allocationLedger($db)[0]), 'receipt handles both split debt and ordinary outgoing transfer debt');
+check(bccomp($db->table('purchase_lines')->where('transaction_id', $receipt->id)->value('quantity_sold'), '7', 4) === 0,
+    'canonical non-sale reconciliation uses refreshed receipt balance');
+
+[$db, $service, $actor] = checkoutFixture(false);
+$db->table('business')->update(['pos_settings' => '{"allow_overselling":1}']);
+$beforeBusiness = snapshot($db)['business'];
+$service->checkout(1, $actor, cashRequest($service, $actor));
+check(!isset(allocationLedger($db)[0]), 'enabled overselling never bypasses available real purchase supply');
+check(snapshot($db)['business'] === $beforeBusiness, 'checkout never mutates tenant settings');
+foreach (['payment', 'allocation', 'ledger'] as $failure) {
+    [$db, $service, $actor] = checkoutFixture(false);
+    $db->table('business')->update(['pos_settings' => '{"allow_overselling":1}']);
+    $db->table('purchase_lines')->update(['quantity' => '0']);
+    $db->table('variation_location_details')->delete();
+    $req = cashRequest($service, $actor); $before = snapshot($db);
+    $table = ['payment' => 'transaction_payments', 'allocation' => 'transaction_sell_lines_purchase_lines', 'ledger' => 'saved_sale_split_operations'][$failure];
+    $event = $failure === 'ledger' ? 'UPDATE' : 'INSERT';
+    $db->statement("CREATE TRIGGER oversell_fail BEFORE $event ON $table BEGIN SELECT RAISE(ABORT, 'oversell failure'); END");
+    try { $service->checkout(1, $actor, $req); throw new RuntimeException('missing overselling rollback'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'oversell failure'), 'overselling injected late failure'); }
+    check(snapshot($db) === $before && $service->scheduled === 0, 'new negative stock row and sentinel rollback '.$failure);
+}
+
+echo "PASS: $checks isolated saved-sale split/overselling/reconciliation checks. No application/kernel/live database boot.\n";

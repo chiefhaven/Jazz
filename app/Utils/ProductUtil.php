@@ -396,9 +396,17 @@ class ProductUtil extends Util
      * @param $old_quantity = 0
      * @return bool
      */
-    public function decreaseProductQuantity($product_id, $variation_id, $location_id, $new_quantity, $old_quantity = 0)
+    public function decreaseProductQuantity($product_id, $variation_id, $location_id, $new_quantity, $old_quantity = 0, $saved_sale_id = null)
     {
+        $savedDecimal = $saved_sale_id !== null;
+        if ($savedDecimal && !\App\Services\Sales\SavedSaleWriteGuard::isCheckout(DB::connection(), $saved_sale_id)) {
+            throw new \App\Services\Sales\SavedSplitException('checkout_invariant_failed', 'Exact saved stock decrement requires the internal checkout scope.');
+        }
         $qty_difference = $new_quantity - $old_quantity;
+        if ($savedDecimal) {
+            $qty_difference = bcsub(\App\Services\Sales\SavedSaleSplitService::decimal($new_quantity),
+                \App\Services\Sales\SavedSaleSplitService::decimal($old_quantity), 4);
+        }
 
         $product = Product::find($product_id);
 
@@ -422,7 +430,13 @@ class ProductUtil extends Util
                 ]);
             }
 
-            $details->decrement('qty_available', $qty_difference);
+            if ($savedDecimal) {
+                $details->qty_available = bcsub(\App\Services\Sales\SavedSaleSplitService::decimal($details->getRawOriginal('qty_available')),
+                    $qty_difference, 4);
+                $details->save();
+            } else {
+                $details->decrement('qty_available', $qty_difference);
+            }
         }
 
         return true;
@@ -1480,6 +1494,28 @@ class ProductUtil extends Util
         if ($transaction->status != 'received') {
             return false;
         }
+        if (!$transaction->getConnection()->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
+            return $this->legacyAdjustStockOverSelling($transaction);
+        }
+        $db = $transaction->getConnection();
+        if ($db->transactionLevel() < 1) {
+            throw new \App\Services\Sales\SavedSplitException('stock_reconciliation_invalid', 'Purchase reconciliation requires an enclosing transaction.');
+        }
+        return $db->transaction(function () use ($transaction) {
+            \App\Services\Sales\SavedSaleWriteGuard::reconcileStock($transaction);
+            // Non-sale debts (e.g. outgoing stock transfers) retain their
+            // canonical legacy semantics and NEVER receive split authority.
+            $transaction->unsetRelation('purchase_lines');
+            $this->legacyAdjustStockOverSelling($transaction, true);
+            return true;
+        });
+    }
+
+    private function legacyAdjustStockOverSelling($transaction, $excludeSavedSales = false)
+    {
+        if ($transaction->status != 'received') {
+            return false;
+        }
 
         foreach ($transaction->purchase_lines as $purchase_line) {
             if ($purchase_line->product->enable_stock == 1) {
@@ -1497,6 +1533,8 @@ class ProductUtil extends Util
                 ->join('transaction_sell_lines as tsl', 'tsl.id', '=', 'transaction_sell_lines_purchase_lines.sell_line_id')
                 ->join('transactions as t', 'tsl.transaction_id', '=', 't.id')
                 ->where('t.location_id', $transaction->location_id)
+                ->where('t.business_id', $transaction->business_id)
+                ->when($excludeSavedSales, function ($q) { $q->where('t.type', '!=', 'sell'); })
                 ->where('tsl.variation_id', $purchase_line->variation_id)
                 ->where('tsl.product_id', $purchase_line->product_id)
 

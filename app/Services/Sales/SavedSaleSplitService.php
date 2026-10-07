@@ -94,6 +94,11 @@ class SavedSaleSplitService
         }
     }
 
+    public function stockReconciliationStorage()
+    {
+        $this->storage(['variation_location_details']);
+    }
+
     private function actor($user)
     {
         if (!$user || !$user->id || !$user->business_id) {
@@ -125,6 +130,28 @@ class SavedSaleSplitService
             (!$admin && !$user->can('access_all_locations') && !$user->can('location.'.$h['location_id']))) {
             $this->fail('split_forbidden', 'Sale location is not permitted.', 403);
         }
+        return $this->loadGraph($h);
+    }
+
+    /** Internal stock reconciliation reads the same locked graph, without granting
+     * sale editing/checkout authority or relaxing its unpaid/fiscal eligibility.
+     */
+    public function lockedStockGraph($id, $businessId)
+    {
+        if ($this->db->transactionLevel() < 1) {
+            $this->fail('stock_reconciliation_invalid', 'Stock reconciliation requires a transaction.');
+        }
+        $header = $this->db->table('transactions')->where('id', $id)->where('business_id', $businessId)
+            ->where('type', 'sell')->where('status', 'final')->lockForUpdate()->first();
+        if (!$header) {
+            $this->fail('stock_reconciliation_invalid', 'Stock reconciliation requires an existing tenant final sale.');
+        }
+        return $this->loadGraph((array) $header);
+    }
+
+    private function loadGraph(array $h)
+    {
+        $id = $h['id'];
         $lines = $this->db->table('transaction_sell_lines')->where('transaction_id', $id)
             ->orderBy('id')->lockForUpdate()->get()->map(function ($r) { return (array) $r; })->all();
         $lineIds = array_column($lines, 'id');
@@ -267,20 +294,46 @@ class SavedSaleSplitService
         }
     }
 
-    private function validateMappings(array $g)
+    public function validateMappings(array $g, $allowSentinel = null)
     {
+        if ($allowSentinel === null) {
+            $settings = $this->db->table('business')->where('id', $g['header']['business_id'])->lockForUpdate()->value('pos_settings');
+            $settings = empty($settings) ? [] : json_decode($settings, true, 512, JSON_THROW_ON_ERROR);
+            $allowSentinel = is_array($settings) && !empty($settings['allow_overselling']);
+        }
         $consumed = [];
         foreach ($g['mappings'] as $map) {
             $key = $map['purchase_line_id'];
+            if ((!is_int($key) && !is_string($key)) || !preg_match('/^(?:0|[1-9]\d*)$/D', (string) $key)) {
+                $this->fail('unsupported_purchase_mapping', 'An explicit numeric purchase reference is required; only 0 denotes overselling.');
+            }
             $consumed[$key] = bcadd($consumed[$key] ?? '0.0000', self::decimal($map['quantity']), 4);
         }
         foreach ($g['purchases'] as $purchase) {
+            $capacity = self::decimal($purchase['quantity']);
+            $used = '0.0000';
+            foreach (['quantity_sold', 'quantity_adjusted', 'quantity_returned', 'mfg_quantity_used'] as $field) {
+                $value = self::decimal($purchase[$field] ?? '0');
+                if (bccomp($value, '0', 4) < 0) {
+                    $this->fail('unsupported_purchase_mapping', 'Negative recorded purchase consumption is invalid.');
+                }
+                $used = bcadd($used, $value, 4);
+            }
+            if (bccomp($capacity, '0', 4) <= 0 || bccomp($used, $capacity, 4) > 0) {
+                $this->fail('unsupported_purchase_mapping', 'Real purchase consumption exceeds positive received supply.');
+            }
             if (bccomp(self::decimal($purchase['quantity_sold']), $consumed[$purchase['id']] ?? '0.0000', 4) < 0) {
                 $this->fail('unsupported_purchase_mapping', 'Aggregate saved allocations exceed recorded purchase consumption.');
             }
         }
         foreach ($g['lines'] as $line) {
-            $stock = $this->db->table('products')->where('id', $line['product_id'])->value('enable_stock');
+            $product = $this->db->table('products')->where('id', $line['product_id'])
+                ->where('business_id', $g['header']['business_id'])->whereNull('deleted_at')->first();
+            if (!$product || !$this->db->table('variations')->where('id', $line['variation_id'])
+                ->where('product_id', $line['product_id'])->exists() || bccomp(self::decimal($line['quantity']), '0', 4) <= 0) {
+                $this->fail('unsupported_purchase_mapping', 'Allocation product/variation or positive saved quantity is invalid.');
+            }
+            $stock = $product->enable_stock;
             $sum = '0.0000';
             foreach ($g['mappings'] as $map) {
                 if ($map['sell_line_id'] != $line['id']) { continue; }
@@ -291,8 +344,15 @@ class SavedSaleSplitService
                     }
                 }
                 $quantity = self::decimal($map['quantity']);
-                if (bccomp($quantity, '0', 4) <= 0 || self::zero($map['purchase_line_id'])) {
-                    $this->fail('unsupported_purchase_mapping', 'Missing/oversold or nonpositive purchase allocation is unsupported.');
+                if (bccomp($quantity, '0', 4) <= 0) {
+                    $this->fail('unsupported_purchase_mapping', 'Nonpositive purchase allocation is unsupported.');
+                }
+                if ((string) $map['purchase_line_id'] === '0') {
+                    if (!$allowSentinel) {
+                        $this->fail('unsupported_purchase_mapping', 'The business must allow overselling for saved sentinel allocations.');
+                    }
+                    $sum = bcadd($sum, $quantity, 4);
+                    continue;
                 }
                 $purchase = null;
                 foreach ($g['purchases'] as $p) { if ($p['id'] == $map['purchase_line_id']) { $purchase = $p; break; } }
@@ -544,9 +604,6 @@ class SavedSaleSplitService
         if (!in_array($business->accounting_method ?? 'fifo', ['fifo', 'lifo'], true)) {
             $this->fail('checkout_unsupported', 'Unsupported stock accounting method.');
         }
-        if (!empty($settings['allow_overselling'])) {
-            $this->fail('checkout_unsupported', 'Overselling is unsupported by saved bill checkout.');
-        }
         return [$business, $settings];
     }
 
@@ -654,14 +711,16 @@ class SavedSaleSplitService
             foreach ($quantities as $variation => [$product, $quantity]) {
                 $stock = $this->db->table('variation_location_details')->where('product_id', $product)
                     ->where('variation_id', $variation)->where('location_id', $h['location_id'])->orderBy('id')->lockForUpdate()->get();
-                if ($stock->count() !== 1 || bccomp(self::decimal($stock[0]->qty_available), $quantity, 4) < 0) {
+                if ($stock->count() > 1 || (empty($settings['allow_overselling']) &&
+                    ($stock->count() !== 1 || bccomp(self::decimal($stock[0]->qty_available), $quantity, 4) < 0))) {
                     $this->fail('checkout_stock_unavailable', 'Insufficient or ambiguous saved product stock at the sale location.');
                 }
             }
             foreach ($quantities as $variation => [$product, $quantity]) {
-                $before = self::decimal($this->db->table('variation_location_details')->where('product_id', $product)
-                    ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available'));
-                $productUtil->decreaseProductQuantity($product, $variation, $h['location_id'], $quantity);
+                $beforeValue = $this->db->table('variation_location_details')->where('product_id', $product)
+                    ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available');
+                $before = $beforeValue === null ? '0.0000' : self::decimal($beforeValue);
+                $productUtil->decreaseProductQuantity($product, $variation, $h['location_id'], $quantity, 0, $h['id']);
                 $after = self::decimal($this->db->table('variation_location_details')->where('product_id', $product)
                     ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available'));
                 if (bccomp($after, bcsub($before, $quantity, 4), 4) !== 0) {

@@ -3472,6 +3472,7 @@ class TransactionUtil extends Util
 
             $rows = $query->select(
                 'PL.id as purchase_lines_id',
+                'PL.quantity as purchase_quantity',
                 DB::raw($saved_decimal_checkout
                     ? "CAST((PL.quantity - ( $qty_sum_query )) AS CHAR) AS quantity_available"
                     : "(PL.quantity - ( $qty_sum_query )) AS quantity_available"),
@@ -3487,6 +3488,19 @@ class TransactionUtil extends Util
             //Iterate over the rows, assign the purchase line to sell lines.
             $qty_selling = $saved_decimal_checkout ? \App\Services\Sales\SavedSaleSplitService::decimal($line->getRawOriginal('quantity')) : $line->quantity;
             foreach ($rows as $k => $row) {
+                if ($saved_decimal_checkout) {
+                    // Do not trust a SQL expression coerced to binary float by
+                    // a driver. The saved ledger uses raw DECIMAL columns only.
+                    $row->quantity_available = \App\Services\Sales\SavedSaleSplitService::decimal($row->purchase_quantity);
+                    foreach (['quantity_sold', 'quantity_adjusted', 'quantity_returned', 'mfg_quantity_used'] as $field) {
+                        $used = \App\Services\Sales\SavedSaleSplitService::decimal($row->$field ?? '0');
+                        if (bccomp($used, '0', 4) < 0) {
+                            throw new \App\Services\Sales\SavedSplitException('unsupported_purchase_mapping', 'Negative recorded purchase consumption is invalid.');
+                        }
+                        $row->quantity_available = bcsub($row->quantity_available, $used, 4);
+                    }
+                    if (bccomp($row->quantity_available, '0', 4) <= 0) { continue; }
+                }
                 $qty_allocated = 0;
 
                 //Check if qty_available is more or equal
@@ -3551,6 +3565,9 @@ class TransactionUtil extends Util
             if (! ($qty_selling == 0 || is_null($qty_selling))) {
                 //If overselling not allowed through exception else create mapping with blank purchase_line_id
                 if (! $allow_overselling) {
+                    if ($saved_decimal_checkout) {
+                        throw new \App\Services\Sales\SavedSplitException('checkout_stock_unavailable', 'Insufficient received purchase supply for this saved checkout.');
+                    }
                     $variation = Variation::find($line->variation_id);
                     $mismatch_name = $product->name;
                     if (! empty($variation->sub_sku)) {
@@ -3855,6 +3872,18 @@ class TransactionUtil extends Util
         //Get detail of purchase lines deleted
         if (! empty($delete_purchase_lines)) {
             $purchase_lines = $delete_purchase_lines->toArray() + $purchase_lines;
+        }
+
+        // This legacy repair uses bulk mapping writes (no model events) and its
+        // synthetic allocator lines do not carry transaction_id. Fence affected
+        // split sales BEFORE any consumption decrement/delete/reallocation.
+        $purchase_ids = array_column($purchase_lines, 'id');
+        $sale_ids = DB::table('transaction_sell_lines_purchase_lines as m')
+            ->join('transaction_sell_lines as l', 'l.id', '=', 'm.sell_line_id')
+            ->whereIn('m.purchase_line_id', $purchase_ids)->distinct()->orderBy('l.transaction_id')
+            ->pluck('l.transaction_id');
+        foreach ($sale_ids as $sale_id) {
+            \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $sale_id);
         }
 
         //All sell lines & Stock adjustment lines.

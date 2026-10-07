@@ -23,7 +23,11 @@ class TransactionSellLinesPurchaseLines extends Model
                 \App\Services\Sales\SavedSaleWriteGuard::lock($model->getConnection(), $header);
             }
         };
-        static::saving($guard);
+        static::saving(function ($model) use ($guard) {
+            if (!\App\Services\Sales\SavedSaleWriteGuard::isStockAllocation($model)) {
+                $guard($model);
+            }
+        });
         static::deleting($guard);
     }
 
