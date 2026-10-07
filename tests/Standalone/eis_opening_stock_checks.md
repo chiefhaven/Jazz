@@ -1,0 +1,49 @@
+# Safe EIS opening-stock initialization
+
+## Changed sources
+
+- `Modules/EIS/Services/Products/ProductUpsertService.php`: locks the business/product/map identity; never replaces a missing or cross-business mapped product; rejects ambiguous fallback identities/variations; refreshes catalogue metadata/prices independently of inventory; removes the absolute availability overwrite and arbitrary site fallback.
+- `Modules/EIS/Services/Products/ProductTransformer.php`: preserves an explicit validated stock source and unambiguous site separately from existing catalogue fallback fields; explicit false stock tracking stays false.
+- `Modules/EIS/Services/Products/EisProductClient.php` and `Modules/EIS/Services/Sync/ProductSyncService.php`: share the exact request-site selection and pass trusted, business-matched request context to the transformer.
+- `Modules/EIS/Services/Products/OpeningStockInitializer.php`: testable connection-based, transactional one-time supply initializer.
+- `tests/Standalone/eis_opening_stock_checks.php` and this document: isolated verification and operational boundaries.
+
+## Invariants
+
+The first clean, tracked, single-variation import at exactly one tenant/site location creates one received `opening_stock` transaction, one purchase line (including explicit zero), and exact availability. The transaction links `opening_stock_product_id`; purchase lines carry normal quantity-consumption counters and purchase costs. Totals/quantities use BCMath at four decimal places. Header `total_before_tax` is quantity times the stored tax-exclusive cost; `final_total` is quantity times stored tax-inclusive cost; `tax_amount` is the difference of those totals. All header amounts and unit tax differences must fit nonnegative DECIMAL(22,4). No sell allocation mappings are rewritten. Inspection of `ProductUtil::addSingleProductOpeningStock` confirms compatible exclusive/inclusive purchase-line fields, but its legacy header puts the inclusive total in both fields; that unrelated utility is not changed or copied here. Existing initialized headers remain immutable, not silently repaired by repull.
+
+An `eis_opening_stock_v1` object in the existing map `meta` stores business/product/variation/location/EIS/site identity, quantity, transaction/purchase-line IDs and initialization time. Other map metadata is retained. All graph writes and the marker share the enclosing transaction. Import retries, changed EIS snapshots, local sales/adjustments/consumption and even deletion of the original ledger never trigger another supply or reset availability. Site drift or an inconsistent marker is blocked, not relocated. The marker is not a repair/reconciliation mechanism.
+
+An ordinary existing catalogue product first matched without an EIS map receives a durable catalogue-only exclusion, not ownership of its stock. Unmarked legacy nonzero/negative/invalid availability, any historical purchase/sell/adjustment (including orphaned lines or a sell with sentinel allocation), duplicate/inconsistent stock rows, other stock locations and existing opening headers require manual review. Catalogue metadata can still sync when the identity is safe. Missing/conflicting/ambiguous identity cannot safely select a catalogue product and rejects the import instead of remapping it.
+
+## Input and storage requirements
+
+- Stock must be explicit in `quantity`, `stock` or `stockQuantity`, as a nonnegative decimal string or integer with at most four fractional digits and 18 integer digits. Multiple provided aliases must agree. At this ingestion boundary only, finite nonnegative decoded floats <=1e9 are accepted if canonical JSON encoding (`serialize_precision=-1`, preserving a zero fractional part) passes the same strict decimal validator: <=4 fractional places, no exponent, no rounding. A different encoder precision fails closed for floats. Ledger `decimal()` still rejects every float; string/integer bounds remain unchanged. Absence/null, booleans, arrays, negative quantities, excess precision and exponent-encoded values are never rounded or treated as zero. This validates the decoded payload, **not raw JSON-token exactness**: a source exponent or precision already lost during decoding cannot be reconstructed. Catalogue transformation's old float fallback is never an initialization input.
+- Site aliases/nested explicit site must agree and match exactly one business location. Only truly missing per-item site fields may inherit the exact site actually sent by the terminal-products request (`settings->site_id ?? settings->branch_id`). Sync verifies settings business against the target business and snapshots settings before requests. Invalid settings fail before any request/import; invalid or conflicting explicit item sites never inherit context. An empty explicit settings site does not fall back to branch. Unknown requested sites never fall back to another local location. Direct transforms without request context remain unscoped. No default/first-location fallback is allowed.
+- In MySQL, every table involved in stock/history/identity locking must be InnoDB, particularly `eis_product_maps`. Initialization fails closed with a table-specific diagnosis for MyISAM/missing/other engines. Catalogue sync is not certification of atomicity for nontransactional catalogue tables. **No engine conversion or migration is included or executed.** An operator must review storage before enabling initialization on an installation with MyISAM maps.
+- The helper requires an enclosing transaction and locks the business, product, map, variation, location, movement rows and availability. Business serialization coordinates this importer, including absent-map creation. Other application writers and actual concurrent MySQL behavior are not certified by SQLite tests.
+- Existing uncertain stock/allocations must be reconciled deliberately with an audited opening-stock procedure, not a repeated EIS pull or deleting the marker. Diagnostic logs name the reason and require manual review. Saved-sale allocation fences are unchanged.
+
+## Verification
+
+Final verification on 2026-10-07: all six PHP lint checks pass; **326 isolated assertions pass twice consecutively**. Changed PHP files retain CRLF; `git diff --check` is clean. The protected `EisSale` SHA256 remains unchanged, and there are no diffs to either saved-sale fence/service.
+
+Run directly from any directory, with PHP BCMath and PDO SQLite available:
+
+```powershell
+php -l C:\wamp64\www\jazz\Modules\EIS\Services\Products\OpeningStockInitializer.php
+php -l C:\wamp64\www\jazz\Modules\EIS\Services\Products\ProductUpsertService.php
+php -l C:\wamp64\www\jazz\Modules\EIS\Services\Products\ProductTransformer.php
+php -l C:\wamp64\www\jazz\Modules\EIS\Services\Products\EisProductClient.php
+php -l C:\wamp64\www\jazz\Modules\EIS\Services\Sync\ProductSyncService.php
+php -l C:\wamp64\www\jazz\tests\Standalone\eis_opening_stock_checks.php
+php -d error_reporting=8191 C:\wamp64\www\jazz\tests\Standalone\eis_opening_stock_checks.php
+```
+
+The suite uses installed Composer classes, a bare Container, synthetic config/logger, actual Eloquent models/transformer/upserter, and fresh SQLite `:memory:` databases. No Laravel application/kernel, `.env`, production database, network, migration, queue or live EIS call is used. Synthetic SQL triggers inject purchase-line and marker-write failures. A SQLite connection with synthetic engine metadata exercises MyISAM refusal; it does not connect to MySQL. Deprecations from older dependencies on PHP 8.4 are excluded by the CLI flag; other errors remain enabled.
+
+Coverage includes the real sync/transform/import chain with synthetic settings/client and repeated pages; the actual client POST builder using an in-process HTTP fake; missing versus invalid/conflicting explicit sites; site/branch precedence, business mismatch and unknown-site refusal; bounded floats (0.0, 1.5, 12.5), NaN/infinities, large/scientific/excess-precision and encoder-rounding refusal; taxed positive/zero/fractional header and line totals, overflow and DECIMAL upper boundaries. Existing positive/zero opening graphs, exact large decimals above IEEE-754's integer boundary, repeated imports after sales/consumption, changed snapshots/prices/metadata, missing/invalid stock, nonstock, site drift/ambiguity, multiple/deleted variations, corrupt/cross-tenant maps, ordinary and legacy stock, sentinel sale allocations, intact unrelated metadata, complete rollback/retry, engine refusal and no ledger recreation after marker initialization remain covered.
+
+The existing standalone saved-sale suite was also attempted without source changes. It stops in the externally changed `EisSale::checkOfflineLimits` on the unresolved global `Log` class. A process-local test logger removes only that logging error, but the existing code still returns `CHECK_ERROR` and the saved-sale fence correctly rejects checkout. This is an independent regression limitation, not repaired or bypassed here; `EisSale` and the saved-sale fence were not edited. The new opening-stock suite is independent of that code path.
+
+No real production data, storage engines, migrations, concurrent row locks, HTTP response formats, live sale allocation or deployment have been exercised. The user must review these operational prerequisites before deploying. The MyISAM refusal is intentional, not a reason to weaken the stock/marker transaction requirement.

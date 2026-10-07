@@ -4,6 +4,7 @@ namespace Modules\EIS\Services\Sync;
 
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Services\Products\EisProductClient;
+use Modules\EIS\Services\Products\OpeningStockInitializer;
 use Modules\EIS\Services\Products\ProductTransformer;
 use Modules\EIS\Services\Products\ProductUpsertService;
 
@@ -17,6 +18,18 @@ class ProductSyncService
 
     public function sync($settings, int $businessId)
     {
+        if (!is_object($settings) || $businessId <= 0
+            || (!is_int($settings->business_id ?? null) && !is_string($settings->business_id ?? null))
+            || (string) $settings->business_id !== (string) $businessId) {
+            throw new \InvalidArgumentException('EIS product settings must belong to the import business.');
+        }
+        // Snapshot the same settings passed to every request; never query an arbitrary local site.
+        $settings = clone $settings;
+        $sentSite = EisProductClient::requestSiteId($settings);
+        $requestSite = OpeningStockInitializer::siteId(['siteId' => $sentSite]);
+        if ($requestSite === null || $requestSite !== (string) $sentSite) {
+            throw new \InvalidArgumentException('EIS product request requires an exact valid site.');
+        }
         $page = 1;
 
         while (true) {
@@ -46,7 +59,7 @@ class ProductSyncService
                 }
 
                 try {
-                    $data = $this->transformer->fromEis($item, $eisId);
+                    $data = $this->transformer->fromEis($item, $eisId, $requestSite);
 
                     $this->upserter->upsert(
                         $businessId,

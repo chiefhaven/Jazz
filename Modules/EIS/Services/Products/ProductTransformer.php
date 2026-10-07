@@ -13,7 +13,7 @@ class ProductTransformer
      * @param string $eisId
      * @return array
      */
-    public function fromEis(array $item, string $eisId): array
+    public function fromEis(array $item, string $eisId, ?string $requestSite = null): array
     {
         Log::debug('Transforming EIS product data', [
             'eis_id' => $eisId,
@@ -28,10 +28,12 @@ class ProductTransformer
             'price' => $this->extractPrice($item),
             'cost' => $this->extractCost($item),
             'stock' => $this->extractStock($item),
+            'opening_stock_source' => OpeningStockInitializer::stockSource($item),
+            'opening_stock_site_id' => OpeningStockInitializer::scopedSiteId($item, $requestSite),
             'manage_stock' => $this->extractManageStock($item),
             'unit_of_measure' => $this->extractUnitOfMeasure($item),
             'expiry_period' => $this->extractExpiryPeriod($item),
-            'site_id' => $this->extractSiteId($item),
+            'site_id' => OpeningStockInitializer::scopedSiteId($item, $requestSite),
             'description' => $this->extractDescription($item),
             'category' => $this->extractCategory($item),
             'brand' => $this->extractBrand($item),
@@ -305,6 +307,11 @@ class ProductTransformer
     {
         // Primary: Check multiple fields
         $manageStock = $item['isProduct'] ?? $item['manageStock'] ?? $item['trackStock'] ?? false;
+        foreach (['isProduct', 'manageStock', 'trackStock'] as $field) {
+            if (array_key_exists($field, $item)) {
+                return filter_var($item[$field], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
         
         // Secondary: Convert to boolean
         $boolValue = filter_var($manageStock, FILTER_VALIDATE_BOOLEAN);
