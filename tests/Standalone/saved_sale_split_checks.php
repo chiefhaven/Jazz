@@ -892,7 +892,15 @@ foreach (['shrink', 'unreceive', 'delete'] as $action) {
     [$db, $service, $actor] = allocatedFixture();
     $service->split(1, $actor, requestFor($service, $actor));
     $receipt = App\Transaction::find(100);
-    if ($action === 'shrink') { $db->table('purchase_lines')->where('id', 1)->update(['quantity' => '0.5000']); }
+    if ($action === 'shrink') {
+        $db->table('purchase_lines')->where('id', 1)->update(['quantity' => '0.5000']);
+        // Only this legacy aggregate SQL check needs native numeric affinity.
+        // Keep the exact underlying ledger untouched; no real DB/schema is used.
+        $db->statement('ALTER TABLE purchase_lines RENAME TO exact_purchase_lines');
+        $db->statement('CREATE VIEW purchase_lines AS SELECT id, transaction_id, product_id, variation_id,
+            CAST(quantity AS NUMERIC) AS quantity, quantity_sold, quantity_adjusted, quantity_returned,
+            mfg_quantity_used, created_at, updated_at FROM exact_purchase_lines');
+    }
     if ($action === 'unreceive') { $receipt->status = 'pending'; }
     $deleted = $action === 'delete' ? App\PurchaseLine::where('id', 1)->get() : null;
     $before = snapshot($db);
