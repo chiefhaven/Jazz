@@ -302,6 +302,10 @@ class TerminalActivationController extends Controller
         try {
             $result = $this->activationService->getLatestConfig();
 
+            Log::info('Fetched latest terminal configuration', [
+                'result' => $result
+            ]);
+            
             if($result['processed'] === 0 || $result['failed'] > 0) {
                 return response()->json([
                     'success' => false,
