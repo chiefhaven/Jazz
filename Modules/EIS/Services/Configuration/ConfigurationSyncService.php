@@ -1177,6 +1177,8 @@ class ConfigurationSyncService
                     $business->tax_number_1
                 ),
 
+                'tax_label_1' => 'TIN',
+
                 'enable_inline_tax' => true,
             ]);
 
