@@ -296,7 +296,7 @@ class TerminalActivationController extends Controller
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getLatestConfig(Request $request)
+    public function fetchLatestConfig(Request $request)
     {
 
         try {

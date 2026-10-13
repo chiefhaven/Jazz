@@ -110,6 +110,9 @@
                             <button type="button" id="regenerate_credentials_btn" class="btn btn-sm btn-warning mt-2">
                                 <i class="fa fa-key"></i> @lang("lang_v1.regenerate_credentials")
                             </button>
+                            <button type="button" id="get_latest_config_btn" class="btn btn-sm btn-warning mt-2">
+                                <i class="fa fa-sync"></i> @lang("lang_v1.get_latest_config")
+                            </button>
                         </div>
                     </div>
                 </div>

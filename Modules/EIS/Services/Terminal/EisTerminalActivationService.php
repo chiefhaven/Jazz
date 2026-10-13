@@ -73,6 +73,8 @@ class EisTerminalActivationService
                 }
             }
 
+            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
+
             return $result;
 
         } catch (\Exception $e) {
@@ -1149,6 +1151,7 @@ class EisTerminalActivationService
                         'failed_syncs' => 0,
                     ]);
                 }
+
             }
 
             Log::info('Terminal credentials regenerated successfully', [

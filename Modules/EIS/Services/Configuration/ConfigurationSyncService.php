@@ -1101,4 +1101,56 @@ class ConfigurationSyncService
             'rates' => $rates->toArray()
         ];
     }
+
+    public static function businessLocation(int $businessId)
+    {
+        $terminalDetails = EisConfiguration::where('business_id', $businessId)->firstOrFail();
+
+        Log::info('Fetching business location for terminal', [
+            'business_id' => $businessId,
+            'terminal_details' => $terminalDetails
+        ]);
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($businessId, $terminalDetails) {
+
+            $terminalSite = data_get($terminalDetails, 'configuration.terminalSite', []);
+
+            $siteId = $terminalSite['siteId'] ?? null;
+
+            if ($siteId === null || $siteId === '') {
+                throw new \InvalidArgumentException(
+                    'Terminal site ID is missing from the EIS configuration.'
+                );
+            }
+
+            // Create or update the existing business
+            $business = \App\Business::updateOrCreate(
+                [
+                    'id' => $businessId,
+                ],
+                [
+                    'name'              => $terminalDetails['tradingName'] ?? 'HavenPlus',
+                    'tax_number_1'      => $terminalDetails['tin'] ?? null,
+                    'enable_inline_tax' => true,
+                ]
+            );
+
+            // Create or update the business location based on EIS Site ID
+            $businessLocation = \App\BusinessLocation::updateOrCreate(
+                [
+                    'business_id' => $business->id,
+                    'eis_site_id' => $siteId,
+                ],
+                [
+                    'location_id' => $siteId,
+                    'name'        => $terminalSite['siteName'] ?? 'Location 1',
+                    'country'     => $terminalSite['country'] ?? 'Malawi',
+                    'mobile'      => $terminalSite['phone_number'] ?? null,
+                    'email'      => $terminalSite['email_address'] ?? null,
+                ]
+            );
+
+            return $businessLocation->fresh();
+        });
+    }
 }

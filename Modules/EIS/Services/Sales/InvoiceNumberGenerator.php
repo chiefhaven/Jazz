@@ -133,8 +133,6 @@ class InvoiceNumberGenerator
                 // Get count for today
                 $identifier = $businessId.$transactionCount;
 
-                Log::info('Generating invoice number', ['business_id' => $identifier]);
-
                 // Use full astronomical Julian Date
                 $julianDate = $this->toJulianDate(now());
                 

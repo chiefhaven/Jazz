@@ -9,6 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
 
@@ -134,6 +135,8 @@ class SyncEISConfigurationJob implements ShouldQueue
                 
                 $successCount++;
             });
+
+            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($setting->business_id);
             
         } catch (\Throwable $e) {
             $failureCount++;

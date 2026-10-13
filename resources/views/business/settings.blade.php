@@ -360,7 +360,7 @@
             $.ajax({
                 method: 'post',
                 data: data,
-                url: "{{ route('eis.terminal.get_latest_config') }}",
+                url: "{{ route('eis.terminal.get-latest-config') }}",
                 dataType: 'json',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -467,6 +467,85 @@
 
         });
 
+        $(document).on('click', '#get_latest_config_btn', function (e) {
+
+            
+            const btn = $(this);
+
+            swal({
+                title: 'Are you sure?',
+                text: 'Fetching latest configuration.',
+                icon: 'warning',
+                buttons: true,
+                dangerMode: true
+            }).then(function (confirmed) {
+
+                if (!confirmed) {
+                    return;
+                }
+
+                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Fetching...');
+
+                $.ajax({
+                    url: "{{ route('eis.terminal.get-latest-config') }}",
+                    type: "POST",
+                    dataType: "json",
+                    headers: {
+                        "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: {
+                        business_id: $('#business_id').val(),
+                        token: $('#eis_token').val()
+                    },
+
+                    success: function (response) {
+
+                        if (response.success) {
+
+                            swal(
+                                "Success",
+                                response.msg || "Latest configuration fetched successfully.",
+                                "success"
+                            );
+
+                            if (response.data) {
+                                $('#jwt_token_display').text(response.data.jwt_token ?? 'N/A');
+                                $('#secret_key_display').text(response.data.secret_key ?? 'N/A');
+                            }
+
+                        } else {
+
+                            swal(
+                                "Failed",
+                                response.msg || "Unable to fetch latest configuration.",
+                                "error"
+                            );
+                        }
+                    },
+
+                    error: function (xhr) {
+
+                        let message = "An unexpected error occurred.";
+
+                        if (xhr.responseJSON) {
+                            message = xhr.responseJSON.msg ||
+                                    xhr.responseJSON.message ||
+                                    message;
+                        }
+
+                        swal("Error", message, "error");
+                    },
+
+                    complete: function () {
+                        btn.prop('disabled', false)
+                        .html('@lang("lang_v1.get_latest_config")');
+                    }
+                });
+
+            });
+
+        });
+
         // Get Terminal Status
         function getTerminalStatus() {
             var businessId = $('#business_id').val();
@@ -513,8 +592,8 @@
                 
                 // Update credentials
                 if (data.terminal_credentials) {
-                    $('#jwt_token_display').text(data.terminal_credentials.jwt_token || 'N/A');
-                    $('#secret_key_display').text(data.terminal_credentials.secret_key || 'N/A');
+                    //$('#jwt_token_display').text(data.terminal_credentials.jwt_token || 'N/A');
+                    //$('#secret_key_display').text(data.terminal_credentials.secret_key || 'N/A');
                 }
             }
         }

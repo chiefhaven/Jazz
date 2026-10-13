@@ -10,23 +10,16 @@ class TerminalConfigurationService
 {
 
 
-    public function sync(
-    EisConfiguration $configuration,
-    array $data
-    ){
+    public function sync(EisConfiguration $configuration,  array $data){
 
-        $terminal =
-            $data['terminalConfiguration'];
+        $terminal = $data['terminalConfiguration'];
 
 
         EisTerminalConfiguration::updateOrCreate(
 
-            [
-                'configuration_id'=>$configuration->id
-            ],
+            ['configuration_id'=>$configuration->id],
 
             [
-
                 'version_no'=>$terminal['versionNo'],
 
                 'terminal_label'=>$terminal['terminalLabel'],
@@ -46,15 +39,21 @@ class TerminalConfigurationService
                 'max_transaction_age_hours'=>
                     $terminal['offlineLimit']['maxTransactionAgeInHours'],
 
-                'max_cumulative_amount'=>
-                    $terminal['offlineLimit']['maxCummulativeAmount'],
+                'max_cumulative_amount' => $terminal['offlineLimit']['maxCummulativeAmount'],
 
-                'address_lines'=>
-                    $terminal['addressLines'],
-
+                'address_lines' => $terminal['addressLines'],
             ]
 
         );
+
+        $business = \App\Business::find($configuration->business_id);
+
+        $business->update([
+            "name" => $terminal['tradingName'],
+            "tax_number_1" => $terminal['tin'] ?? null,
+        ]);
+        
+
 
     }
 

@@ -1628,7 +1628,8 @@ class TransactionUtil extends Util
                 POS & ERP Supported by <br>
                 <strong>HavenPlus Technologies Ltd.</strong><br>
                 Contact: +265 882 547 343
-            </small>';
+            </small>'.
+            "****End of Legal Receipt****";
 
         //Barcode related information.
         $output['show_barcode'] = ! empty($il->show_barcode) ? true : false;
