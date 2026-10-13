@@ -1104,55 +1104,119 @@ class ConfigurationSyncService
 
     public static function businessLocation(int $businessId)
     {
-        $terminalDetails = EisConfiguration::where('business_id', $businessId)->firstOrFail();
+        $eisConfiguration = EisConfiguration::where('business_id', $businessId)
+            ->firstOrFail();
 
-        Log::info('Fetching business location for terminal', [
+        // Decode the stored EIS API response
+        $response = json_decode(
+            $eisConfiguration->raw_response,
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        // Extract EIS configurations
+        $terminalConfig = data_get(
+            $response,
+            'data.terminalConfiguration',
+            []
+        );
+
+        $taxpayerConfig = data_get(
+            $response,
+            'data.taxpayerConfiguration',
+            []
+        );
+
+        $terminalSite = data_get(
+            $terminalConfig,
+            'terminalSite',
+            []
+        );
+
+        $siteId = data_get($terminalSite, 'siteId');
+
+        if (blank($siteId)) {
+            throw new \InvalidArgumentException(
+                'Terminal site ID is missing from the EIS configuration.'
+            );
+        }
+
+        Log::info('EIS terminal site details retrieved', [
             'business_id' => $businessId,
-            'terminal_details' => $terminalDetails
+            'site_id' => $siteId,
+            'site_name' => data_get($terminalSite, 'siteName'),
         ]);
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($businessId, $terminalDetails) {
+        return DB::transaction(function () use (
+            $businessId,
+            $terminalConfig,
+            $taxpayerConfig,
+            $terminalSite,
+            $siteId
+        ) {
 
-            $terminalSite = data_get($terminalDetails, 'configuration.terminalSite', []);
+            /*
+            |--------------------------------------------------------------------------
+            | Update Business
+            |--------------------------------------------------------------------------
+            */
 
-            Log::info('Terminal site details retrieved', [
-                'terminalDetails' => $terminalDetails,
+            $business = \App\Business::findOrFail($businessId);
+
+            $business->update([
+                'name' => data_get(
+                    $terminalConfig,
+                    'tradingName',
+                    $business->name
+                ),
+
+                'tax_number_1' => data_get(
+                    $taxpayerConfig,
+                    'tin',
+                    $business->tax_number_1
+                ),
+
+                'enable_inline_tax' => true,
             ]);
 
-            $siteId = $terminalSite['siteId'] ?? null;
+            /*
+            |--------------------------------------------------------------------------
+            | Create or Update Business Location
+            |--------------------------------------------------------------------------
+            */
 
-            if ($siteId === null || $siteId === '') {
-                throw new \InvalidArgumentException(
-                    'Terminal site ID is missing from the EIS configuration.'
-                );
-            }
-
-            // Create or update the existing business
-            $business = \App\Business::updateOrCreate(
-                [
-                    'id' => $businessId,
-                ],
-                [
-                    'name'              => $terminalDetails['tradingName'] ?? 'HavenPlus',
-                    'tax_number_1'      => $terminalDetails['tin'] ?? null,
-                    'enable_inline_tax' => true,
-                ]
-            );
-
-            // Create or update the business location based on EIS Site ID
             $businessLocation = \App\BusinessLocation::updateOrCreate(
                 [
                     'business_id' => $business->id,
                     'eis_site_id' => $siteId,
                 ],
                 [
-                    'location_id' => $siteId,
-                    'name'        => $terminalSite['siteName'] ?? 'Location 1',
-                    'country'     => $terminalSite['country'] ?? 'Malawi',
-                    'mobile'      => $terminalSite['phone_number'] ?? null,
-                    'email'      => $terminalSite['email_address'] ?? null,
+                    'name' => data_get(
+                        $terminalSite,
+                        'siteName',
+                        'Location 1'
+                    ),
+
+                    'country' => 'Malawi',
+
+                    'mobile' => data_get(
+                        $terminalConfig,
+                        'phoneNumber'
+                    ),
+
+                    'email' => data_get(
+                        $terminalConfig,
+                        'emailAddress'
+                    ),
                 ]
             );
+
+            Log::info('EIS business location synchronized successfully', [
+                'business_id' => $business->id,
+                'business_location_id' => $businessLocation->id,
+                'eis_site_id' => $siteId,
+            ]);
 
             return $businessLocation->fresh();
         });
