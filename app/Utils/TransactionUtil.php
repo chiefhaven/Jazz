@@ -992,7 +992,7 @@ class TransactionUtil extends Util
         $transaction_type = $transaction->type;
 
         $output = [
-            'header_text' => isset($il->header_text) ? $il->header_text : '',
+            'header_text' => "****Start of Legal Receipt**** <br>". isset($il->header_text) ? $il->header_text : '',
             'business_name' => ($il->show_business_name == 1) ? $business_details->name : '',
             'location_name' => ($il->show_location_name == 1) ? $location_details->name : '',
             'sub_heading_line1' => trim($il->sub_heading_line1),
@@ -1629,7 +1629,8 @@ class TransactionUtil extends Util
                 <strong>HavenPlus Technologies Ltd.</strong><br>
                 Contact: +265 882 547 343
             </small>'.
-            "****End of Legal Receipt****";
+            "<br>
+            ****End of Legal Receipt****";
 
         //Barcode related information.
         $output['show_barcode'] = ! empty($il->show_barcode) ? true : false;
