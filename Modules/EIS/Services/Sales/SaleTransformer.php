@@ -487,13 +487,7 @@ class SaleTransformer
     /**
      * Generate offline signature data with better error handling
      */
-    protected function generateOfflineSignature(
-        EisSetting $settings,
-        Transaction $transaction,
-        string $eisInvoiceNumber,
-        array $invoiceSummary,
-        int $totalItems
-    ): array {
+    protected function generateOfflineSignature(EisSetting $settings, Transaction $transaction, string $eisInvoiceNumber, array $invoiceSummary, int $totalItems): array {
         try {
             // Parse invoice number to get components
             $parsedInvoice = $this->parseInvoiceNumber($eisInvoiceNumber);

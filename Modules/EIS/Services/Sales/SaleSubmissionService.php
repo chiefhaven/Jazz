@@ -137,6 +137,7 @@ class SaleSubmissionService
             // Get terminal position from transaction or settings
             $terminalPosition =  $this->getTerminalPosition($transaction->business_id) ?? null;
             $taxpayerId =  $this->getTaxpayerId($transaction->business_id);
+            $transactionCount = $this->getTransactionCount($transaction->business_id);
 
             if(!$terminalPosition){
                 Log::warning('Terminal position not available');
@@ -145,7 +146,7 @@ class SaleSubmissionService
             // Generate invoice number
             $invoiceNumber = $this->invoiceGenerator->generateInvoiceNumber(
                 $transaction->business_id,
-                $transaction->id,
+                $transactionCount,
                 $terminalPosition,
                 $taxpayerId
             );
@@ -245,6 +246,27 @@ class SaleSubmissionService
         }
 
         return (int) ($terminal->taxpayer_id ?? 1);
+    }
+
+    /**
+     * Get terminal position from terminal configuration.
+     *
+     * @param int $businessId
+     * @return int
+     */
+    protected function getTransactionCount(int $businessId): int
+    {
+        $transactionCount = \Modules\EIS\Models\EisSale::where('business_id', $businessId)->where('created_at', '>=', now()->startOfDay())->count(); 
+
+        if ($transactionCount === 0) {
+            Log::warning('Transaction count not found', [
+                'business_id' => $businessId,
+            ]);
+
+            return 1;
+        }
+
+        return (int) ($transactionCount + 1);
     }
 
     /**
