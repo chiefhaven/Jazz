@@ -1115,6 +1115,10 @@ class ConfigurationSyncService
 
             $terminalSite = data_get($terminalDetails, 'configuration.terminalSite', []);
 
+            Log::info('Terminal site details retrieved', [
+                'terminalDetails' => $terminalDetails,
+            ]);
+
             $siteId = $terminalSite['siteId'] ?? null;
 
             if ($siteId === null || $siteId === '') {
