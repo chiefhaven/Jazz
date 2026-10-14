@@ -13,7 +13,7 @@ class ProductTransformer
      * @param string $eisId
      * @return array
      */
-    public function fromEis(array $item, string $eisId): array
+    public function fromEis(array $item, string $eisId, ?string $requestSite = null): array
     {
         Log::debug('Transforming EIS product data', [
             'eis_id' => $eisId,
@@ -28,10 +28,12 @@ class ProductTransformer
             'price' => $this->extractPrice($item),
             'cost' => $this->extractCost($item),
             'stock' => $this->extractStock($item),
+            'opening_stock_source' => OpeningStockInitializer::stockSource($item),
+            'opening_stock_site_id' => OpeningStockInitializer::scopedSiteId($item, $requestSite),
             'manage_stock' => $this->extractManageStock($item),
             'unit_of_measure' => $this->extractUnitOfMeasure($item),
             'expiry_period' => $this->extractExpiryPeriod($item),
-            'site_id' => $this->extractSiteId($item),
+            'site_id' => OpeningStockInitializer::scopedSiteId($item, $requestSite),
             'description' => $this->extractDescription($item),
             'category' => $this->extractCategory($item),
             'brand' => $this->extractBrand($item),
@@ -267,7 +269,7 @@ class ProductTransformer
     private function extractStock(array $item): float
     {
         // Primary: Check multiple stock fields
-        $stock = (float) ($item['quantity'] ?? $item['stock'] ?? $item['stockQuantity'] ?? 0);
+        $stock = (float) ($item['qty_available'] ?? 0);
         
         // Secondary: Validate non-negative
         if ($stock >= 0) {
@@ -277,7 +279,7 @@ class ProductTransformer
         // Fallback 1: Check variation stock if available
         if (isset($item['variations']) && is_array($item['variations'])) {
             foreach ($item['variations'] as $variation) {
-                $varStock = (float) ($variation['stock'] ?? $variation['quantity'] ?? 0);
+                $varStock = (float) ($variation['qty_available'] ?? 0);
                 if ($varStock >= 0) {
                     Log::warning('Product stock negative, using variation stock as fallback', [
                         'original_stock' => $stock,
@@ -305,13 +307,18 @@ class ProductTransformer
     {
         // Primary: Check multiple fields
         $manageStock = $item['isProduct'] ?? $item['manageStock'] ?? $item['trackStock'] ?? false;
+        foreach (['isProduct', 'manageStock', 'trackStock'] as $field) {
+            if (array_key_exists($field, $item)) {
+                return filter_var($item[$field], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
         
         // Secondary: Convert to boolean
         $boolValue = filter_var($manageStock, FILTER_VALIDATE_BOOLEAN);
         
         // Fallback 1: Check if stock is set
         if (!$boolValue) {
-            $stock = (float) ($item['quantity'] ?? $item['stock'] ?? 0);
+            $stock = (float) ($item['qty_available'] ?? 0);
             if ($stock > 0) {
                 Log::warning('Manage stock not set but stock exists, enabling', [
                     'stock' => $stock
@@ -578,7 +585,7 @@ class ProductTransformer
         
         // Fallback 1: Check if stock is available
         if (!$boolValue) {
-            $stock = (float) ($item['quantity'] ?? $item['stock'] ?? 0);
+            $stock = (float) ($item['qty_available'] ?? $item['stock'] ?? 0);
             if ($stock > 0) {
                 Log::warning('Product marked inactive but has stock, activating', [
                     'stock' => $stock
