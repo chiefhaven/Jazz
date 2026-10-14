@@ -411,7 +411,7 @@ class SaleTransformer
             if (!empty($line->tax_id)) {
                 $taxRate = $this->taxRateModel
                     ->where('business_id', $businessId)
-                    ->where('tax_rate_id', $line->tax_id)
+                    ->where('id', $line->tax_id)
                     ->first();
 
                 if ($taxRate) {
@@ -420,56 +420,7 @@ class SaleTransformer
                 }
             }
 
-            // Strategy 2: Try by product_tax
-            if (!empty($line->product_tax)) {
-                $taxRate = $this->taxRateModel
-                    ->where('business_id', $businessId)
-                    ->where('tax_rate_id', $line->product_tax)
-                    ->first();
-
-                if ($taxRate) {
-                    $this->taxRateCache[$cacheKey] = $taxRate->tax_rate_id;
-                    return $taxRate->tax_rate_id;
-                }
-            }
-
-            // Strategy 3: Calculate from line values
-            $unitPrice = $this->getUnitPrice($line);
-            $quantity = $this->getQuantity($line);
-            $vat = $this->getVatAmount($line);
-            
-            if ($unitPrice > 0 && $quantity > 0 && $vat > 0) {
-                $calculatedRate = ($vat / ($unitPrice * $quantity)) * 100;
-                
-                if ($calculatedRate > 0) {
-                    $taxRate = $this->taxRateModel
-                        ->where('business_id', $businessId)
-                        ->where('is_activated', true)
-                        ->where('rate', '>=', $calculatedRate - 0.01)
-                        ->where('rate', '<=', $calculatedRate + 0.01)
-                        ->first();
-
-                    if ($taxRate) {
-                        $this->taxRateCache[$cacheKey] = $taxRate->tax_rate_id;
-                        return $taxRate->tax_rate_id;
-                    }
-                }
-            }
-
-            // Strategy 4: Get default active tax rate
-            $defaultRate = $this->taxRateModel
-                ->where('business_id', $businessId)
-                ->where('is_activated', true)
-                ->where('rate', '>', 0)
-                ->orderBy('rate', 'desc')
-                ->first();
-
-            if ($defaultRate) {
-                $this->taxRateCache[$cacheKey] = $defaultRate->tax_rate_id;
-                return $defaultRate->tax_rate_id;
-            }
-
-            // Strategy 5: Final fallback
+            // Strategy 4: Final fallback
             $this->taxRateCache[$cacheKey] = self::DEFAULT_TAX_RATE_ID;
             return self::DEFAULT_TAX_RATE_ID;
 
@@ -582,6 +533,8 @@ class SaleTransformer
             if (empty($item) || !is_array($item)) {
                 continue;
             }
+
+            Log::info('Transforming item', ['item' => $item]);
 
             $transformed[] = [
                 'id' => $index + 1,

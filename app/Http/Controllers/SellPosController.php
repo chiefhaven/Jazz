@@ -644,8 +644,6 @@ class SellPosController extends Controller
                 DB::commit();
 
                 /**
-                 * SAFE POINT: DB is now permanent
-                 * External systems can no longer break POS
                  * A final sell paid in full initiates the EIS submission (see SaleSubmissionRule).
                  */
                 SaleSubmissionRule::initiate($transaction);
