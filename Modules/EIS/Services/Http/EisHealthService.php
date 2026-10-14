@@ -28,8 +28,8 @@ class EisHealthService
             return $cached['online'];
         }
 
-        $connectTimeout = max(1, min(10, (int) config('eis.health_connect_timeout', 3)));
-        $timeout = max($connectTimeout, min(15, (int) config('eis.health_timeout', 5)));
+        $connectTimeout = max(1, min(20, (int) config('eis.health_connect_timeout', 20)));
+        $timeout = max($connectTimeout, min(20, (int) config('eis.health_timeout', 20)));
         try {
             $response = Http::acceptJson()->withToken($token)
             ->connectTimeout($connectTimeout)->timeout($timeout)

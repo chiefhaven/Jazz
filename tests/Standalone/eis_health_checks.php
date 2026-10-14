@@ -116,6 +116,7 @@ foreach ([5 => 'proxy_dns_failed', 6 => 'host_dns_failed', 7 => 'connection_fail
     });
     checkHealth(! $health->isOnline(7, 'fixture-token'), 'Connection failure stays offline');
     $entry = end($logger->entries);
+    checkHealth($entry['connect_timeout_seconds'] === 20 && $entry['timeout_seconds'] === 20, 'Health probe defaults to 20 seconds');
     checkHealth($entry['curl_errno'] === $errno && $entry['connection_reason'] === $reason, 'Safe connection classification: '.$reason);
     checkHealth(! str_contains(json_encode($entry), 'fixture-token'), 'Diagnostics never log exception text or credentials');
 }
