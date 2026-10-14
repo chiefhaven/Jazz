@@ -52,7 +52,6 @@
             <div class="tw-flex tw-flex-wrap tw-items-center tw-justify-end tw-gap-3">
                 <?php
                     use Modules\EIS\Models\EisSetting;
-                    use Illuminate\Support\Facades\Cache;
 
                     try {
                         $businessId = auth()->user()->business_id ?? null;
@@ -69,17 +68,9 @@
                             throw new \Exception('EIS token not configured');
                         }
                         
-                        // Get cached status
-                        $statusCacheKey = 'eis_status_' . $businessId;
-                        $eisStatus = Cache::remember($statusCacheKey, 300, function() use ($businessId, $token) {
-                            try {
-                                $eisHealth = new \Modules\EIS\Services\Http\EisHealthService;
-                                return $eisHealth->isOnline($businessId, $token) ? 'online' : 'offline';
-                            } catch (\Exception $e) {
-                                \Log::error('EIS status check failed: ' . $e->getMessage());
-                                return 'offline';
-                            }
-                        });
+                        // The health service owns the short-lived, credential-aware cache.
+                        $eisHealth = app(\Modules\EIS\Services\Http\EisHealthService::class);
+                        $eisStatus = $eisHealth->isOnline($businessId, $token) ? 'online' : 'offline';
                         
                     } catch (\Exception $e) {
                         \Log::error('EIS status error: ' . $e->getMessage());
@@ -92,7 +83,7 @@
                 ?>
 
                 <span class="tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-1.5 tw-rounded-full tw-text-sm tw-font-semibold tw-bg-<?php echo $statusColor; ?>-500/10 tw-text-white tw-border tw-border-<?php echo $statusColor; ?>-500/20 tw-shadow-sm">
-                    <span class="tw-inline-block tw-w-2 tw-h-2 tw-rounded-full tw-bg-green-500 tw-shadow-lg tw-shadow-<?php echo $statusColor; ?>-500/30"></span>
+                    <span class="tw-inline-block tw-w-2 tw-h-2 tw-rounded-full tw-bg-<?php echo $statusColor; ?>-500 tw-shadow-lg tw-shadow-<?php echo $statusColor; ?>-500/30"></span>
                     EIS: <?php echo ucfirst($eisStatus); ?>
                 </span>
 
