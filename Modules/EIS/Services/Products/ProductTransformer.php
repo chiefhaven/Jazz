@@ -13,7 +13,7 @@ class ProductTransformer
      * @param string $eisId
      * @return array
      */
-    public function fromEis(array $item, string $eisId, ?string $requestSite = null): array
+    public function fromEis(array $item, string $eisId): array
     {
         Log::debug('Transforming EIS product data', [
             'eis_id' => $eisId,
@@ -305,11 +305,6 @@ class ProductTransformer
     {
         // Primary: Check multiple fields
         $manageStock = $item['isProduct'] ?? $item['manageStock'] ?? $item['trackStock'] ?? false;
-        foreach (['isProduct', 'manageStock', 'trackStock'] as $field) {
-            if (array_key_exists($field, $item)) {
-                return filter_var($item[$field], FILTER_VALIDATE_BOOLEAN);
-            }
-        }
         
         // Secondary: Convert to boolean
         $boolValue = filter_var($manageStock, FILTER_VALIDATE_BOOLEAN);
