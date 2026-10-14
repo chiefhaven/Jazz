@@ -20,7 +20,8 @@ class ProductTransformer
             'product_code' => $item['productCode'] ?? null,
             'product_name' => $item['productName'] ?? null
         ]);
-
+        
+        // Initialize the transformed product array with extracted values
         $transformed = [
             'name' => $this->extractName($item, $eisId),
             'sku' => $this->extractSku($item, $eisId),
