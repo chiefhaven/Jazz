@@ -270,7 +270,7 @@ class ProductTransformer
     private function extractStock(array $item): float
     {
         // Primary: Check multiple stock fields
-        $stock = (float) ($item['qty_available'] ?? $item['stock'] ?? 0);
+        $stock = (float) ($item['quantity'] ?? $item['stock'] ?? 0);
         
         // Secondary: Validate non-negative
         if ($stock >= 0) {
@@ -280,7 +280,7 @@ class ProductTransformer
         // Fallback 1: Check variation stock if available
         if (isset($item['variations']) && is_array($item['variations'])) {
             foreach ($item['variations'] as $variation) {
-                $varStock = (float) ($variation['qty_available'] ?? 0);
+                $varStock = (float) ($variation['quantity'] ?? 0);
                 if ($varStock >= 0) {
                     Log::warning('Product stock negative, using variation stock as fallback', [
                         'original_stock' => $stock,
@@ -319,7 +319,7 @@ class ProductTransformer
         
         // Fallback 1: Check if stock is set
         if (!$boolValue) {
-            $stock = (float) ($item['qty_available']  ?? $item['stock'] ?? 0);
+            $stock = (float) ($item['isProduct']  ?? $item['stock'] ?? 0);
             if ($stock > 0) {
                 Log::warning('Manage stock not set but stock exists, enabling', [
                     'stock' => $stock
