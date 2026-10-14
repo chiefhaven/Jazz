@@ -155,6 +155,17 @@ class Escpos
 
         $this->printer->feed();
 
+        if (!empty($data->eis_invoice_number)) {
+            $this->printer->text(
+                ($data->transaction_number_label ?? 'Transaction Number') . ': ' .
+                ($data->transaction_number ?? $data->invoice_no) . "\n"
+            );
+            $this->printer->text(
+                ($data->eis_invoice_number_label ?? 'EIS Invoice Number') . ': ' .
+                $data->eis_invoice_number . "\n"
+            );
+        }
+
         /* Customer info */
         if (!empty($data->customer_info) ||
             !empty($data->client_id)) {

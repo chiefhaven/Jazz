@@ -92,6 +92,7 @@
 					{{$receipt_details->invoice_no}}
 				</p>
 			</div>
+			@include('sale_pos.receipts.partial.eis_invoice_number')
 			<div class="textbox-info">
 				<p class="f-left"><strong>{!! $receipt_details->date_label !!}</strong></p>
 				<p class="f-right">

@@ -17,6 +17,15 @@ class SellResource extends JsonResource
     {
         $array = parent::toArray($request);
 
+        if (isset($array['eis_sale']) && is_array($array['eis_sale'])) {
+            // Expose only the submitted invoice identifier, never the fiscal request payload.
+            $payload = $array['eis_sale']['request_payload'] ?? null;
+            $invoiceNumber = is_array($payload) ? ($payload['invoiceHeader']['invoiceNumber'] ?? null) : null;
+            $array['eis_sale']['eis_invoice_number'] = is_string($invoiceNumber) && trim($invoiceNumber) !== ''
+                ? trim($invoiceNumber) : null;
+            unset($array['eis_sale']['request_payload']);
+        }
+
         foreach ($array['sell_lines'] as $key => $value) {
             //check if mapping exists
             if (isset($value['sell_line_purchase_lines'])) {

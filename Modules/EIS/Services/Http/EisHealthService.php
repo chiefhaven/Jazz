@@ -28,9 +28,11 @@ class EisHealthService
             return $cached['online'];
         }
 
+        $connectTimeout = max(1, min(10, (int) config('eis.health_connect_timeout', 3)));
+        $timeout = max($connectTimeout, min(15, (int) config('eis.health_timeout', 5)));
         try {
             $response = Http::acceptJson()->withToken($token)
-                ->connectTimeout(3)->timeout(5)
+            ->connectTimeout($connectTimeout)->timeout($timeout)
                 ->withOptions(['allow_redirects' => false])
                 ->post($url);
             $body = $response->json();
@@ -42,9 +44,32 @@ class EisHealthService
                 && $body['data']['serverDate'] !== '';
         } catch (\Throwable $e) {
             // Do not log credentials, response bodies, or request exception text.
+            $errno = null;
+            for ($cause = $e; $cause !== null; $cause = $cause->getPrevious()) {
+                if ($cause instanceof \GuzzleHttp\Exception\ConnectException
+                    || $cause instanceof \GuzzleHttp\Exception\RequestException) {
+                    $context = $cause->getHandlerContext();
+                    $errno = isset($context['errno']) ? (int) $context['errno'] : null;
+                    break;
+                }
+            }
             Log::warning('EIS health check failed', [
                 'business_id' => $businessId,
                 'exception' => get_class($e),
+                'host' => parse_url($url, PHP_URL_HOST),
+                'curl_errno' => $errno,
+                'connection_reason' => match ($errno) {
+                    5 => 'proxy_dns_failed',
+                    6 => 'host_dns_failed',
+                    7 => 'connection_failed',
+                    28 => 'timeout',
+                    35 => 'tls_handshake_failed',
+                    51, 60 => 'tls_certificate_failed',
+                    77 => 'tls_ca_bundle_invalid',
+                    default => 'unknown_connection_error',
+                },
+                'connect_timeout_seconds' => $connectTimeout,
+                'timeout_seconds' => $timeout,
             ]);
             $online = false;
         }

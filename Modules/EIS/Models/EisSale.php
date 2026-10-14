@@ -47,6 +47,15 @@ class EisSale extends Model
         return $this->belongsTo(\App\Transaction::class);
     }
 
+    /** The submitted invoice identity, not the validation URL's receipt code. */
+    public function getEisInvoiceNumberAttribute($value): ?string
+    {
+        // The generated number is persisted in the request on existing schemas.
+        $number = $this->request_payload['invoiceHeader']['invoiceNumber'] ?? $value;
+
+        return is_string($number) && trim($number) !== '' ? trim($number) : null;
+    }
+
     /**
      * Check if offline sale limits are within allowed thresholds
      * 

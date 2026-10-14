@@ -37,6 +37,7 @@
         <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 19px;">
             <div class="print-red" style="font-size: 18px; font-weight: bold; ">
                 {{$receipt_details->invoice_no}}
+                @include('sale_pos.receipts.partial.eis_invoice_number')
             </div>
         </div>
     </div>

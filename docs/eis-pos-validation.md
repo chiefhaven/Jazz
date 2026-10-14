@@ -1,5 +1,26 @@
 # EIS buyer and relief validation
 
+## Receipt identifiers
+
+Browser invoice/receipt layouts and the ESC/POS print server show both
+**Transaction Number** (the original POS invoice number) and **EIS Invoice Number**
+only for fully paid orders when an EIS invoice number is available. Unpaid and
+partially paid orders omit the EIS number and its label, even if legacy EIS
+tracking exists. The original number, barcode and print
+title remain unchanged. The EIS number comes from the saved request's
+`invoiceHeader.invoiceNumber`, not the validation URL's receipt/verification code.
+Existing deployments with a dedicated EIS invoice-number column are also supported.
+No schema migration is required for this display change.
+
+EIS submission is queued. A receipt printed before its EIS number is generated
+must be reprinted afterward to show both numbers; no number is fabricated for
+non-EIS sales or sales without a saved EIS request. Deploy the updated print
+server code as well when using raw ESC/POS printing.
+
+`tests/Standalone/eis_receipt_number_checks.php` covers number resolution,
+escaping, all ten Blade layouts, original-number preservation and thermal output
+without a live database or printer.
+
 POS create and update validate before opening the sale's write transaction or
 uploading its document. EIS must have active settings for the current business.
 Ordinary sales for businesses without active EIS settings retain their existing
@@ -75,3 +96,22 @@ the fallback. Existing fiscal submission deduplication and retry behavior applie
 the real add/edit payment controllers, customer-due allocation, after-commit
 timing, paid retries, partial exclusions and rollback safety. No EIS HTTP calls
 or live payments are made by this fixture.
+
+## Submission payloads and provisional fiscal numbers
+
+- First submission omits `invoiceSummary.offlineSignature`, the offline validation
+  URL and `offlineSignatureData` entirely (not empty strings or nulls).
+- Retries include offline signature data. Existing failed tracking, a saved
+  request from an interrupted pending attempt, or failed-transaction history
+  identify a retry. A pending record without prior request/history is still new.
+- Pending/failed tracking stores the generated invoice number in
+  `eis_sales.fiscal_invoice_number`. Retries reuse the saved invoice identity
+  rather than allocating another number. Existing records are updated when retried;
+  no historical database backfill is run.
+- Successful submission retains the existing confirmed fiscal receipt handling;
+  the generated invoice identity remains in `request_payload.invoiceHeader.invoiceNumber`.
+- Transport/API failures are persisted and raised to the queue. HTTP calls do not
+  silently retry an unsigned payload; later attempts pass through sale tracking.
+
+`tests/Standalone/eis_submission_retry_checks.php` tests these paths using SQLite
+memory, a fixture signature generator and HTTP fakes, without real EIS calls.

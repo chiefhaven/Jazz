@@ -998,9 +998,11 @@ class TransactionUtil extends Util
 
         $transaction = Transaction::with('eisSale')->find($transaction_id);
         $transaction_type = $transaction->type;
+        $is_eis_receipt = $transaction->payment_status === 'paid' && $transaction->eisSale
+            && ! empty($transaction->eisSale->eis_invoice_number);
 
         $output = [
-            'header_text' => "****Start of Legal Receipt**** <br>". isset($il->header_text) ? $il->header_text : '',
+            'header_text' => ($is_eis_receipt ? "****Start of Legal Receipt****\n<br>" : '').($il->header_text ?? ''),
             'business_name' => ($il->show_business_name == 1) ? $business_details->name : '',
             'location_name' => ($il->show_location_name == 1) ? $location_details->name : '',
             'sub_heading_line1' => trim($il->sub_heading_line1),
@@ -1256,6 +1258,11 @@ class TransactionUtil extends Util
 
         //Invoice info
         $output['invoice_no'] = $transaction->invoice_no;
+        $output['transaction_number'] = $transaction->invoice_no;
+        $output['transaction_number_label'] = __('sale.transaction_number');
+        $output['eis_invoice_number'] = $transaction->payment_status === 'paid' && $transaction->eisSale
+            ? $transaction->eisSale->eis_invoice_number : null;
+        $output['eis_invoice_number_label'] = __('sale.eis_invoice_number');
         $output['invoice_no_prefix'] = $il->invoice_no_prefix;
         $output['shipping_address'] = ! empty($transaction->shipping_address()) ? $transaction->shipping_address() : $transaction->shipping_address;
 
@@ -1637,8 +1644,7 @@ class TransactionUtil extends Util
                 <strong>HavenPlus Technologies Ltd.</strong><br>
                 Contact: +265 882 547 343
             </small>'.
-            "<br>
-            ****End of Legal Receipt****";
+            ($is_eis_receipt ? "<br>\n****End of Legal Receipt****" : '');
 
         //Barcode related information.
         $output['show_barcode'] = ! empty($il->show_barcode) ? true : false;

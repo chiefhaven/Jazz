@@ -37,7 +37,7 @@ class SaleTransformer
      * @return array
      * @throws \InvalidArgumentException
      */
-    public function transform(Transaction $transaction, EisSetting $settings, string $eisInvoiceNumber): array
+    public function transform(Transaction $transaction, EisSetting $settings, string $eisInvoiceNumber, bool $includeOfflineSignature = false): array
     {
         $this->validateTransaction($transaction);
         $this->validateSettings($settings);
@@ -125,21 +125,22 @@ class SaleTransformer
             $totalVat
         );
 
-        // Generate offline signature
-        $offlineSignatureData = $this->generateOfflineSignature(
+        // A fresh online submission must not carry offline signature fields.
+        $offlineSignatureData = $includeOfflineSignature ? $this->generateOfflineSignature(
             $settings,
             $transaction,
             $eisInvoiceNumber,
             $invoiceSummary,
             $totalItems
-        );
+        ) : [];
 
-        // Add offline signature to summary
-        $invoiceSummary['offlineSignature'] = $offlineSignatureData['offlineDataSignature'] ?? '';
-        $invoiceSummary['validationURL'] = $offlineSignatureData['validationURL'] ?? '';
+        if ($includeOfflineSignature) {
+            $invoiceSummary['offlineSignature'] = $offlineSignatureData['offlineDataSignature'] ?? '';
+            $invoiceSummary['validationURL'] = $offlineSignatureData['validationURL'] ?? '';
+        }
 
         // Build final response
-        return [
+        $payload = [
             'invoiceHeader' => $this->buildInvoiceHeader(
                 $transaction,
                 $settings,
@@ -149,8 +150,13 @@ class SaleTransformer
             ),
             'invoiceLineItems' => $invoiceItems,
             'invoiceSummary' => $invoiceSummary,
-            'offlineSignatureData' => $offlineSignatureData,
         ];
+
+        if ($includeOfflineSignature) {
+            $payload['offlineSignatureData'] = $offlineSignatureData;
+        }
+
+        return $payload;
     }
 
     /**
@@ -290,7 +296,6 @@ class SaleTransformer
             'taxBreakDown' => array_values($taxBreakdown),
             'levyBreakDown' => [],
             'totalVAT' => round($totalVat, 2),
-            'offlineSignature' => '',
             'invoiceTotal' => round($transaction->final_total ?? $transaction->total ?? 0, 2),
             'amountTendered' => round($transaction->final_total ?? $transaction->total ?? 0, 2),
         ];

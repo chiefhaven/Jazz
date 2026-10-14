@@ -76,13 +76,8 @@ class EisSaleClient
                 ->asJson()
                 ->connectTimeout($this->connectTimeout)
                 ->timeout($this->timeout)
-                ->retry(
-                    $this->retries,
-                    2000,
-                    function ($exception) {
-                        return $exception instanceof ConnectionException;
-                    }
-                )
+                // Retry via persisted sale tracking, not by silently replaying
+                // a first-attempt payload without its offline signature.
                 ->withToken($settings->jwt_token)
                 ->withHeaders([
                     'X-Secret-Key' => $settings->secret_key,

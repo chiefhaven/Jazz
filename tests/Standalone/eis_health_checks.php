@@ -94,7 +94,30 @@ checkHealth(! $health->isOnline(7, 'fixture-token') && count(Http::recorded()) =
 $header = file_get_contents(dirname(__DIR__, 2).'/resources/views/layouts/partials/header.blade.php');
 checkHealth(! str_contains($header, 'Cache::remember') && ! str_contains($header, 'eis_status_'), 'Header has no duplicate stale cache');
 $source = file_get_contents(dirname(__DIR__, 2).'/Modules/EIS/Services/Http/EisHealthService.php');
-checkHealth(str_contains($source, '->connectTimeout(3)->timeout(5)')
+checkHealth(str_contains($source, '->connectTimeout($connectTimeout)->timeout($timeout)')
     && str_contains($source, "'allow_redirects' => false"), 'Bounded probe does not follow login redirects');
+$logger = new class extends Psr\Log\AbstractLogger {
+    public array $entries = [];
+    public function log($level, $message, array $context = []): void {
+        $this->entries[] = $context;
+    }
+};
+$container->instance('log', $logger);
+Illuminate\Support\Facades\Log::clearResolvedInstance('log');
+$container['config']->set('eis.base_url', 'https://eis.invalid');
+foreach ([5 => 'proxy_dns_failed', 6 => 'host_dns_failed', 7 => 'connection_failed',
+    28 => 'timeout', 35 => 'tls_handshake_failed', 60 => 'tls_certificate_failed',
+    77 => 'tls_ca_bundle_invalid'] as $errno => $reason) {
+    $health->clearCache(7);
+    fakeHealth(function () use ($errno) {
+        $previous = new GuzzleHttp\Exception\ConnectException('sensitive-fixture-token',
+            new GuzzleHttp\Psr7\Request('POST', 'https://eis.invalid'), null, ['errno' => $errno]);
+        throw new ConnectionException('sensitive-fixture-token', 0, $previous);
+    });
+    checkHealth(! $health->isOnline(7, 'fixture-token'), 'Connection failure stays offline');
+    $entry = end($logger->entries);
+    checkHealth($entry['curl_errno'] === $errno && $entry['connection_reason'] === $reason, 'Safe connection classification: '.$reason);
+    checkHealth(! str_contains(json_encode($entry), 'fixture-token'), 'Diagnostics never log exception text or credentials');
+}
 Carbon::setTestNow();
 echo "PASS: {$checks} EIS health checks (isolated cache and HTTP fakes).\n";

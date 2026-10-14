@@ -92,6 +92,7 @@
 					<b>{!! $receipt_details->invoice_no_prefix !!}</b>
 				@endif
 				{{$receipt_details->invoice_no}}
+				@include('sale_pos.receipts.partial.eis_invoice_number')
 
 				@if(!empty($receipt_details->types_of_service))
 					<br/>

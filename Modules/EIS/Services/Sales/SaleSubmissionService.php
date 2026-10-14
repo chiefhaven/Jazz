@@ -54,7 +54,16 @@ class SaleSubmissionService
         // ----------------------------
         // GENERATE EIS INVOICE NUMBER
         // ----------------------------
-        $eisInvoiceNumber = $this->generateEISInvoiceNumber($transaction, $eisSetting);
+        // Read attempt history BEFORE resetting tracking to pending. A pending
+        // request may have reached EIS before the worker lost its response.
+        $includeOfflineSignature = $existing && ($existing->status === 'failed' || ! empty($existing->request_payload));
+        $includeOfflineSignature = $includeOfflineSignature || DB::table('eis_failed_transactions')
+            ->where('business_id', $transaction->business_id)
+            ->where('transaction_id', $transaction->id)
+            ->exists();
+        $eisInvoiceNumber = $existing?->eis_invoice_number
+            ?? $existing?->fiscal_invoice_number
+            ?? $this->generateEISInvoiceNumber($transaction, $eisSetting);
 
         // ----------------------------
         // CREATE/UPDATETRACKING
@@ -64,7 +73,7 @@ class SaleSubmissionService
             [
                 'business_id' => $transaction->business_id,
                 'invoice_number' => $transaction->invoice_no,
-                'eis_invoice_number' => $eisInvoiceNumber,
+                'fiscal_invoice_number' => $eisInvoiceNumber,
                 'status' => 'pending',
             ]
         );
@@ -80,7 +89,7 @@ class SaleSubmissionService
             // ----------------------------
             // TRANSFORM WITH EIS INVOICE NUMBER
             // ----------------------------
-            $payload = $this->transformer->transform($transaction, $settings, $eisInvoiceNumber);
+            $payload = $this->transformer->transform($transaction, $settings, $eisInvoiceNumber, $includeOfflineSignature);
 
             $validationUrl = $payload['invoiceSummary']['validationURL'] ?? null;
 
@@ -94,12 +103,19 @@ class SaleSubmissionService
             // ----------------------------
             $response = $this->client->submit($payload, $settings);
 
+            // The client returns failures instead of throwing. Persist these so
+            // queue/manual retries are recognized and include the signature.
+            if (! ($response['success'] ?? false) || ($response['data']['statusCode'] ?? null) !== 1) {
+                $eisSale->update(['response_payload' => $response]);
+                throw new EisSaleException($response['error'] ?? $response['data']['remark'] ?? 'EIS rejected the invoice');
+            }
+
             // ----------------------------
             // SINGLE SOURCE OF TRUTHUPDAT
             // ----------------------------
             $this->responseService->handle($transaction, $response);
 
-            return $eisSale;
+            return $eisSale->refresh();
 
         } catch (EisSaleException $e) {
 
@@ -305,6 +321,7 @@ class SaleSubmissionService
             DB::table('eis_failed_transactions')
                 ->where('id', $failed->id)
                 ->update([
+                    'payload' => json_encode($payload),
                     'attempts' => $failed->attempts + 1,
                     'next_retry_at' => $this->calculateNextRetry($failed->attempts + 1),
                     'error_message' => $errorMessage,

@@ -62,6 +62,7 @@
 			@endif
 
 			{{$receipt_details->invoice_no}}
+			@include('sale_pos.receipts.partial.eis_invoice_number')
 		</div>
 
 		<!-- Total Due-->

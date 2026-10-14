@@ -32,6 +32,10 @@ return [
     */
     'timeout' => env('EIS_TIMEOUT', 30),
 
+    // Keep header probes short; the service caps these at 10/15 seconds.
+    'health_connect_timeout' => env('EIS_HEALTH_CONNECT_TIMEOUT', 3),
+    'health_timeout' => env('EIS_HEALTH_TIMEOUT', 5),
+
     'retry' => [
         'times' => 3,
         'sleep' => 1000,

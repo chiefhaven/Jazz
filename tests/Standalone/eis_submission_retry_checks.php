@@ -1,0 +1,177 @@
+<?php
+
+// Isolated SQLite fixtures: no application kernel, .env, external EIS or live writes.
+require dirname(__DIR__, 2).'/vendor/autoload.php';
+
+use App\Transaction;
+use App\TransactionSellLine;
+use Illuminate\Container\Container;
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
+use Modules\EIS\Exceptions\EisSaleException;
+use Modules\EIS\Models\EisSale;
+use Modules\EIS\Models\EisSetting;
+use Modules\EIS\Models\EisTaxRate;
+use Modules\EIS\Services\Http\EisSaleClient;
+use Modules\EIS\Services\Sales\InvoiceNumberGenerator;
+use Modules\EIS\Services\Sales\OfflineSignatureService;
+use Modules\EIS\Services\Sales\SaleResponseService;
+use Modules\EIS\Services\Sales\SaleSubmissionService;
+use Modules\EIS\Services\Sales\SaleTransformer;
+
+$container = new Container();
+$capsule = new Capsule($container);
+$capsule->addConnection(['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']);
+$capsule->setEventDispatcher(new Illuminate\Events\Dispatcher($container));
+$capsule->setAsGlobal();
+$capsule->bootEloquent();
+Container::setInstance($container);
+$container->instance('db', $capsule->getDatabaseManager());
+$container->instance('log', new Psr\Log\NullLogger());
+Facade::setFacadeApplication($container);
+$schema = $capsule->getConnection()->getSchemaBuilder();
+$schema->create('transactions', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->string('invoice_no');
+    $t->string('type'); $t->string('status'); $t->string('payment_status');
+    $t->boolean('is_fiscalized')->default(false);
+    $t->string('fiscal_invoice_number')->nullable(); $t->string('receipt_number')->nullable();
+    $t->timestamps();
+});
+$schema->create('eis_settings', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->string('tpin'); $t->timestamps();
+});
+$container->instance('db.schema', $schema);
+(require dirname(__DIR__, 2).'/Modules/EIS/Database/Migrations/2026_07_05_000001_create_eis_sales_table.php')->up();
+$schema->create('eis_failed_transactions', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->integer('transaction_id');
+    $t->text('payload')->nullable(); $t->text('error_message')->nullable();
+    $t->integer('attempts'); $t->dateTime('next_retry_at')->nullable(); $t->timestamps();
+});
+DB::table('eis_settings')->insert(['business_id' => 7, 'tpin' => 'FIXTURE']);
+$settings = EisSetting::first();
+$transformer = new class(new EisTaxRate(), new OfflineSignatureService(), new InvoiceNumberGenerator()) extends SaleTransformer {
+    public int $signatures = 0;
+    protected function generateOfflineSignature(EisSetting $settings, Transaction $transaction, string $eisInvoiceNumber, array $invoiceSummary, int $totalItems): array {
+        ++$this->signatures;
+        return ['offlineDataSignature' => 'fixture-signature', 'validationURL' => 'https://eis.invalid/offline'];
+    }
+};
+$client = new class extends EisSaleClient {
+    public array $payloads = [];
+    public array $response = ['success' => false, 'error' => 'Fixture offline'];
+    public function __construct() {}
+    public function submit(array $payload, object $settings): array {
+        $this->payloads[] = $payload;
+        return $this->response;
+    }
+};
+$service = new class($transformer, $client, new SaleResponseService(), new InvoiceNumberGenerator()) extends SaleSubmissionService {
+    public int $generated = 0;
+    protected function generateEISInvoiceNumber(Transaction $transaction, EisSetting $setting): string {
+        return 'GENERATED-'.++$this->generated;
+    }
+};
+$checks = 0;
+function checkRetry(bool $condition, string $message): void {
+    global $checks;
+    if (! $condition) { throw new RuntimeException($message); }
+    ++$checks;
+}
+function fixtureSale(): Transaction {
+    $id = DB::table('transactions')->insertGetId(['business_id' => 7, 'invoice_no' => 'POS-ORIGINAL',
+        'type' => 'sell', 'status' => 'final', 'payment_status' => 'paid']);
+    return fixtureRelations(Transaction::findOrFail($id));
+}
+function fixtureRelations(Transaction $transaction): Transaction {
+    $transaction->setRelation('business', null)->setRelation('location', null)->setRelation('contact', null);
+    $line = new TransactionSellLine();
+    $line->setRawAttributes(['id' => 1, 'unit_price' => 100, 'quantity' => 1]);
+    $line->exists = true;
+    $line->setRelation('product', null)->setRelation('variations', null)->setRelation('modifiers', collect());
+    $transaction->setRelation('sell_lines', new Illuminate\Database\Eloquent\Collection([$line]));
+    return $transaction;
+}
+// refresh() reloads relations; use a transaction subtype that keeps only fixture relations.
+class RetryFixtureTransaction extends Transaction {
+    public function refresh() {
+        $this->setRelations([]);
+        parent::refresh();
+        return fixtureRelations($this);
+    }
+}
+function submissionFixture(): Transaction {
+    $transaction = fixtureSale();
+    $fixture = new RetryFixtureTransaction();
+    $fixture->setRawAttributes($transaction->getAttributes(), true);
+    $fixture->exists = true;
+    return fixtureRelations($fixture);
+}
+function failSubmission(SaleSubmissionService $service, Transaction $transaction, EisSetting $settings): void {
+    try { $service->submit($transaction, $settings); }
+    catch (EisSaleException $e) { checkRetry(true, 'Failure propagated to queue'); return; }
+    throw new RuntimeException('Expected failed submission');
+}
+$transaction = submissionFixture();
+failSubmission($service, $transaction, $settings);
+$first = $client->payloads[0];
+checkRetry(! array_key_exists('offlineSignature', $first['invoiceSummary']), 'First summary omits signature key entirely');
+checkRetry(! isset($first['offlineSignatureData']) && ! isset($first['invoiceSummary']['validationURL']), 'First payload omits offline metadata');
+checkRetry($transformer->signatures === 0, 'First attempt does not generate offline signature');
+$tracking = EisSale::where('transaction_id', $transaction->id)->firstOrFail();
+checkRetry($tracking->status === 'failed' && $tracking->fiscal_invoice_number === 'GENERATED-1', 'Failed invoice persists generated fiscal number');
+checkRetry($tracking->invoice_number === 'POS-ORIGINAL' && ! $transaction->fresh()->is_fiscalized, 'Failure preserves POS identity without fiscalizing');
+failSubmission($service, $transaction, $settings);
+$retry = $client->payloads[1];
+checkRetry($retry['invoiceSummary']['offlineSignature'] === 'fixture-signature', 'Retry includes offline signature');
+checkRetry($retry['invoiceHeader']['invoiceNumber'] === $first['invoiceHeader']['invoiceNumber'] && $service->generated === 1, 'Retry reuses generated identity');
+$failed = DB::table('eis_failed_transactions')->where('transaction_id', $transaction->id)->first();
+checkRetry($failed->attempts === 2 && json_decode($failed->payload, true) === json_decode(json_encode($retry), true), 'Failed retry stores current signed payload');
+// Interrupted pending attempt, legacy failed tracking and retry-table-only history.
+foreach (['pending', 'failed', 'retry-table'] as $history) {
+    $sale = submissionFixture();
+    if ($history === 'retry-table') {
+        DB::table('eis_failed_transactions')->insert(['business_id' => 7, 'transaction_id' => $sale->id, 'attempts' => 1]);
+    } else {
+        EisSale::create(['business_id' => 7, 'transaction_id' => $sale->id, 'status' => $history,
+            'request_payload' => $history === 'pending' ? $first : null]);
+    }
+    failSubmission($service, $sale, $settings);
+    checkRetry(end($client->payloads)['invoiceSummary']['offlineSignature'] === 'fixture-signature', 'Signature for '.$history.' history');
+}
+// A pending record without an earlier request is still a first submission.
+$fresh = submissionFixture();
+EisSale::create(['business_id' => 7, 'transaction_id' => $fresh->id, 'status' => 'pending', 'fiscal_invoice_number' => 'RESERVED-1']);
+$client->response = ['success' => true, 'data' => ['statusCode' => 0, 'remark' => 'Fixture validation rejection']];
+failSubmission($service, $fresh, $settings);
+checkRetry(! isset(end($client->payloads)['invoiceSummary']['offlineSignature']), 'Unattempted pending record omits signature');
+checkRetry(EisSale::where('transaction_id', $fresh->id)->first()->fiscal_invoice_number === 'RESERVED-1', 'Reserved generated fiscal identity retained');
+$client->response = ['success' => true, 'data' => ['statusCode' => 1, 'data' => ['validationURL' => 'https://eis.invalid/validate?vc=FISCAL-RECEIPT']]];
+$submitted = $service->submit($transaction, $settings);
+checkRetry($submitted->status === 'submitted' && $submitted->fiscal_invoice_number === 'FISCAL-RECEIPT', 'Success replaces provisional number with confirmed fiscal receipt');
+checkRetry($submitted->eis_invoice_number === 'GENERATED-1' && $transaction->fresh()->is_fiscalized, 'Generated invoice identity survives success');
+$count = count($client->payloads);
+$service->submit($transaction, $settings);
+checkRetry(count($client->payloads) === $count, 'Submitted sale never sent again');
+// A transport failure must return to persisted tracking, not silently replay
+// the unsigned first payload in an internal HTTP retry.
+$container['config']['eis.base_url'] = 'https://eis.invalid';
+$container['config']['eis.http_retries'] = 3;
+$http = new Illuminate\Http\Client\Factory();
+$http->preventStrayRequests();
+$container->instance(Illuminate\Http\Client\Factory::class, $http);
+Illuminate\Support\Facades\Http::clearResolvedInstance(Illuminate\Http\Client\Factory::class);
+$requests = 0;
+Illuminate\Support\Facades\Http::fake(function () use (&$requests) {
+    ++$requests;
+    throw new Illuminate\Http\Client\ConnectionException('Fixture connection failure');
+});
+$health = new class extends Modules\EIS\Services\Http\EisHealthService {
+    public function isOnline(int $businessId, string $token): bool { return true; }
+};
+$httpSettings = (object) ['business_id' => 7, 'jwt_token' => 'fixture', 'secret_key' => 'fixture', 'branch_id' => '00', 'tpin' => 'fixture'];
+$failure = (new EisSaleClient($health))->submit($first, $httpSettings);
+checkRetry($requests === 1, 'Client sends only one request per tracked attempt');
+checkRetry(! $failure['success'] && $failure['error_code'] === 'CONNECTION_ERROR', 'Transport failure returns for persisted retry');
+echo "PASS: {$checks} EIS submission retry checks (isolated database, no network).\n";
