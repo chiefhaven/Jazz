@@ -22,6 +22,9 @@
         <i class="fas fa-tools"></i>
         Regenerate @show_tooltip("<br/>1. Regenerate/publish modules css/js to fix not found issue. <br/> 2. Publish api module oauth files")
     </a>
+    <a class="tw-dw-btn tw-dw-btn-outline tw-dw-btn-sm tw-mt-4" href="{{ route('eis-migrations.index') }}">
+        <i class="fas fa-database"></i> EIS Database Migrations
+    </a>
 </section>
 
 <!-- Main content -->

@@ -38,6 +38,22 @@ Storage migration: `2026_10_14_000003_add_vat5_certificate_details_to_transactio
 The additive migration was applied locally. Other environments must deploy it
 before using the updated sale utility.
 
+### Browser migration deployment
+
+Open `/admin/eis-migrations` while signed in with the `manage_modules`
+permission, or use **Manage Modules → EIS Database Migrations**. Review the
+applied/pending list, back up the database, stop sales/payment activity, and
+confirm before pressing **Run EIS Migrations**. Merely opening the page does not
+run migrations. The CSRF-protected POST runs only the three listed additive
+migrations, with a shared file-cache lock and rate limiting. It does not run
+other pending migrations, reset the database, seed data, or enable debug mode.
+Demo access is disabled. Existing migrations are skipped. On failure, some
+earlier migrations may have completed; review deployment/logs before retrying.
+
+`tests/Standalone/browser_eis_migration_checks.php` covers privileged access,
+confirmation, exact command scope, lock contention/release, error handling, and
+POST/CSRF routing using mocked commands only.
+
 Standalone validation fixture: `tests/Standalone/eis_pos_validation_checks.php`.
 108 checks use SQLite memory and HTTP fakes, including contracts, failures,
 tenant isolation, actual create/update rejection, persistence, header mapping,
