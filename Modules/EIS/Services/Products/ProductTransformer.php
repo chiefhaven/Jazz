@@ -269,7 +269,7 @@ class ProductTransformer
     private function extractStock(array $item): float
     {
         // Primary: Check multiple stock fields
-        $stock = (float) ($item['qty_available'] ?? 0);
+        $stock = (float) ($item['qty_available'] ?? $item['stock'] ?? 0);
         
         // Secondary: Validate non-negative
         if ($stock >= 0) {
@@ -318,7 +318,7 @@ class ProductTransformer
         
         // Fallback 1: Check if stock is set
         if (!$boolValue) {
-            $stock = (float) ($item['qty_available'] ?? 0);
+            $stock = (float) ($item['qty_available']  ?? $item['stock'] ?? 0);
             if ($stock > 0) {
                 Log::warning('Manage stock not set but stock exists, enabling', [
                     'stock' => $stock
