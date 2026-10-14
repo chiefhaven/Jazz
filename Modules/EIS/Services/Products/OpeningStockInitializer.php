@@ -1,15 +1,11 @@
 <?php
-
 namespace Modules\EIS\Services\Products;
-
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Log;
-
 /** One-time supply, never an EIS-to-local stock reconciliation. */
 final class OpeningStockInitializer
 {
     public function __construct(private Connection $db) {}
-
     /** DECIMAL(22,4), without coercion, rounding, scientific notation or floats. */
     public static function decimal($value): ?string
     {
@@ -26,7 +22,6 @@ final class OpeningStockInitializer
         }
         return bcadd($value, '0', 4);
     }
-
     /** Preserve absence/invalidity before the catalogue transform's float fallbacks. */
     public static function stockSource(array $item): array
     {
@@ -58,7 +53,6 @@ final class OpeningStockInitializer
         }
         return ['quantity' => $quantity, 'reason' => $fields ? null : 'missing_stock'];
     }
-
     /** Reject conflicting aliases and nonscalar sites; never invent a local site. */
     public static function siteId(array $item): ?string
     {
@@ -88,7 +82,6 @@ final class OpeningStockInitializer
         }
         return $site;
     }
-
     /** Missing item sites may inherit only the validated site of this exact request. */
     public static function scopedSiteId(array $item, ?string $requestSite): ?string
     {
@@ -109,8 +102,7 @@ final class OpeningStockInitializer
         $site = self::siteId($item);
         return $site !== null && ($requestSite === null || $site === $requestSite) ? $site : null;
     }
-
-    /** Caller owns the catalogue transaction and locks business then product. */
+    /** Caller owns the catalogue transaction. Business and product are read without explicit row locks. */
     public function initialize(int $businessId, int $productId, int $variationId,
         int $locationId, string $eisId, string $siteId, array $source): string
     {
@@ -124,7 +116,6 @@ final class OpeningStockInitializer
             ]);
             return $reason;
         };
-
         // MyISAM markers cannot commit/rollback with the supply graph. Do not pretend otherwise.
         if ($this->db->getDriverName() === 'mysql') {
             foreach (['business', 'products', 'product_variations', 'variations', 'business_locations',
@@ -139,11 +130,10 @@ final class OpeningStockInitializer
         } elseif ($this->db->getDriverName() !== 'sqlite') {
             return $block('unsupported_storage');
         }
-
-        if (!$this->db->table('business')->where('id', $businessId)->lockForUpdate()->first()) {
+        if (!$this->db->table('business')->where('id', $businessId)->first()) {
             return $block('missing_business');
         }
-        $product = $this->db->table('products')->where('id', $productId)->lockForUpdate()->first();
+        $product = $this->db->table('products')->where('id', $productId)->first();
         $map = $this->db->table('eis_product_maps')->where('business_id', $businessId)
             ->where('eis_product_id', $eisId)->lockForUpdate()->first();
         $variation = $this->db->table('variations')->where('id', $variationId)->lockForUpdate()->first();
@@ -206,7 +196,6 @@ final class OpeningStockInitializer
         if ($quantity === null) {
             return $block($source['reason'] ?? 'invalid_stock');
         }
-
         // Fail closed even for orphaned lines and overselling sentinel allocations.
         // Looking across locations also prevents silently moving a historical site allocation.
         foreach (['purchase_lines', 'transaction_sell_lines', 'stock_adjustment_lines'] as $table) {
@@ -237,7 +226,6 @@ final class OpeningStockInitializer
             }
             $stockRow = $row;
         }
-
         // Read DECIMAL directly; no model casts/float arithmetic in the new ledger logic.
         $cost = self::decimal($variation->default_purchase_price);
         $costInc = self::decimal($variation->dpp_inc_tax);
