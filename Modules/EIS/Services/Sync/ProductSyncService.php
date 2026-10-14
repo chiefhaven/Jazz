@@ -657,7 +657,7 @@ class ProductUpsertService {
     private function getStockWithFallbacks(array $item): float
     {
         // Primary: Extract from item
-        $stock = (float) ($item['stock'] ?? $item['quantity'] ?? $item['stockQuantity'] ?? 0);
+        $stock = (float) ($item['qty_available'] ?? 0);
         if ($stock >= 0) {
             return $stock;
         }
@@ -665,7 +665,7 @@ class ProductUpsertService {
         // Fallback 1: Check variations
         if (isset($item['variations']) && is_array($item['variations'])) {
             foreach ($item['variations'] as $variation) {
-                $varStock = (float) ($variation['stock'] ?? $variation['quantity'] ?? 0);
+                $varStock = (float) ($variation['qty_available'] ?? 0);
                 if ($varStock >= 0) {
                     Log::warning('Using variation stock as fallback', [
                         'original_stock' => $stock,
