@@ -13,6 +13,7 @@ use App\Utils\TransactionUtil;
 use Datatables;
 use DB;
 use Illuminate\Http\Request;
+use Modules\EIS\Services\Sales\SaleSubmissionRule;
 
 class TransactionPaymentController extends Controller
 {
@@ -134,6 +135,10 @@ class TransactionPaymentController extends Controller
                 $transaction->payment_status = $payment_status;
 
                 $this->transactionUtil->activityLog($transaction, 'payment_edited', $transaction_before);
+
+                if ($transaction_before->payment_status !== 'paid' && SaleSubmissionRule::qualifies($transaction)) {
+                    SaleSubmissionRule::initiate($transaction);
+                }
 
                 DB::commit();
             }
@@ -292,6 +297,10 @@ class TransactionPaymentController extends Controller
             $transaction->payment_status = $payment_status;
 
             $this->transactionUtil->activityLog($transaction, 'payment_edited', $transaction_before);
+
+            if ($transaction_before->payment_status !== 'paid' && SaleSubmissionRule::qualifies($transaction)) {
+                SaleSubmissionRule::initiate($transaction);
+            }
 
             DB::commit();
 

@@ -133,6 +133,9 @@ class TransactionUtil extends Util
             'prefer_payment_method' => ! empty($input['prefer_payment_method']) ? $input['prefer_payment_method'] : null,
             'prefer_payment_account' => ! empty($input['prefer_payment_account']) ? $input['prefer_payment_account'] : null,
             'is_export' => ! empty($input['is_export']) ? 1 : 0,
+            'is_relief' => filter_var($input['is_relief'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'vat5_certificate_details' => filter_var($input['is_relief'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                ? ($input['vat5_certificate_details'] ?? null) : null,
             'export_custom_fields_info' => (! empty($input['is_export']) && ! empty($input['export_custom_fields_info'])) ? $input['export_custom_fields_info'] : null,
             'additional_expense_value_1' => isset($input['additional_expense_value_1']) ? $uf_data ? $this->num_uf($input['additional_expense_value_1']) : $input['additional_expense_value_1'] : 0,
             'additional_expense_value_2' => isset($input['additional_expense_value_2']) ? $uf_data ? $this->num_uf($input['additional_expense_value_2']) : $input['additional_expense_value_2'] : 0,
@@ -253,6 +256,11 @@ class TransactionUtil extends Util
             'prefer_payment_method' => ! empty($input['prefer_payment_method']) ? $input['prefer_payment_method'] : null,
             'prefer_payment_account' => ! empty($input['prefer_payment_account']) ? $input['prefer_payment_account'] : null,
             'is_export' => ! empty($input['is_export']) ? 1 : 0,
+            'is_relief' => array_key_exists('is_relief', $input)
+                ? filter_var($input['is_relief'], FILTER_VALIDATE_BOOLEAN)
+                : $transaction->is_relief,
+            'vat5_certificate_details' => (array_key_exists('is_relief', $input) ? filter_var($input['is_relief'], FILTER_VALIDATE_BOOLEAN) : $transaction->is_relief)
+                ? (array_key_exists('vat5_certificate_details', $input) ? $input['vat5_certificate_details'] : $transaction->vat5_certificate_details) : null,
             'export_custom_fields_info' => (! empty($input['is_export']) && ! empty($input['export_custom_fields_info'])) ? $input['export_custom_fields_info'] : null,
             'additional_expense_value_1' => isset($input['additional_expense_value_1']) ? $uf_data ? $this->num_uf($input['additional_expense_value_1']) : $input['additional_expense_value_1'] : 0,
             'additional_expense_value_2' => isset($input['additional_expense_value_2']) ? $uf_data ? $this->num_uf($input['additional_expense_value_2']) : $input['additional_expense_value_2'] : 0,
@@ -3301,6 +3309,7 @@ class TransactionUtil extends Util
         $total_amount = $parent_payment->amount;
 
         $transaction_payments = [];
+        $settled_sales = [];
         if ($due_transactions->count()) {
             foreach ($due_transactions as $transaction) {
                 $transaction_before = $transaction->replicate();
@@ -3356,6 +3365,9 @@ class TransactionUtil extends Util
                         if ($transaction->type == 'sell') {
                             $moduleUtil = new ModuleUtil();
                             $moduleUtil->getModuleData('after_sale_saved', ['transaction' => $transaction, 'input' => []]);
+                            if (\Modules\EIS\Services\Sales\SaleSubmissionRule::qualifies($transaction)) {
+                                $settled_sales[] = $transaction;
+                            }
                         }
 
                         $total_amount = $total_amount - $due;
@@ -3379,6 +3391,10 @@ class TransactionUtil extends Util
             //Insert new transaction payments
             if (! empty($transaction_payments)) {
                 TransactionPayment::insert($transaction_payments);
+            }
+            // Child payments must exist before dispatch; initiate defers until outer commit.
+            foreach ($settled_sales as $settled_sale) {
+                \Modules\EIS\Services\Sales\SaleSubmissionRule::initiate($settled_sale);
             }
         }
 

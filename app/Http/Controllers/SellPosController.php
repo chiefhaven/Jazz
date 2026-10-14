@@ -331,6 +331,8 @@ class SellPosController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $request->validate(['is_relief' => 'sometimes|boolean']);
+
         $is_direct_sale = false;
         if (!empty($request->input('is_direct_sale'))) {
             $is_direct_sale = true;
@@ -344,7 +346,7 @@ class SellPosController extends Controller
         try {
             $input = $request->except('_token');
 
-            \Log::info('Request: ', $input);
+            \Log::info('POS sale requested', ['business_id' => $request->session()->get('user.business_id')]);
 
             $input['is_quotation'] = 0;
             //status is send as quotation from Add sales screen.
@@ -398,6 +400,14 @@ class SellPosController extends Controller
                 ];
 
                 $invoice_total = $this->productUtil->calculateInvoiceTotal($input['products'], $input['tax_rate_id'], $discount);
+
+                try {
+                    $input['vat5_certificate_details'] = app(\Modules\EIS\Services\Sales\PosBuyerValidationService::class)
+                        ->validate((int) $business_id, $input);
+                } catch (\Illuminate\Validation\ValidationException $e) {
+                    $output = ['success' => 0, 'msg' => implode(' ', \Illuminate\Support\Arr::flatten($e->errors()))];
+                    return $is_direct_sale ? back()->withInput()->with('status', $output) : $output;
+                }
 
                 DB::beginTransaction();
 
@@ -686,7 +696,10 @@ class SellPosController extends Controller
                 }
 
                 if ($print_invoice) {
-                    $receipt = $this->receiptContent($business_id, $input['location_id'], $transaction->id, null, false, true, $invoice_layout_id);
+                    // Place Order always supplies a receipt after completion; other
+                    // checkout actions retain the location's auto-print preference.
+                    $from_pos_screen = empty($input['is_credit_sale']);
+                    $receipt = $this->receiptContent($business_id, $input['location_id'], $transaction->id, null, false, $from_pos_screen, $invoice_layout_id);
                 }
 
                 $output = ['success' => 1, 'msg' => $msg, 'receipt' => $receipt];
@@ -1217,6 +1230,8 @@ class SellPosController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $request->validate(['is_relief' => 'sometimes|boolean']);
+
         try {
             $input = $request->except('_token');
 
@@ -1238,7 +1253,7 @@ class SellPosController extends Controller
             $is_direct_sale = false;
             if (!empty($input['products'])) {
                 //Get transaction value before updating.
-                $transaction_before = Transaction::find($id);
+                $transaction_before = Transaction::where('business_id', $request->session()->get('user.business_id'))->findOrFail($id);
                 $status_before = $transaction_before->status;
                 $rp_earned_before = $transaction_before->rp_earned;
                 $rp_redeemed_before = $transaction_before->rp_redeemed;
@@ -1295,6 +1310,19 @@ class SellPosController extends Controller
                     'discount_amount' => $input['discount_amount'],
                 ];
                 $invoice_total = $this->productUtil->calculateInvoiceTotal($input['products'], $input['tax_rate_id'], $discount);
+
+                try {
+                    $validated_transaction = clone $transaction_before;
+                    $validation_input = $input;
+                    if (!$is_direct_sale && !auth()->user()->can('sell.update') && auth()->user()->can('edit_pos_payment')) {
+                        $validation_input = ['contact_id' => $transaction_before->contact_id];
+                    }
+                    $input['vat5_certificate_details'] = app(\Modules\EIS\Services\Sales\PosBuyerValidationService::class)
+                        ->validate((int) $business_id, $validation_input, $transaction_before);
+                } catch (\Illuminate\Validation\ValidationException $e) {
+                    $output = ['success' => 0, 'msg' => implode(' ', \Illuminate\Support\Arr::flatten($e->errors()))];
+                    return $is_direct_sale ? back()->withInput()->with('status', $output) : $output;
+                }
 
                 if (!empty($request->input('transaction_date'))) {
                     $input['transaction_date'] = $this->productUtil->uf_date($request->input('transaction_date'), true);
@@ -1392,6 +1420,7 @@ class SellPosController extends Controller
                     DB::beginTransaction();
                     \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
                     $transaction_before = Transaction::where('business_id', $business_id)->lockForUpdate()->findOrFail($id);
+                    app(\Modules\EIS\Services\Sales\PosBuyerValidationService::class)->assertSaleUnchanged($validated_transaction, $transaction_before);
                     $this->onlyUpdatePayment($transaction_before, $input);
                     DB::commit();
 
@@ -1415,6 +1444,7 @@ class SellPosController extends Controller
                 // and refresh status/reward snapshots before any graph side effects.
                 \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
                 $transaction_before = Transaction::where('business_id', $business_id)->lockForUpdate()->findOrFail($id);
+                app(\Modules\EIS\Services\Sales\PosBuyerValidationService::class)->assertSaleUnchanged($validated_transaction, $transaction_before);
                 $status_before = $transaction_before->status;
                 $rp_earned_before = $transaction_before->rp_earned;
                 $rp_redeemed_before = $transaction_before->rp_redeemed;
@@ -1578,7 +1608,8 @@ class SellPosController extends Controller
                 } elseif ($input['status'] == 'final') {
                     $msg = trans('sale.pos_sale_updated');
                     if (!$is_direct_sale && $can_print_invoice) {
-                        $receipt = $this->receiptContent($business_id, $input['location_id'], $transaction->id, null, false, true, $invoice_layout_id);
+                        $from_pos_screen = empty($input['is_credit_sale']);
+                        $receipt = $this->receiptContent($business_id, $input['location_id'], $transaction->id, null, false, $from_pos_screen, $invoice_layout_id);
                     } else {
                         $receipt = '';
                     }
@@ -1594,6 +1625,9 @@ class SellPosController extends Controller
                     'msg' => trans('messages.something_went_wrong'),
                 ];
             }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            $output = ['success' => 0, 'msg' => implode(' ', \Illuminate\Support\Arr::flatten($e->errors()))];
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());

@@ -2,6 +2,10 @@ var global_brand_id = null;
 var global_p_category_id = null;
 var global_is_clear_local_storage = false;
 $(document).ready(function() {
+    $(document).on('change', '#isRelief', function() {
+        $('#pos_vat5_fields').toggleClass('hide', !this.checked);
+    });
+    $('#isRelief').trigger('change');
     customer_set = false;
     //Prevent enter key function except texarea
     $('form').on('keyup keypress', function(e) {
@@ -914,12 +918,12 @@ $(document).ready(function() {
                             $('#modal_payment').modal('hide');
                             toastr.success(result.msg);
 
-                            reset_pos_form();
-
-                            //Check if enabled or not
-                            if (result.receipt.is_enabled) {
+                            // Print before reset: edit reset navigates away from this page.
+                            if (result.receipt && result.receipt.is_enabled) {
                                 pos_print(result.receipt);
                             }
+
+                            reset_pos_form();
                         } else {
                             toastr.error(result.msg);
                         }
@@ -2258,6 +2262,7 @@ function reset_pos_form(){
 	if(sell_form[0]){
 		sell_form[0].reset();
 	}
+    $('#isRelief').trigger('change');
 	set_default_customer();
 	set_location();
 

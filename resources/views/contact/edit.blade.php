@@ -244,6 +244,18 @@
         </div>
 
         
+        <div class="col-md-4">
+          <div class="form-group">
+              {!! Form::label('authorization_code', __('contact.eis_authorization_code') . ':') !!}
+              <div class="input-group">
+                  <span class="input-group-addon">
+                      <i class="fa fa-key"></i>
+                  </span>
+                  {!! Form::text('authorization_code', $contact->authorization_code, ['class' => 'form-control', 'placeholder' => __('contact.eis_authorization_code'), 'maxlength' => 255]); !!}
+              </div>
+          </div>
+        </div>
+
         <div class="col-md-4 opening_balance">
           <div class="form-group">
               {!! Form::label('opening_balance', __('lang_v1.opening_balance') . ':') !!}
@@ -256,6 +268,7 @@
           </div>
         </div>
 
+        <div class="clearfix"></div>
         <div class="col-md-4 pay_term">
           <div class="form-group">
             <div class="multi-input">
@@ -267,7 +280,6 @@
             </div>
           </div>
         </div>
-        <div class="clearfix"></div>
         
         <div class="col-md-4 customer_fields">
           <div class="form-group">

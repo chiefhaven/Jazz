@@ -14,7 +14,8 @@ use Modules\EIS\Events\SaleCompleted;
  * A final sell initiates it when it is paid in full, by cash or any other method.
  * Drafts, quotations, suspended sales, credit sales and partially paid sales (partial cash included) do not,
  * so they are neither submitted nor left behind as pending EIS rows (pending rows count against the offline
- * limits). A sale that becomes fully paid later is picked up by the hourly DispatchAllUnsubmittedSalesJob.
+ * limits). Adding/editing payments or settling contact dues initiates submission when a sale becomes
+ * fully paid. The hourly DispatchAllUnsubmittedSalesJob remains a fallback for unsubmitted sales.
  */
 class SaleSubmissionRule
 {

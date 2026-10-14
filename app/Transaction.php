@@ -34,6 +34,8 @@ class Transaction extends Model
      * @var array
      */
     protected $casts = [
+        'is_relief' => 'boolean',
+        'vat5_certificate_details' => 'array',
         'purchase_order_ids' => 'array',
         'sales_order_ids' => 'array',
         'export_custom_fields_info' => 'array',

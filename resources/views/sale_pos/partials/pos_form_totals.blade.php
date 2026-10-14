@@ -1,4 +1,8 @@
 <div class="row pos_form_totals">
+	<div class="col-md-12 mb-12">
+		@include('sale_pos.partials.relief_checkbox')
+		@include('sale_pos.partials.vat5_fields')
+	</div>
 	<div class="col-md-12">
 		<table class="table table-condensed">
 			<tr>

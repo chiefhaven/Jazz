@@ -318,8 +318,8 @@ class SaleTransformer
             'taxpayerConfigVersion' => (int) ($settings->taxpayer_version ?? 0),
             'terminalConfigVersion' => (int) ($settings->terminal_version ?? 0),
             'isExport' => false,
-            'isReliefSupply' => false,
-            'vat5CertificateDetails' => null,
+            'isReliefSupply' => (bool) $transaction->is_relief,
+            'vat5CertificateDetails' => $transaction->is_relief ? $transaction->vat5_certificate_details : null,
             'paymentMethod' => $this->getPaymentMethod($transaction),
         ];
     }
@@ -375,8 +375,8 @@ class SaleTransformer
             if ($transaction->contact && $transaction->contact->exists) {
                 return [
                     'name' => $transaction->contact->name ?? self::DEFAULT_CUSTOMER_NAME,
-                    'tpin' => $transaction->contact->tax_number ?? '',
-                    'authorization_code' => $transaction->contact->authorization_code ?? '',
+                    'tpin' => trim((string) ($transaction->contact->tax_number ?? '')),
+                    'authorization_code' => trim((string) ($transaction->contact->authorization_code ?? '')),
                 ];
             }
         } catch (\Exception $e) {
