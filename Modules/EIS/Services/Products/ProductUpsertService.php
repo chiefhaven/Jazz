@@ -657,7 +657,7 @@ class ProductUpsertService {
     private function getStockWithFallbacks(array $item): float
     {
         // Primary: Extract from item
-        $stock = (float) ($item['stock'] ?? $item['quantity'] ?? $item['stockQuantity'] ?? 0);
+        $stock = (float) ($item['stock'] ?? $item['quantity'] ?? 0);
         if ($stock >= 0) {
             return $stock;
         }
