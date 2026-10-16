@@ -83,11 +83,11 @@ foreach ([null, '', 'Configured header'] as $configuredHeader) {
     $is_eis_receipt = true;
     $il = (object) ['header_text' => $configuredHeader];
     $legalHeader = eval('return '.$headerMatch[1].';');
-    checkReceiptNumber(str_starts_with($legalHeader, '****Start of Legal Receipt****'), 'Legal start marker always present');
+    checkReceiptNumber(str_starts_with(strip_tags($legalHeader), '****Start of Legal Receipt****'), 'Capitalized legal start marker present');
     checkReceiptNumber(str_contains($legalHeader, $configuredHeader ?? ''), 'Configured header preserved');
     checkReceiptNumber(str_contains(strip_tags($legalHeader), "****Start of Legal Receipt****\n"), 'Thermal marker has line break');
 }
-checkReceiptNumber(str_contains($util, '****End of Legal Receipt****'), 'Legal end marker retained');
+checkReceiptNumber(str_contains($util, '****End of Legal Receipt****'), 'Capitalized legal end marker retained');
 $eligibilityStart = strpos($util, '        $is_eis_receipt =');
 $eligibilityEnd = strpos($util, ';', $eligibilityStart);
 $eligibilityBlock = substr($util, $eligibilityStart, $eligibilityEnd - $eligibilityStart + 1);
@@ -106,6 +106,12 @@ foreach (['due', 'partial', 'paid'] as $paymentStatus) {
         eval($footerBlock);
         checkReceiptNumber(str_contains($legalHeader, '****Start of Legal Receipt****') === (bool) $expected, 'Legal start only on EIS receipts');
         checkReceiptNumber(str_contains($output['footer_text'], '****End of Legal Receipt****') === (bool) $expected, 'Legal end only on EIS receipts');
+        if ($expected) {
+            preg_match('/<span style="([^"]+)">\*\*\*\*Start/', $legalHeader, $startStyle);
+            preg_match('/<span style="([^"]+)">\*\*\*\*End/', $output['footer_text'], $endStyle);
+            checkReceiptNumber(isset($startStyle[1], $endStyle[1]) && $startStyle[1] === $endStyle[1]
+                && str_contains($startStyle[1], 'font-size:12px;'), 'Legal markers use identical explicit font sizes');
+        }
         checkReceiptNumber(str_contains($legalHeader, 'Configured header') && str_contains($output['footer_text'], 'Configured footer'), 'Custom receipt content preserved');
     }
 }
