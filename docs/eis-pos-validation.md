@@ -3,8 +3,8 @@
 ## Receipt identifiers
 
 Browser invoice/receipt layouts and the ESC/POS print server show both
-**Transaction Number** (the original POS invoice number) and **EIS Invoice Number**
-only for fully paid orders when an EIS invoice number is available. Unpaid and
+**Transaction Number** (the original POS invoice number) and **EIS Reciept Number**
+only for fully paid orders when an EIS Reciept Number is available. Unpaid and
 partially paid orders omit the EIS number and its label, even if legacy EIS
 tracking exists. The original number, barcode and print
 title remain unchanged. The EIS number comes from the saved request's

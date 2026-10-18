@@ -87,13 +87,12 @@
 	<div class="col-xs-12 text-center">
 		<!-- Invoice  number, Date  -->
 		<p style="width: 100% !important" class="word-wrap">
-			<span class="pull-left text-left word-wrap">
+			<span class="pull-left text-left">
 				@if(!empty($receipt_details->invoice_no_prefix))
 					<b>{!! $receipt_details->invoice_no_prefix !!}</b>
 				@endif
 				{{$receipt_details->invoice_no}}
 				@include('sale_pos.receipts.partial.eis_invoice_number')
-
 				@if(!empty($receipt_details->types_of_service))
 					<br/>
 					<span class="pull-left text-left">

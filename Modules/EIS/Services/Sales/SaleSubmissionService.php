@@ -52,7 +52,7 @@ class SaleSubmissionService
         }
 
         // ----------------------------
-        // GENERATE EIS INVOICE NUMBER
+        // GENERATE EIS Reciept Number
         // ----------------------------
         // Read attempt history BEFORE resetting tracking to pending. A pending
         // request may have reached EIS before the worker lost its response.
@@ -87,7 +87,7 @@ class SaleSubmissionService
 
         try {
             // ----------------------------
-            // TRANSFORM WITH EIS INVOICE NUMBER
+            // TRANSFORM WITH EIS Reciept Number
             // ----------------------------
             $payload = $this->transformer->transform($transaction, $settings, $eisInvoiceNumber, $includeOfflineSignature);
 
@@ -167,7 +167,7 @@ class SaleSubmissionService
                 $taxpayerId
             );
 
-            Log::debug('EIS invoice number generated', [
+            Log::debug('EIS Reciept Number generated', [
                 'transaction_id' => $transaction->id,
                 'invoice_number' => $invoiceNumber,
                 'terminal_position' => $terminalPosition
@@ -176,7 +176,7 @@ class SaleSubmissionService
             return $invoiceNumber;
 
         } catch (\Exception $e) {
-            Log::error('Failed to generate EIS invoice number', [
+            Log::error('Failed to generate EIS Reciept Number', [
                 'transaction_id' => $transaction->id,
                 'error' => $e->getMessage()
             ]);

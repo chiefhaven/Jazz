@@ -239,7 +239,6 @@
 	        	<p style="vertical-align: top;"><strong>
 	        		{{$receipt_details->customer_label ?? ''}}
 	        	</strong></p>
-
 	        	<p>
 	        		@if(!empty($receipt_details->customer_info))
 	        			<div class="bw">

@@ -161,7 +161,7 @@ class Escpos
                 ($data->transaction_number ?? $data->invoice_no) . "\n"
             );
             $this->printer->text(
-                ($data->eis_invoice_number_label ?? 'EIS Invoice Number') . ': ' .
+                ($data->eis_invoice_number_label ?? 'EIS Reciept Number') . ': ' .
                 $data->eis_invoice_number . "\n"
             );
         }

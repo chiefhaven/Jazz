@@ -43,7 +43,7 @@ return [
     'eis_batch_processing' => 'Processing bills in batches...',
     'eis_batch_completed' => 'All bills processed successfully',
     'eis_batch_failed' => 'Some bills failed to process',
-    'eis_invoice_no' => 'EIS Invoice Number',
+    'eis_invoice_no' => 'EIS Reciept Number',
     'eis_submitted_at' => 'Submitted At',
     'eis_pending' => 'Pending',
     'eis_submitted' => 'Submitted',
