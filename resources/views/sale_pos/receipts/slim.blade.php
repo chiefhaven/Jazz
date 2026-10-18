@@ -88,14 +88,14 @@
 				@endif
 			<div class="border-top textbox-info">
 				<p class="f-left"><strong>{!! $receipt_details->invoice_no_prefix !!}</strong></p>
-				<p class="f-right">
+				<p class="f-left">
 					{{$receipt_details->invoice_no}}
 				</p>
 			</div>
 			@include('sale_pos.receipts.partial.eis_invoice_number')
 			<div class="textbox-info">
 				<p class="f-left"><strong>{!! $receipt_details->date_label !!}</strong></p>
-				<p class="f-right">
+				<p class="f-left">
 					{{$receipt_details->invoice_date}}
 				</p>
 			</div>
@@ -264,7 +264,7 @@
 					<p class="f-left"><strong>
 						{{ $receipt_details->customer_tax_label }}
 					</strong></p>
-					<p class="f-right">
+					<p class="f-left">
 						{{ $receipt_details->customer_tax_number }}
 					</p>
 				</div>
