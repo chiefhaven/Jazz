@@ -751,16 +751,21 @@ class EisTerminalActivationService
             []
         );
         $businessId = $configuration ? $configuration->business_id : null;
-        $siteId = $businessId
-            ? EisSetting::where('business_id', $businessId)->value('branch_id')
-            : null;
-        $siteId = $siteId ?: data_get($siteData, 'siteId');
+        $siteIds = array_filter([
+            data_get($siteData, 'siteId'),
+            $businessId ? EisSetting::where('business_id', $businessId)->value('branch_id') : null,
+        ], function ($siteId) {
+            return filled($siteId);
+        });
         $businessLocation = null;
-
-        if (filled($siteId)) {
+        foreach (array_unique($siteIds) as $siteId) {
             $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
                 ->where('eis_site_id', $siteId)
                 ->first();
+
+            if ($businessLocation) {
+                break;
+            }
         }
 
         if ($businessLocation) {
