@@ -119,7 +119,19 @@ class EisTerminalConfiguration extends Model
      */
     public function hasSite(): bool
     {
-        return $this->terminalSite !== null;
+        $configuration = $this->configuration;
+        $siteId = data_get(
+            $configuration ? $configuration->raw_response : [],
+            'data.terminalConfiguration.terminalSite.siteId'
+        );
+
+        if (! $configuration || blank($siteId)) {
+            return false;
+        }
+
+        return \App\BusinessLocation::where('business_id', $configuration->business_id)
+            ->where('eis_site_id', $siteId)
+            ->exists();
     }
 
     /**

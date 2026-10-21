@@ -9,7 +9,6 @@ use Modules\EIS\Exceptions\SyncException;
 use Modules\EIS\Models\EisOfflineLimit;
 use Modules\EIS\Models\EisTaxRate;
 use Modules\EIS\Models\EisTerminalConfiguration;
-use Modules\EIS\Models\EisTerminalSite;
 use Modules\EIS\Services\Configuration\EISConfigurationResponse;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
 
@@ -418,11 +417,6 @@ class ConfigurationSyncService
                 $terminalConfigData
             );
 
-            // Sync terminal site if present
-            if (isset($terminalData->terminalSite)) {
-                $this->syncTerminalSite($terminalConfig, $terminalData->terminalSite);
-            }
-
             // Sync offline limit if present
             if (isset($terminalData->offlineLimit)) {
                 $this->syncOfflineLimit($terminalConfig, $terminalData->offlineLimit);
@@ -443,35 +437,6 @@ class ConfigurationSyncService
             // Re-throw to be handled by parent
             throw $e;
         }
-    }
-
-    /**
-     * Sync terminal site.
-     *
-     * @param TerminalConfiguration $terminalConfig
-     * @param object $siteData
-     * @return void
-     */
-    private function syncTerminalSite(EisTerminalConfiguration $terminalConfig, object $siteData): void
-    {
-        $siteData = [
-            'terminal_configuration_id' => $terminalConfig->id,
-            'site_id' => $siteData->siteId ?? null,
-            'site_name' => $siteData->siteName ?? null,
-            'raw_data' => json_encode($siteData),
-            'last_synced_at' => now()
-        ];
-
-        EisTerminalSite::updateOrCreate(
-            ['terminal_configuration_id' => $terminalConfig->id],
-            $siteData
-        );
-
-        Log::debug('Terminal site synced', [
-            'terminal_config_id' => $terminalConfig->id,
-            'site_id' => $siteData['site_id'],
-            'site_name' => $siteData['site_name']
-        ]);
     }
 
     /**
@@ -970,7 +935,7 @@ class ConfigurationSyncService
             'terminal' => $terminal ? [
                 'is_active' => $terminal->is_active,
                 'trading_name' => $terminal->trading_name,
-                'has_site' => EisTerminalSite::where('terminal_configuration_id', $terminal->id)->exists(),
+                'has_site' => $terminal->hasSite(),
                 'has_offline_limit' => EisOfflineLimit::where('terminal_configuration_id', $terminal->id)->exists()
             ] : null,
             'hours_since_sync' => $configuration->last_synced_at 
@@ -1071,7 +1036,7 @@ class ConfigurationSyncService
     public function getTerminalConfiguration(EisConfiguration $configuration): ?EisTerminalConfiguration
     {
         return EisTerminalConfiguration::where('configuration_id', $configuration->id)
-            ->with(['terminalSite', 'offlineLimit'])
+            ->with('offlineLimit')
             ->first();
     }
 

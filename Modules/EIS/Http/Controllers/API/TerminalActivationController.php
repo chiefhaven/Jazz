@@ -699,7 +699,7 @@ class TerminalActivationController extends Controller
             }
 
             $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                ->with(['terminalSite', 'offlineLimit'])
+                ->with('offlineLimit')
                 ->first();
 
             if (!$terminal) {
@@ -707,6 +707,28 @@ class TerminalActivationController extends Controller
                     'success' => false,
                     'message' => 'Terminal configuration not found'
                 ], 404);
+            }
+
+            $siteData = data_get(
+                $configuration->raw_response,
+                'data.terminalConfiguration.terminalSite',
+                []
+            );
+            $siteIds = array_filter([
+                data_get($siteData, 'siteId'),
+                \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->value('branch_id'),
+            ], function ($siteId) {
+                return filled($siteId);
+            });
+            $businessLocation = null;
+            foreach (array_unique($siteIds) as $siteId) {
+                $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
+                    ->where('eis_site_id', $siteId)
+                    ->first();
+
+                if ($businessLocation) {
+                    break;
+                }
             }
 
             return response()->json([
@@ -733,9 +755,9 @@ class TerminalActivationController extends Controller
                         'has_credentials' => $terminal->hasCredentials(),
                         'last_synced_at' => $terminal->last_synced_at
                     ],
-                    'site' => $terminal->terminalSite ? [
-                        'site_id' => $terminal->terminalSite->site_id,
-                        'site_name' => $terminal->terminalSite->site_name
+                    'site' => $businessLocation ? [
+                        'site_id' => $businessLocation->eis_site_id,
+                        'site_name' => $businessLocation->name
                     ] : null,
                     'offline_limit' => $terminal->offlineLimit ? [
                         'max_transaction_age_hours' => $terminal->offlineLimit->max_transaction_age_hours,

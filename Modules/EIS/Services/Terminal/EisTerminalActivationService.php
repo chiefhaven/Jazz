@@ -732,11 +732,35 @@ class EisTerminalActivationService
             'confirmation_response' => $terminal->confirmation_response ? $terminal->confirmation_response : null,
         ];
 
-        // Add site details
-        if ($terminal->terminalSite) {
+        // Read site details from this business's synchronized location.
+        $configuration = $terminal->configuration;
+        $siteData = data_get(
+            $configuration ? $configuration->raw_response : [],
+            'data.terminalConfiguration.terminalSite',
+            []
+        );
+        $businessId = $configuration ? $configuration->business_id : null;
+        $siteIds = array_filter([
+            data_get($siteData, 'siteId'),
+            $businessId ? EisSetting::where('business_id', $businessId)->value('branch_id') : null,
+        ], function ($siteId) {
+            return filled($siteId);
+        });
+        $businessLocation = null;
+        foreach (array_unique($siteIds) as $siteId) {
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
+                ->where('eis_site_id', $siteId)
+                ->first();
+
+            if ($businessLocation) {
+                break;
+            }
+        }
+
+        if ($businessLocation) {
             $details['site'] = [
-                'site_id' => $terminal->terminalSite->site_id,
-                'site_name' => $terminal->terminalSite->site_name
+                'site_id' => $businessLocation->eis_site_id,
+                'site_name' => $businessLocation->name
             ];
         } else {
             $details['site'] = null;
@@ -979,11 +1003,13 @@ class EisTerminalActivationService
                 ];
             }
 
+            $details = $this->getTerminalDetails($terminal);
+
             return [
                 'success' => true,
                 'is_active' => $terminal->is_active,
                 'is_confirmed' => $terminal->is_confirmed ?? false,
-                'data' => $this->getTerminalDetails($terminal)
+                'data' => $details
             ];
 
         } catch (\Exception $e) {
@@ -1200,7 +1226,7 @@ class EisTerminalActivationService
             $configuration = $this->syncService->sync($businessId, $token);
             
             $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                ->with(['terminalSite', 'offlineLimit'])
+                ->with('offlineLimit')
                 ->first();
 
             return [

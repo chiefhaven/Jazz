@@ -86,8 +86,8 @@
                                     <td id="activation_date_display">N/A</td>
                                 </tr>
                                 <tr>
-                                    <th>Branch</th>
-                                    <td id="branch">N/A</td>
+                                    <th>Site</th>
+                                    <td id="branch_display">N/A</td>
                                 </tr>
                             </table>
                         </div>
