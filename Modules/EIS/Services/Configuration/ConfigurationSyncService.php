@@ -393,12 +393,12 @@ class ConfigurationSyncService
                 'is_active' => $terminalData->isActiveTerminal ?? false
             ]);
 
-            // Prepare terminal configuration data
+            // Configuration fetches can report false while activation confirmation is pending.
+            // Keep the local activation/toggle state for an existing terminal.
             $terminalConfigData = [
                 'configuration_id' => $configuration->id,
                 'version' => $terminalData->versionNo ?? null,
                 'terminal_label' => $terminalData->terminalLabel ?? null,
-                'is_active' => $terminalData->isActiveTerminal ?? false,
                 'email_address' => $terminalData->emailAddress ?? null,
                 'phone_number' => $terminalData->phoneNumber ?? null,
                 'trading_name' => $terminalData->tradingName ?? null,
@@ -411,11 +411,16 @@ class ConfigurationSyncService
                 'last_synced_at' => now()
             ];
 
-            // Update or create terminal configuration
-            $terminalConfig = EisTerminalConfiguration::updateOrCreate(
-                ['configuration_id' => $configuration->id],
-                $terminalConfigData
-            );
+            $terminalConfig = EisTerminalConfiguration::firstOrNew([
+                'configuration_id' => $configuration->id,
+            ]);
+
+            if (! $terminalConfig->exists) {
+                $terminalConfig->is_active = $terminalData->isActiveTerminal ?? false;
+            }
+
+            $terminalConfig->fill($terminalConfigData);
+            $terminalConfig->save();
 
             // Sync offline limit if present
             if (isset($terminalData->offlineLimit)) {
