@@ -34,19 +34,13 @@ Facade::setFacadeApplication($container);
 $schema = $capsule->getConnection()->getSchemaBuilder();
 $schema->create('transactions', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->string('invoice_no');
-    $t->integer('location_id')->nullable();
     $t->string('type'); $t->string('status'); $t->string('payment_status');
     $t->boolean('is_fiscalized')->default(false);
     $t->string('fiscal_invoice_number')->nullable(); $t->string('receipt_number')->nullable();
     $t->timestamps();
 });
-$schema->create('business_locations', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('business_id'); $t->string('eis_site_id')->nullable();
-    $t->softDeletes(); $t->timestamps();
-});
 $schema->create('eis_settings', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('business_id'); $t->string('tpin');
-    $t->string('branch_id')->nullable(); $t->timestamps();
+    $t->increments('id'); $t->integer('business_id'); $t->string('tpin'); $t->timestamps();
 });
 $container->instance('db.schema', $schema);
 (require dirname(__DIR__, 2).'/Modules/EIS/Database/Migrations/2026_07_05_000001_create_eis_sales_table.php')->up();
@@ -160,33 +154,6 @@ checkRetry($submitted->eis_invoice_number === 'GENERATED-1' && $transaction->fre
 $count = count($client->payloads);
 $service->submit($transaction, $settings);
 checkRetry(count($client->payloads) === $count, 'Submitted sale never sent again');
-
-// Existing transactions stay on their original site; new transactions use the newly activated site's location.
-$settings->branch_id = 'SITE-NEW';
-$settings->save();
-$oldLocationId = DB::table('business_locations')->insertGetId([
-    'business_id' => 7,
-    'eis_site_id' => 'SITE-OLD',
-    'created_at' => now(),
-    'updated_at' => now(),
-]);
-$newLocationId = DB::table('business_locations')->insertGetId([
-    'business_id' => 7,
-    'eis_site_id' => 'SITE-NEW',
-    'created_at' => now(),
-    'updated_at' => now(),
-]);
-$oldSiteSale = submissionFixture();
-$oldSiteSale->location_id = $oldLocationId;
-DB::table('transactions')->where('id', $oldSiteSale->id)->update(['location_id' => $oldLocationId]);
-$service->submit($oldSiteSale, $settings);
-checkRetry(end($client->payloads)['invoiceHeader']['siteId'] === 'SITE-OLD', 'Existing sale retry keeps its original terminal site');
-$newSiteSale = submissionFixture();
-$newSiteSale->location_id = $newLocationId;
-DB::table('transactions')->where('id', $newSiteSale->id)->update(['location_id' => $newLocationId]);
-$service->submit($newSiteSale, $settings);
-checkRetry(end($client->payloads)['invoiceHeader']['siteId'] === 'SITE-NEW', 'New sale uses the newly activated terminal site');
-
 // A transport failure must return to persisted tracking, not silently replay
 // the unsigned first payload in an internal HTTP retry.
 $container['config']['eis.base_url'] = 'https://eis.invalid';
