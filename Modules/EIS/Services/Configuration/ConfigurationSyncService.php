@@ -1086,7 +1086,8 @@ class ConfigurationSyncService
             []
         );
 
-        $siteId = data_get($terminalSite, 'siteId');
+        $siteId = data_get($terminalSite, 'siteId')
+            ?: \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->value('branch_id');
 
         if (blank($siteId)) {
             throw new \InvalidArgumentException(

@@ -1707,3 +1707,4 @@
 [2026-10-21 03:22:19] local.WARNING: EIS health check failed {"business_id":2,"exception":"GuzzleHttp\\Exception\\RequestException","host":"dev-eis-api.mra.mw","curl_errno":60,"connection_reason":"tls_certificate_failed","connect_timeout_seconds":20,"timeout_seconds":20} 
 [2026-10-21 03:27:42] local.INFO: EIS Settings Retrieved {"business_id":2,"eis_settings":{"terminal_activation_code":null}} 
 [2026-10-21 03:27:46] local.WARNING: EIS health check failed {"business_id":2,"exception":"GuzzleHttp\\Exception\\RequestException","host":"dev-eis-api.mra.mw","curl_errno":60,"connection_reason":"tls_certificate_failed","connect_timeout_seconds":20,"timeout_seconds":20} 
+[2026-10-21 03:48:01] local.INFO: DispatchEisSaleJob: Skipped transaction ID 490, it is not a final sell paid in full  

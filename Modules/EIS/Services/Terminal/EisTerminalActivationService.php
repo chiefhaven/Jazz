@@ -60,11 +60,10 @@ class EisTerminalActivationService
             if ($result['success']) {
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
-                $jwtToken = $result['terminal_credentials']['jwtToken'];
-                $siteId = $result['configuration']['terminalSite']['siteId'];
+                $jwtToken = $result['terminal_credentials']['jwtToken'] ?? null;
                 
-                if ($terminalId && $secretKey) {
-                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey, $siteId);
+                if ($terminalId && $secretKey && $jwtToken) {
+                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
                 } else {
                     Log::warning('Missing terminal ID or secret key for confirmation', [
                         'terminal_id' => $terminalId,
@@ -74,7 +73,14 @@ class EisTerminalActivationService
             }
 
             if ($result['success']) {
-                \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
+                try {
+                    \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
+                } catch (\InvalidArgumentException $e) {
+                    Log::warning('EIS activation succeeded but location sync was skipped', [
+                        'business_id' => $businessId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
 
             return $result;
@@ -187,7 +193,8 @@ class EisTerminalActivationService
             $secretKey = $data->activatedTerminal->terminalCredentials->secretKey ?? null;
             $jwtToken = $data->activatedTerminal->terminalCredentials->jwtToken ?? null;
             $tpin = $data->configuration->taxpayerConfiguration->tin ?? null;
-            $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId ?? null;
+            $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId
+                ?? EisSetting::where('business_id', $businessId)->value('branch_id');
 
             Log::info('Extracted EIS data for settings update', [
                 'business_id' => $businessId,
@@ -207,12 +214,16 @@ class EisTerminalActivationService
                     'device_id' => $terminalId,
                     'secret_key' => $secretKey,
                     'jwt_token' => $jwtToken,
-                    'branch_id' => $siteId,
                     'tpin' => $tpin,
                     'last_sync_at' => now(),
                     'sync_status' => 'success',
                     'sync_error' => null,
                 ]);
+
+                if ($siteId) {
+                    $setting->branch_id = $siteId;
+                    $setting->save();
+                }
                 
                 Log::info('EIS settings updated after activation', [
                     'business_id' => $businessId,
