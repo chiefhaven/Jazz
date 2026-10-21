@@ -958,29 +958,75 @@ class EisTerminalActivationService
     }
 
     /**
-     * Dispatch a job to fetch the latest EIS configuration.
-     *
-     * @param int $businessId
-     * @param string $token
-     * @param int|null $toggledBy
-     * @return array
+     * Fetch and sync the latest EIS configuration for one business immediately.
      */
-    public function getLatestConfig(): array
+    public function getLatestConfig(int $businessId): array
     {
-        try {
-            
-            $result = app(\Modules\EIS\Jobs\SyncEISConfigurationJob::class)->dispatchNow();
+        $setting = EisSetting::where('business_id', $businessId)->first();
 
-            return $result;
+        if (! $setting) {
+            return [
+                'success' => false,
+                'message' => "EIS settings were not found for business {$businessId}.",
+                'processed' => 0,
+                'failed' => 1,
+            ];
+        }
+
+        if (blank($setting->jwt_token)) {
+            return [
+                'success' => false,
+                'message' => "No EIS JWT token is configured for business {$businessId}.",
+                'processed' => 0,
+                'failed' => 1,
+            ];
+        }
+
+        try {
+            $configuration = $this->syncService->sync($businessId, $setting->jwt_token);
+
+            $setting->update([
+                'last_sync_at' => now(),
+                'sync_status' => 'success',
+                'sync_error' => null,
+                'sync_error_retry_after' => null,
+                'successful_syncs' => ($setting->successful_syncs ?? 0) + 1,
+                'global_version' => $configuration->global_version,
+                'terminal_version' => $configuration->terminal_version,
+                'taxpayer_version' => $configuration->taxpayer_version,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Latest configuration fetched and synced successfully.',
+                'processed' => 1,
+                'successful' => 1,
+                'failed' => 0,
+                'skipped' => 0,
+                'data' => $configuration,
+            ];
 
         } catch (\Throwable $e) {
-            Log::error('Failed to sync latest configuration', [
-                'error' => $e->getMessage()
+            $setting->update([
+                'sync_status' => 'failed',
+                'sync_error' => $e->getMessage(),
+                'sync_error_retry_after' => now()->addMinutes(5),
+                'failed_syncs' => ($setting->failed_syncs ?? 0) + 1,
+                'last_sync_attempt' => now(),
+            ]);
+
+            Log::error('Failed to sync latest configuration for business', [
+                'business_id' => $businessId,
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'message' => 'Failed to fetch latest configuration: ' . $e->getMessage()
+                'message' => 'Failed to fetch latest configuration: ' . $e->getMessage(),
+                'processed' => 1,
+                'successful' => 0,
+                'failed' => 1,
+                'skipped' => 0,
             ];
         }
     }

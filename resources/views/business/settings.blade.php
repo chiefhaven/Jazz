@@ -353,8 +353,7 @@
         // Get Latest Terminal Config
         $(document).on('click', '#get_latest_eis_config_btn', function() {
             var data = {
-                business_id: $('#business_id').val(),
-                token: $('#eis_token').val()
+                business_id: $('#business_id').val()
             };
 
             $.ajax({
@@ -371,7 +370,7 @@
                             text: result.msg || 'Latest terminal config fetched successfully',
                             icon: 'success'
                         });
-                        updateTerminalUI(result.data);
+                        getTerminalStatus();
                     } else {
                         swal({
                             text: result.msg || 'Failed to get latest terminal config',
@@ -494,8 +493,7 @@
                         "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
                     },
                     data: {
-                        business_id: $('#business_id').val(),
-                        token: $('#eis_token').val()
+                        business_id: $('#business_id').val()
                     },
 
                     success: function (response) {
@@ -504,7 +502,7 @@
 
                             swal(
                                 "Success",
-                                response.msg || "Latest configuration fetched successfully.",
+                                response.msg || response.message || "Latest configuration fetched successfully.",
                                 "success"
                             );
 
@@ -512,6 +510,7 @@
                                 $('#jwt_token_display').text(response.data.jwt_token ?? 'N/A');
                                 $('#secret_key_display').text(response.data.secret_key ?? 'N/A');
                             }
+                            getTerminalStatus();
 
                         } else {
 

@@ -298,11 +298,32 @@ class TerminalActivationController extends Controller
      */
     public function fetchLatestConfig(Request $request)
     {
-
         try {
-            $result = $this->activationService->getLatestConfig();
+            $validated = $request->validate([
+                'business_id' => 'required|integer|exists:eis_settings,business_id',
+            ]);
+
+            $user = Auth::user();
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => 'Authentication is required to fetch configuration.',
+                ], 401);
+            }
+
+            if (! $user->can('superadmin')
+                && ((int) $user->business_id !== (int) $validated['business_id']
+                    || ! $user->can('business_settings.access'))) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => 'You are not authorized to sync configuration for this business.',
+                ], 403);
+            }
+
+            $result = $this->activationService->getLatestConfig((int) $validated['business_id']);
 
             Log::info('Fetched latest terminal configuration', [
+                'business_id' => $validated['business_id'],
                 'result' => $result
             ]);
             
@@ -315,6 +336,12 @@ class TerminalActivationController extends Controller
 
             return response()->json($result, $result['success'] ? 200 : 400);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Terminal get latest config error', [
                 'error' => $e->getMessage()

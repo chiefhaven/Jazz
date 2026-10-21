@@ -14,13 +14,21 @@ class EisProductClient
 
     public function fetch($settings, int $page = 1)
     {
-        return Http::baseUrl(config('eis.base_url'))
+        $response = Http::baseUrl(config('eis.base_url'))
             ->withToken($settings->jwt_token)
             ->post('/utilities/get-terminal-site-products', [
                 'tin'    => $settings->tpin,
                 'siteId' => self::requestSiteId($settings),
                 'page'   => $page,
-            ])
-            ->json();
+            ]);
+
+        $response->throw();
+
+        $payload = $response->json();
+        if (!is_array($payload) || !array_key_exists('data', $payload) || !is_array($payload['data'])) {
+            throw new \UnexpectedValueException('EIS product response has an invalid data collection.');
+        }
+
+        return $payload;
     }
 }
