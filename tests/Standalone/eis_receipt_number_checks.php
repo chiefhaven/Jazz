@@ -46,7 +46,7 @@ $sale = new EisSale(['request_payload' => ['invoiceHeader' => ['invoiceNumber' =
 checkReceiptNumber($sale->eis_invoice_number === 'EIS-200', 'Trim stored invoice number');
 $html = renderNumberPartial($compiler, (object) ['invoice_no' => 'TXN-100', 'transaction_number' => 'TXN-100', 'eis_invoice_number' => 'EIS-200']);
 checkReceiptNumber(str_contains($html, 'Transaction Number') && str_contains($html, 'TXN-100'), 'Labeled transaction number rendered');
-checkReceiptNumber(str_contains($html, 'EIS Number') && str_contains($html, 'EIS-200'), 'Labeled EIS Number rendered');
+checkReceiptNumber(str_contains($html, 'EIS Reciept Number') && str_contains($html, 'EIS-200'), 'Labeled EIS Reciept Number rendered');
 $html = renderNumberPartial($compiler, (object) ['invoice_no' => 'FALLBACK', 'eis_invoice_number' => 'EIS-200']);
 checkReceiptNumber(str_contains($html, 'FALLBACK'), 'Original invoice fallback supported');
 $html = renderNumberPartial($compiler, (object) ['invoice_no' => '<script>bad</script>', 'eis_invoice_number' => '<img src=x>']);
@@ -73,7 +73,7 @@ $harness = new class {
 };
 $print = Closure::bind(function ($data) use ($block) { eval($block); }, $harness, get_class($harness));
 $print((object) ['invoice_no' => 'TXN-100', 'eis_invoice_number' => 'EIS-200']);
-checkReceiptNumber($harness->printer->output === "Transaction Number: TXN-100\nEIS Number: EIS-200\n", 'Raw thermal output prints both identities');
+checkReceiptNumber($harness->printer->output === "Transaction Number: TXN-100\nEIS Reciept Number: EIS-200\n", 'Raw thermal output prints both identities');
 $harness->printer->output = '';
 $print((object) ['invoice_no' => 'TXN-100']);
 checkReceiptNumber($harness->printer->output === '', 'No invented raw thermal EIS identity');
@@ -127,9 +127,9 @@ foreach (['due', 'partial', 'paid'] as $paymentStatus) {
     eval($numberBlock);
     checkReceiptNumber($output['eis_invoice_number'] === ($paymentStatus === 'paid' ? 'EIS-200' : null), 'Receipt number restricted by payment status: '.$paymentStatus);
     $html = renderNumberPartial($compiler, (object) ($output + ['invoice_no' => 'TXN-100']));
-    checkReceiptNumber(str_contains($html, 'EIS Number') === ($paymentStatus === 'paid'), 'EIS label hidden unless paid: '.$paymentStatus);
+    checkReceiptNumber(str_contains($html, 'EIS Reciept Number') === ($paymentStatus === 'paid'), 'EIS label hidden unless paid: '.$paymentStatus);
     $harness->printer->output = '';
     $print((object) ($output + ['invoice_no' => 'TXN-100']));
-    checkReceiptNumber(str_contains($harness->printer->output, 'EIS Number') === ($paymentStatus === 'paid'), 'Thermal EIS number hidden unless paid: '.$paymentStatus);
+    checkReceiptNumber(str_contains($harness->printer->output, 'EIS Reciept Number') === ($paymentStatus === 'paid'), 'Thermal EIS number hidden unless paid: '.$paymentStatus);
 }
 echo "PASS: {$checks} EIS receipt number checks (no database or printer).\n";

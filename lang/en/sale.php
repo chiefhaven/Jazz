@@ -17,7 +17,7 @@ return [
     'add_sale' => 'Add Sale',
     'pos_sale' => 'POS',
     'transaction_number' => 'Transaction Number',
-    'eis_invoice_number' => 'EIS Number',
+    'eis_invoice_number' => 'EIS Reciept Number',
     'is_relief' => 'Is Relief',
     'vat5_project_number' => 'VAT5 Project Number',
     'vat5_certificate_number' => 'VAT5 Certificate Number',
