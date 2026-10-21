@@ -4197,3 +4197,547 @@
 #12 {main}
 "} 
 [2026-10-21 01:56:04] laravel.INFO: connector_request_completed {"request_id":"5eb09cea-cd72-44a1-8366-df883f89c300","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CashRegisterController@index","http_status":200,"outcome":"success","duration_ms":63.101} 
+[2026-10-21 05:45:35] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 05:45:35] laravel.INFO: connector_request_completed {"request_id":"484f8f74-22ec-4a24-bffb-45fe83e7aaf5","actor_id":null,"business_id":null,"action":"Modules\\Connector\\Http\\Controllers\\Api\\DesktopLoginController@login","http_status":200,"outcome":"success","duration_ms":1612.529} 
+[2026-10-21 02:15:36] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:15:36] laravel.INFO: connector_request_completed {"request_id":"63ac5c1d-32b6-449b-ac0d-11ffbd6dfa0b","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\UserController@loggedin","http_status":200,"outcome":"success","duration_ms":190.133} 
+[2026-10-21 02:16:28] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:28] laravel.INFO: connector_request_completed {"request_id":"af975ca3-9cbb-4b91-8a9e-3a3c88009367","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\UserController@loggedin","http_status":200,"outcome":"success","duration_ms":134.312} 
+[2026-10-21 02:16:29] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:29] laravel.INFO: connector_request_completed {"request_id":"be1e0043-54f0-4bf9-9b27-734ee561b696","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\ProductController@index","http_status":200,"outcome":"success","duration_ms":475.197} 
+[2026-10-21 02:16:30] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:30] laravel.INFO: connector_request_completed {"request_id":"33eefc14-fdfe-48cb-802a-0a27780c7b09","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\BusinessLocationController@index","http_status":200,"outcome":"success","duration_ms":155.216} 
+[2026-10-21 02:16:31] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:31] laravel.INFO: connector_request_completed {"request_id":"2f1b7c40-5566-4936-88a9-74cb0f1608b4","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\SellController@index","http_status":500,"outcome":"failure","duration_ms":406.633} 
+[2026-10-21 02:16:32] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:32] laravel.INFO: connector_request_completed {"request_id":"d4904e11-34c9-48d8-ace5-b0f61c6a3026","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\BrandController@index","http_status":200,"outcome":"success","duration_ms":51.616} 
+[2026-10-21 02:16:33] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:33] laravel.INFO: connector_request_completed {"request_id":"76cf8e27-bd7c-47cb-9bf4-073ad9bb054e","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\ContactController@index","http_status":200,"outcome":"success","duration_ms":164.561} 
+[2026-10-21 02:16:33] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:33] laravel.INFO: connector_request_completed {"request_id":"4e217696-48bf-44ef-959a-e170bd93bee7","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\TaxController@index","http_status":200,"outcome":"success","duration_ms":91.116} 
+[2026-10-21 02:16:34] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:34] laravel.INFO: connector_request_completed {"request_id":"84bad6db-8645-405b-a91d-a56864d86231","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CategoryController@index","http_status":200,"outcome":"success","duration_ms":80.473} 
+[2026-10-21 02:16:35] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:35] laravel.INFO: connector_request_completed {"request_id":"606767ab-c102-4deb-90c8-d2492a6961e7","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\ProductController@getSellingPriceGroup","http_status":200,"outcome":"success","duration_ms":77.18} 
+[2026-10-21 02:16:36] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:36] laravel.INFO: connector_request_completed {"request_id":"c5dbc290-794b-4edd-a250-bf55f29a1787","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\UnitController@index","http_status":200,"outcome":"success","duration_ms":97.799} 
+[2026-10-21 02:16:37] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:37] laravel.INFO: connector_request_completed {"request_id":"8d59061b-186e-43fb-929d-c8193f1a6e80","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CommonResourceController@getBusinessDetails","http_status":200,"outcome":"success","duration_ms":149.647} 
+[2026-10-21 02:16:38] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:38] laravel.INFO: connector_request_completed {"request_id":"87c09876-46e2-4d88-8021-4a40caee0b62","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CommonResourceController@getPaymentAccounts","http_status":200,"outcome":"success","duration_ms":98.54} 
+[2026-10-21 02:16:39] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:39] laravel.INFO: connector_request_completed {"request_id":"f2a44cb9-d6bf-47f1-88d1-ce3dc143d958","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\TypesOfServiceController@index","http_status":200,"outcome":"success","duration_ms":76.413} 
+[2026-10-21 02:16:40] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:40] laravel.INFO: connector_request_completed {"request_id":"71a26f6e-b849-4eda-a819-2e67d01759b6","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\TableController@index","http_status":200,"outcome":"success","duration_ms":51.859} 
+[2026-10-21 02:16:41] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:41] laravel.INFO: connector_request_completed {"request_id":"b6db741b-9ff5-4be4-b07e-daf1552996ba","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CashRegisterController@index","http_status":200,"outcome":"success","duration_ms":231.124} 
+[2026-10-21 02:16:42] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:42] laravel.INFO: connector_request_completed {"request_id":"ae6a68eb-97e4-489b-8b8e-31b218a77c28","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\UserController@loggedin","http_status":200,"outcome":"success","duration_ms":120.293} 
+[2026-10-21 02:16:43] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:43] laravel.INFO: connector_request_completed {"request_id":"e29e44c0-6ffc-4544-b104-ef3755c42d8d","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\ProductController@index","http_status":200,"outcome":"success","duration_ms":459.54} 
+[2026-10-21 02:16:44] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:44] laravel.INFO: connector_request_completed {"request_id":"e0b49741-12ba-4e18-a3aa-36bbdd8f12db","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\BusinessLocationController@index","http_status":200,"outcome":"success","duration_ms":124.887} 
+[2026-10-21 02:16:45] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:45] laravel.INFO: connector_request_completed {"request_id":"a058cc39-37ac-4ac4-8327-c8c7a44777df","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\ContactController@index","http_status":200,"outcome":"success","duration_ms":128.641} 
+[2026-10-21 02:16:46] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:46] laravel.INFO: connector_request_completed {"request_id":"bd362925-acf1-4ca7-8bb1-fa5778c22a84","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\SellController@index","http_status":500,"outcome":"failure","duration_ms":359.877} 
+[2026-10-21 02:16:47] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:47] laravel.INFO: connector_request_completed {"request_id":"2912b135-2fe3-40b5-a3b7-7d9becedc4de","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CategoryController@index","http_status":200,"outcome":"success","duration_ms":53.151} 
+[2026-10-21 02:16:48] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:48] laravel.INFO: connector_request_completed {"request_id":"5ba277a5-0db8-4803-8e22-ccb8eb637ab6","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\UnitController@index","http_status":200,"outcome":"success","duration_ms":76.5} 
+[2026-10-21 02:16:48] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:48] laravel.INFO: connector_request_completed {"request_id":"3144379c-f599-4878-bc75-f65b593811a3","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\BrandController@index","http_status":200,"outcome":"success","duration_ms":117.249} 
+[2026-10-21 02:16:49] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:49] laravel.INFO: connector_request_completed {"request_id":"d4a3a72c-09bc-47b9-872c-9df02e4bb3c0","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\TaxController@index","http_status":200,"outcome":"success","duration_ms":81.497} 
+[2026-10-21 02:16:50] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:50] laravel.INFO: connector_request_completed {"request_id":"377e9157-d1b8-46e8-8db7-bafd5b355e77","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\ProductController@getSellingPriceGroup","http_status":200,"outcome":"success","duration_ms":96.513} 
+[2026-10-21 02:16:51] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:51] laravel.INFO: connector_request_completed {"request_id":"71ef046f-c2fd-491a-b49a-6cf9627cc98f","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CommonResourceController@getPaymentAccounts","http_status":200,"outcome":"success","duration_ms":95.534} 
+[2026-10-21 02:16:52] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:52] laravel.INFO: connector_request_completed {"request_id":"ba96011f-160a-4bb4-9c9e-e9e36550379f","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CommonResourceController@getBusinessDetails","http_status":200,"outcome":"success","duration_ms":111.749} 
+[2026-10-21 02:16:53] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:53] laravel.INFO: connector_request_completed {"request_id":"1a9da4ac-bf7d-4407-806c-1c94be3e1785","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\TypesOfServiceController@index","http_status":200,"outcome":"success","duration_ms":86.69} 
+[2026-10-21 02:16:54] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:54] laravel.INFO: connector_request_completed {"request_id":"0beaa73c-7ff4-4f59-9f05-122fb875fd00","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\TableController@index","http_status":200,"outcome":"success","duration_ms":98.038} 
+[2026-10-21 02:16:55] laravel.EMERGENCY: Unable to create configured logger. Using emergency logger. {"exception":"[object] (Error(code: 0): Call to undefined method Monolog\\Handler\\RotatingFileHandler::getProcessors() at C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\SanitizeAuditLog.php:27)
+[stacktrace]
+#0 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(159): Modules\\Connector\\Support\\Audit\\SanitizeAuditLog->__invoke(Object(Illuminate\\Log\\Logger), '')
+#1 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(136): Illuminate\\Log\\LogManager->tap('connector_audit', Object(Illuminate\\Log\\Logger))
+#2 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\helpers.php(436): Illuminate\\Log\\LogManager->Illuminate\\Log\\{closure}(Object(Monolog\\Logger))
+#3 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(135): with(Object(Monolog\\Logger), Object(Closure))
+#4 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(122): Illuminate\\Log\\LogManager->get('connector_audit')
+#5 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Log\\LogManager.php(111): Illuminate\\Log\\LogManager->driver('connector_audit')
+#6 C:\\wamp64\\www\\Jazz\\Modules\\Connector\\Support\\Audit\\RecordConnectorAudit.php(59): Illuminate\\Log\\LogManager->channel('connector_audit')
+#7 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(441): Modules\\Connector\\Support\\Audit\\RecordConnectorAudit->handle(Object(Illuminate\\Foundation\\Http\\Events\\RequestHandled))
+#8 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Events\\Dispatcher.php(249): Illuminate\\Events\\Dispatcher->Illuminate\\Events\\{closure}('Illuminate\\\\Foun...', Array)
+#9 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(141): Illuminate\\Events\\Dispatcher->dispatch('Illuminate\\\\Foun...')
+#10 C:\\wamp64\\www\\Jazz\\public\\index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#11 C:\\wamp64\\www\\Jazz\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php(16): require_once('C:\\\\wamp64\\\\www\\\\J...')
+#12 {main}
+"} 
+[2026-10-21 02:16:55] laravel.INFO: connector_request_completed {"request_id":"486f6af0-2448-42e1-a98b-949742448fcc","actor_id":"5","business_id":"2","action":"Modules\\Connector\\Http\\Controllers\\Api\\CashRegisterController@index","http_status":200,"outcome":"success","duration_ms":229.766} 
