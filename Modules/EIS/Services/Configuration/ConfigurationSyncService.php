@@ -1096,10 +1096,15 @@ class ConfigurationSyncService
             );
         }
 
+        $terminalActivity = data_get($terminalConfig, 'isActiveTerminal');
+        $terminalIsActive = $terminalActivity === true;
+        $terminalIsInactive = $terminalActivity === false;
+
         Log::info('EIS terminal site details retrieved', [
             'business_id' => $businessId,
             'site_id' => $siteId,
             'site_name' => data_get($terminalSite, 'siteName'),
+            'is_active_terminal' => $terminalActivity,
         ]);
 
         return DB::transaction(function () use (
@@ -1107,7 +1112,9 @@ class ConfigurationSyncService
             $terminalConfig,
             $taxpayerConfig,
             $terminalSite,
-            $siteId
+            $siteId,
+            $terminalIsActive,
+            $terminalIsInactive
         ) {
 
             /*
@@ -1142,12 +1149,29 @@ class ConfigurationSyncService
             |--------------------------------------------------------------------------
             */
 
-            $businessLocation = \App\BusinessLocation::firstOrNew(
+            $businessLocation = \App\BusinessLocation::withTrashed()->firstOrNew(
                 [
                     'business_id' => $business->id,
                     'eis_site_id' => $siteId,
                 ],
             );
+
+            if ($terminalIsInactive) {
+                if ($businessLocation->exists && ! $businessLocation->trashed()) {
+                    $businessLocation->delete();
+                    Log::info('Soft-deleted EIS business location for inactive terminal', [
+                        'business_id' => $business->id,
+                        'business_location_id' => $businessLocation->id,
+                        'eis_site_id' => $siteId,
+                    ]);
+                }
+
+                return null;
+            }
+
+            if ($terminalIsActive && $businessLocation->exists && $businessLocation->trashed()) {
+                $businessLocation->restore();
+            }
 
             $businessLocation->fill([
                 'name' => data_get(
