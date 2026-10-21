@@ -1101,7 +1101,13 @@ class ConfigurationSyncService
             );
         }
 
-        $terminalActivity = data_get($terminalConfig, 'isActiveTerminal');
+        $savedTerminalActivity = \Modules\EIS\Models\EisTerminalConfiguration::where(
+            'configuration_id',
+            $eisConfiguration->id
+        )->value('is_active');
+        $terminalActivity = $savedTerminalActivity !== null
+            ? (bool) $savedTerminalActivity
+            : data_get($terminalConfig, 'isActiveTerminal');
         $terminalIsActive = $terminalActivity === true;
         $terminalIsInactive = $terminalActivity === false;
 

@@ -142,6 +142,30 @@ function directInit($db, $source = ['quantity' => '10.1234']) {
     });
 }
 
+if (($argv[1] ?? null) === '--product-restore-only') {
+    [$db, $service] = openingFixture();
+    $db->table('products')->insert([
+        'id' => 20,
+        'business_id' => 1,
+        'type' => 'single',
+        'name' => 'Active SKU match',
+        'sku' => 'SKU-ONE',
+    ]);
+    $db->table('products')->insert([
+        'id' => 21,
+        'business_id' => 1,
+        'type' => 'single',
+        'name' => 'Deleted EIS match',
+        'sku' => 'OLD-SKU',
+        'eis_product_id' => 'EIS-ONE',
+        'deleted_at' => now(),
+    ]);
+    $restored = importItem($service);
+    verify($restored->id === 21 && $restored->deleted_at === null, 'sync restores product by exact EIS ID before SKU fallback');
+    echo "PASS: focused EIS product restoration check.\n";
+    exit(0);
+}
+
 foreach (['10.1234', '0', '0.0000', '999999999999999999.9999'] as $quantity) {
     verify(OpeningStockInitializer::decimal($quantity) === bcadd($quantity, '0', 4), 'exact normalized decimal '.$quantity);
 }

@@ -109,6 +109,25 @@ class ProductUpsertService {
 
             /*
             |--------------------------------------------------------------------------
+            | FIND PRODUCT BY EIS ID
+            |--------------------------------------------------------------------------
+            */
+            if (!$product || !$product->exists) {
+                $product = Product::withTrashed()
+                    ->where('business_id', $businessId)
+                    ->where('eis_product_id', $eisId)
+                    ->first();
+
+                if ($product) {
+                    Log::info('Product found by EIS ID', [
+                        'eis_id' => $eisId,
+                        'product_id' => $product->id,
+                    ]);
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
             | FIND PRODUCT BY SKU (PRIMARY FALLBACK)
             |--------------------------------------------------------------------------
             */
@@ -144,25 +163,6 @@ class ProductUpsertService {
                             'sku' => $product->sku
                         ]);
                     }
-                }
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIND PRODUCT BY EIS ID IN PRODUCT TABLE (FINAL FALLBACK)
-            |--------------------------------------------------------------------------
-            */
-            if (!$product || !$product->exists) {
-                $product = Product::withTrashed()
-                    ->where('business_id', $businessId)
-                    ->where('eis_product_id', $eisId)
-                    ->first();
-                
-                if ($product) {
-                    Log::info('Product found by EIS ID fallback', [
-                        'eis_id' => $eisId,
-                        'product_id' => $product->id
-                    ]);
                 }
             }
 
