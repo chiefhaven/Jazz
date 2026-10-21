@@ -121,7 +121,7 @@ class EisTerminalConfiguration extends Model
     {
         $configuration = $this->configuration;
         $siteId = data_get(
-            $configuration ? $configuration->raw_response : [],
+            $configuration ? $configuration->decodedRawResponse() : [],
             'data.terminalConfiguration.terminalSite.siteId'
         );
 

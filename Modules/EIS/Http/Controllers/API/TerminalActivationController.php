@@ -710,7 +710,7 @@ class TerminalActivationController extends Controller
             }
 
             $siteData = data_get(
-                $configuration->raw_response,
+                $configuration->decodedRawResponse(),
                 'data.terminalConfiguration.terminalSite',
                 []
             );

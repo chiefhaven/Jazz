@@ -656,7 +656,7 @@ class ConfigurationSyncService
             'is_vat_registered' => $data->taxpayerConfiguration->isVATRegistered ?? false,
             'tax_office_code' => $data->taxpayerConfiguration->taxOfficeCode ?? null,
             'tax_office_name' => $data->taxpayerConfiguration->taxOffice->name ?? null,
-            'raw_response' => json_encode(['data' => $data]),
+            'raw_response' => ['data' => $data],
             'last_synced_at' => now()
         ];
     }
@@ -1077,8 +1077,9 @@ class ConfigurationSyncService
             ->firstOrFail();
 
         // Extract EIS configurations
-        $terminalConfig = data_get($eisConfiguration->raw_response, 'data.terminalConfiguration', []);
-        $taxpayerConfig = data_get($eisConfiguration->raw_response, 'data.taxpayerConfiguration', []);
+        $rawResponse = $eisConfiguration->decodedRawResponse();
+        $terminalConfig = data_get($rawResponse, 'data.terminalConfiguration', []);
+        $taxpayerConfig = data_get($rawResponse, 'data.taxpayerConfiguration', []);
 
         $terminalSite = data_get(
             $terminalConfig,
