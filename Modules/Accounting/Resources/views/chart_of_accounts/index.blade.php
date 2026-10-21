@@ -48,17 +48,19 @@
                             @component('components.filters', ['title' => __('report.filters')])
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        {!! html()->label(__( 'accounting::lang.account_type' ) . ':', 'account_type_filter')->attributes([]) !!}
-                                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('account_type_filter', $account_types, null, ['class' => 'form-control select2', 'style' => 'width:100%', 
-                                            'id' => 'account_type_filter', 'placeholder' => __('lang_v1.all')])); !!}
+                                        {!! Form::label('account_type_filter', __( 'accounting::lang.account_type' ) . ':') !!}
+                                        {!! Form::select('account_type_filter', $account_types, null,
+                                            ['class' => 'form-control select2', 'style' => 'width:100%', 
+                                            'id' => 'account_type_filter', 'placeholder' => __('lang_v1.all')]); !!}
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        {!! html()->label(__( 'sale.status' ) . ':', 'status_filter')->attributes([]) !!}
-                                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status_filter', ['active' => __( 'accounting::lang.active' ),
-                                            'inactive' => __('lang_v1.inactive')], null, ['class' => 'form-control select2', 'style' => 'width:100%', 
-                                            'id' => 'status_filter', 'placeholder' => __('lang_v1.all')])); !!}
+                                        {!! Form::label('status_filter', __( 'sale.status' ) . ':') !!}
+                                        {!! Form::select('status_filter', ['active' => __( 'accounting::lang.active' ),
+                                            'inactive' => __('lang_v1.inactive')], null,
+                                            ['class' => 'form-control select2', 'style' => 'width:100%', 
+                                            'id' => 'status_filter', 'placeholder' => __('lang_v1.all')]); !!}
                                     </div>
                                 </div>
                             @endcomponent
