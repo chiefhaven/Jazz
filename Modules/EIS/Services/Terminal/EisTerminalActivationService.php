@@ -759,8 +759,7 @@ class EisTerminalActivationService
         });
         $businessLocation = null;
         foreach (array_unique($siteIds) as $siteId) {
-            $businessLocation = \App\BusinessLocation::withTrashed()
-                ->where('business_id', $businessId)
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
                 ->where('eis_site_id', $siteId)
                 ->first();
 
