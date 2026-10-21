@@ -741,21 +741,14 @@ class TerminalActivationController extends Controller
                 'data.terminalConfiguration.terminalSite',
                 []
             );
-            $siteIds = array_filter([
-                data_get($siteData, 'siteId'),
-                \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->value('branch_id'),
-            ], function ($siteId) {
-                return filled($siteId);
-            });
+            $siteId = \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->value('branch_id');
+            $siteId = $siteId ?: data_get($siteData, 'siteId');
             $businessLocation = null;
-            foreach (array_unique($siteIds) as $siteId) {
+
+            if (filled($siteId)) {
                 $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
                     ->where('eis_site_id', $siteId)
                     ->first();
-
-                if ($businessLocation) {
-                    break;
-                }
             }
 
             return response()->json([
