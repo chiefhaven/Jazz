@@ -12,31 +12,31 @@
         </div>
 
         <div class="box-body">
-                {!! Form::open(['url' => action([\Modules\Superadmin\Http\Controllers\BusinessController::class, 'store']), 'method' => 'post', 'id' => 'business_register_form','files' => true ]) !!}
+                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Superadmin\Http\Controllers\BusinessController::class, 'store']), 'method' => 'post', 'id' => 'business_register_form','files' => true ]))->open() !!}
                     @include('business.partials.register_form')
                     <div class="clearfix"></div>
                     <div class="col-md-12"><hr></div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! Form::label('package_id', __( 'superadmin::lang.subscription_packages' ) . ':') !!}
-                            {!! Form::select('package_id', $packages, null, ['class' => 'form-control', 'placeholder' => __( 'messages.please_select' ) ]); !!}
+                            {!! html()->label(__( 'superadmin::lang.subscription_packages' ) . ':', 'package_id')->attributes([]) !!}
+                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('package_id', $packages, null, ['class' => 'form-control', 'placeholder' => __( 'messages.please_select' ) ])); !!}
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! Form::label('paid_via', __( 'superadmin::lang.paid_via' ) . ':') !!}
-                            {!! Form::select('paid_via', $gateways, null, ['class' => 'form-control', 'placeholder' => __( 'messages.please_select' ) ]); !!}
+                            {!! html()->label(__( 'superadmin::lang.paid_via' ) . ':', 'paid_via')->attributes([]) !!}
+                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('paid_via', $gateways, null, ['class' => 'form-control', 'placeholder' => __( 'messages.please_select' ) ])); !!}
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! Form::label('payment_transaction_id', __( 'superadmin::lang.payment_transaction_id' ) . ':') !!}
-                            {!! Form::text('payment_transaction_id', null, ['class' => 'form-control', 'placeholder' => __( 'superadmin::lang.payment_transaction_id' ) ]); !!}
+                            {!! html()->label(__( 'superadmin::lang.payment_transaction_id' ) . ':', 'payment_transaction_id')->attributes([]) !!}
+                            {!! html()->text('payment_transaction_id', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'superadmin::lang.payment_transaction_id' ) ]); !!}
                          </div>
                     </div>
 
-                    {!! Form::submit(__('messages.submit'), ['class' => 'btn btn-success pull-right']) !!}
-                {!! Form::close() !!}
+                    {!! html()->input('submit', null, __('messages.submit'))->attributes(['class' => 'btn btn-success pull-right']) !!}
+                {!! html()->form()->close() !!}
         </div>
     </div>
 

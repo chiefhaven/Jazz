@@ -27,47 +27,47 @@
 	<div class="row">
 		<div class="col-sm-3">
 			<div class="form-group">
-				{!! Form::label('location_id', __('purchase.business_location').':*') !!}
-				{!! Form::select('location_id', $business_locations, $default_location, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 
-				'id' => 'select_location_id']); !!}
+				{!! html()->label(__('purchase.business_location').':*', 'location_id')->attributes([]) !!}
+				{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, $default_location, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 
+				'id' => 'select_location_id'])); !!}
 			</div>
 		</div>
 	</div>
 	<input type="hidden" id="product_row_count" value="0">
 	
-	{!! Form::open(['url' => action([\App\Http\Controllers\SellReturnController::class, 'store']), 'method' => 'post', 'id' => 'sell_return_form' ]) !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\SellReturnController::class, 'store']), 'method' => 'post', 'id' => 'sell_return_form' ]))->open() !!}
 	
 	<div class="box box-solid">
 		<div class="box-body">
 			<div class="row">
-				{!! Form::hidden('location_id', $default_location, ['id' => 'location_id']); !!}
+				{!! html()->hidden('location_id', $default_location)->attributes(['id' => 'location_id']); !!}
 
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('contact_id', __('contact.customer') . ':*') !!}
+						{!! html()->label(__('contact.customer') . ':*', 'contact_id')->attributes([]) !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-user"></i>
 							</span>
-							{!! Form::select('contact_id', [], null, ['class' => 'form-control', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required']); !!}
+							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required'])); !!}
 						</div>
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('invoice_no', __('purchase.ref_no').':') !!}
-						{!! Form::text('invoice_no', null, ['class' => 'form-control']); !!}
+						{!! html()->label(__('purchase.ref_no').':', 'invoice_no')->attributes([]) !!}
+						{!! html()->text('invoice_no', null)->attributes(['class' => 'form-control']); !!}
 					</div>
 				</div>
 
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('transaction_date', __('purchase.purchase_date') . ':*') !!}
+						{!! html()->label(__('purchase.purchase_date') . ':*', 'transaction_date')->attributes([]) !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-calendar"></i>
 							</span>
-							{!! Form::text('transaction_date', @format_date('now'), ['class' => 'form-control', 'readonly', 'required']); !!}
+							{!! html()->text('transaction_date', @format_date('now'))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
 						</div>
 					</div>
 				</div>
@@ -86,7 +86,7 @@
 							<span class="input-group-addon">
 								<i class="fa fa-search"></i>
 							</span>
-							{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product', 
+							{!! html()->text('search_product', null)->attributes(['class' => 'form-control', 'id' => 'search_product', 
 								'placeholder' => __('lang_v1.search_product_placeholder'),
 								'disabled' => is_null($default_location)? true : false,
 								'autofocus' => is_null($default_location)? false : true,
@@ -179,14 +179,14 @@
 					<tr>
 						<td class="col-md-3">
 							<div class="form-group">
-								{!! Form::label('discount_type', __( 'purchase.discount_type' ) . ':') !!}
-								{!! Form::select('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], '', ['class' => 'form-control']); !!}
+								{!! html()->label(__( 'purchase.discount_type' ) . ':', 'discount_type')->attributes([]) !!}
+								{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], '', ['class' => 'form-control'])); !!}
 							</div>
 						</td>
 						<td class="col-md-3">
 							<div class="form-group">
-							{!! Form::label('discount_amount', __( 'purchase.discount_amount' ) . ':') !!}
-							{!! Form::text('discount_amount', 0, ['class' => 'form-control input_number', 'required']); !!}
+							{!! html()->label(__( 'purchase.discount_amount' ) . ':', 'discount_amount')->attributes([]) !!}
+							{!! html()->text('discount_amount', 0)->attributes(['class' => 'form-control input_number', 'required']); !!}
 							</div>
 						</td>
 						<td class="col-md-3">
@@ -202,15 +202,15 @@
 						<td>&nbsp;</td>
 						<td>&nbsp;</td>
 						<td>
-							{!! Form::hidden('final_total', 0 , ['id' => 'final_total_input']); !!}
+							{!! html()->hidden('final_total', 0)->attributes(['id' => 'final_total_input']); !!}
 							<b>@lang('lang_v1.total_credit_amt'): </b><span id="total_payable" class="display_currency" data-currency_symbol='true'>0</span>
 						</td>
 					</tr>
 					<tr>
 						<td colspan="4">
 							<div class="form-group">
-								{!! Form::label('additional_notes',__('purchase.additional_notes')) !!}
-								{!! Form::textarea('additional_notes', null, ['class' => 'form-control', 'rows' => 3]); !!}
+								{!! html()->label(__('purchase.additional_notes'), 'additional_notes')->attributes([]) !!}
+								{!! html()->textarea('additional_notes', null)->attributes(['class' => 'form-control', 'rows' => 3]); !!}
 							</div>
 						</td>
 					</tr>
@@ -226,7 +226,7 @@
 		</div>
 
 	</div><!--box end-->
-{!! Form::close() !!}
+{!! html()->form()->close() !!}
 </section>
 <!-- /.content -->
 @endsection

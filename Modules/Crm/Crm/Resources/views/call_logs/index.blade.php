@@ -14,22 +14,22 @@
         <div class="row">
             <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('contact_id', __('contact.contact') . ':') !!}
-                    {!! Form::select('contact_id', $contacts, null, ['class' => 'form-control select2', 'id' => 'contact_id', 'placeholder' => __('messages.all')]); !!}
+                    {!! html()->label(__('contact.contact') . ':', 'contact_id')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', $contacts, null, ['class' => 'form-control select2', 'id' => 'contact_id', 'placeholder' => __('messages.all')])); !!}
                 </div>    
             </div>
             @can('crm.view_all_call_log')
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('user_id', __('crm::lang.call_log_created_by') . ':') !!}
-                        {!! Form::select('user_id', $users, null, ['class' => 'form-control select2', 'id' => 'user_id', 'placeholder' => __('messages.all')]); !!}
+                        {!! html()->label(__('crm::lang.call_log_created_by') . ':', 'user_id')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('user_id', $users, null, ['class' => 'form-control select2', 'id' => 'user_id', 'placeholder' => __('messages.all')])); !!}
                     </div>    
                 </div>
             @endcan
             <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('call_log_date_range', __('report.date_range') . ':') !!}
-                    {!! Form::text('call_log_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                    {!! html()->label(__('report.date_range') . ':', 'call_log_date_range')->attributes([]) !!}
+                    {!! html()->text('call_log_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                 </div>
             </div>
         </div>
@@ -57,10 +57,10 @@
                 <tr>
                     <td colspan="9">
                     <div style="display: flex; width: 100%;">
-                        {!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\CallLogController::class, 'massDestroy']), 'method' => 'post', 'id' => 'mass_delete_form' ]) !!}
-                        {!! Form::hidden('selected_rows', null, ['id' => 'selected_rows']); !!}
-                        {!! Form::submit(__('lang_v1.delete_selected'), array('class' => 'btn btn-xs btn-danger', 'id' => 'delete-selected')) !!}
-                        {!! Form::close() !!}
+                        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\CallLogController::class, 'massDestroy']), 'method' => 'post', 'id' => 'mass_delete_form' ]))->open() !!}
+                        {!! html()->hidden('selected_rows', null)->attributes(['id' => 'selected_rows']); !!}
+                        {!! html()->input('submit', null, __('lang_v1.delete_selected'))->attributes(array('class' => 'btn btn-xs btn-danger', 'id' => 'delete-selected')) !!}
+                        {!! html()->form()->close() !!}
                     </div>
                     </td>
                 </tr>

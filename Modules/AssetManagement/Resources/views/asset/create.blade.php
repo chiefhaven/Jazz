@@ -1,6 +1,6 @@
 <!-- Modal -->
 <div class="modal-dialog modal-lg" role="document">
-    {!! Form::open(['action' => '\Modules\AssetManagement\Http\Controllers\AssetController@store', 'id' => 'asset_form', 'method' => 'post', 'files' => true]) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['action' => '\Modules\AssetManagement\Http\Controllers\AssetController@store', 'id' => 'asset_form', 'method' => 'post', 'files' => true]))->open() !!}
     <div class="modal-content">
         <div class="modal-header">
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">    <span aria-hidden="true">&times;</span>
@@ -22,14 +22,14 @@
                         @endphp
                     @endif
                     <div class="form-group">
-                        {!! Form::label('location_id', __('business.business_location') . ':*' )!!}
-                        {!! Form::select('location_id', $business_locations, $default_location, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
+                        {!! html()->label(__('business.business_location') . ':*', 'location_id')->attributes([])!!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, $default_location, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('asset_code', __('assetmanagement::lang.asset_code') . ':' )!!}
-                        {!! Form::text('asset_code', null, ['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.asset_code')]); !!}
+                        {!! html()->label(__('assetmanagement::lang.asset_code') . ':', 'asset_code')->attributes([])!!}
+                        {!! html()->text('asset_code', null)->attributes(['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.asset_code')]); !!}
                         <p class="help-block">
                             @lang('lang_v1.leave_empty_to_autogenerate')
                         </p>
@@ -37,58 +37,58 @@
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('name', __('assetmanagement::lang.asset_name') . ':*' )!!}
-                        {!! Form::text('name', null, ['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.asset_name'), 'required']); !!}
+                        {!! html()->label(__('assetmanagement::lang.asset_name') . ':*', 'name')->attributes([])!!}
+                        {!! html()->text('name', null)->attributes(['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.asset_name'), 'required']); !!}
                     </div>
                 </div>
                 <div class="clearfix"></div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('quantity', __('lang_v1.quantity') . ':*' )!!}
-                        {!! Form::text('quantity', null, ['class' => 'form-control input_number', 'placeholder' => __('lang_v1.quantity'), 'required', 'min' => 1]); !!}
+                        {!! html()->label(__('lang_v1.quantity') . ':*', 'quantity')->attributes([])!!}
+                        {!! html()->text('quantity', null)->attributes(['class' => 'form-control input_number', 'placeholder' => __('lang_v1.quantity'), 'required', 'min' => 1]); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
-                    {!! Form::label('model', __('assetmanagement::lang.model_no') . ':' )!!}
-                    {!! Form::text('model', null, ['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.model_no')]); !!}
+                    {!! html()->label(__('assetmanagement::lang.model_no') . ':', 'model')->attributes([])!!}
+                    {!! html()->text('model', null)->attributes(['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.model_no')]); !!}
                 </div>
                 <div class="col-md-4">
-                    {!! Form::label('serial_no', __('assetmanagement::lang.serial_no') . ':' )!!}
-                    {!! Form::text('serial_no', null, ['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.serial_no')]); !!}
+                    {!! html()->label(__('assetmanagement::lang.serial_no') . ':', 'serial_no')->attributes([])!!}
+                    {!! html()->text('serial_no', null)->attributes(['class' => 'form-control', 'placeholder' => __('assetmanagement::lang.serial_no')]); !!}
                 </div>
                 <div class="clearfix"></div>
                 <div class="col-md-4">
-                    {!! Form::label('category_id', __('assetmanagement::lang.asset_category') . ':' )!!}
-                    {!! Form::select('category_id', $asset_category, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
+                    {!! html()->label(__('assetmanagement::lang.asset_category') . ':', 'category_id')->attributes([])!!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('category_id', $asset_category, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('purchase_date', __('purchase.purchase_date') . ':' )!!}
-                        {!! Form::text('purchase_date', null, ['class' => 'form-control datepicker', 'placeholder' => __('purchase.purchase_date'), 'readonly']); !!}
+                        {!! html()->label(__('purchase.purchase_date') . ':', 'purchase_date')->attributes([])!!}
+                        {!! html()->text('purchase_date', null)->attributes(['class' => 'form-control datepicker', 'placeholder' => __('purchase.purchase_date'), 'readonly']); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
-                    {!! Form::label('purchase_type', __('assetmanagement::lang.purchase_type') . ':' )!!}
-                    {!! Form::select('purchase_type', $purchase_types, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;']); !!}
+                    {!! html()->label(__('assetmanagement::lang.purchase_type') . ':', 'purchase_type')->attributes([])!!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('purchase_type', $purchase_types, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;'])); !!}
                 </div>
                 <div class="clearfix"></div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('unit_price', __('sale.unit_price') . ':*' )!!}
-                        {!! Form::text('unit_price', null, ['class' => 'form-control input_number', 'placeholder' => __('sale.unit_price'), 'required']); !!}
+                        {!! html()->label(__('sale.unit_price') . ':*', 'unit_price')->attributes([])!!}
+                        {!! html()->text('unit_price', null)->attributes(['class' => 'form-control input_number', 'placeholder' => __('sale.unit_price'), 'required']); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('depreciation', __('assetmanagement::lang.depreciation') . ':' )!!}
-                        {!! Form::text('depreciation', null, ['class' => 'form-control input_number', 'placeholder' => __('assetmanagement::lang.depreciation')]); !!}
+                        {!! html()->label(__('assetmanagement::lang.depreciation') . ':', 'depreciation')->attributes([])!!}
+                        {!! html()->text('depreciation', null)->attributes(['class' => 'form-control input_number', 'placeholder' => __('assetmanagement::lang.depreciation')]); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
                         <div class="form-group">
-                            {!! Form::label('image', __('lang_v1.image') . ':') !!}
-                            {!! Form::file('image', ['id' => 'upload_asset_image', 'accept' => 'image/*']); !!}
+                            {!! html()->label(__('lang_v1.image') . ':', 'image')->attributes([]) !!}
+                            {!! html()->file('image')->attributes(['id' => 'upload_asset_image', 'accept' => 'image/*']); !!}
                             <small>
                                 <p class="help-block">
                                     @lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
@@ -112,8 +112,8 @@
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {!! Form::label('description', __('lang_v1.description') . ':') !!}
-                        {!! Form::textarea('description', null, ['class' => 'form-control', 'rows' => '3', 'placeholder' => __('lang_v1.description')]); !!}
+                        {!! html()->label(__('lang_v1.description') . ':', 'description')->attributes([]) !!}
+                        {!! html()->textarea('description', null)->attributes(['class' => 'form-control', 'rows' => '3', 'placeholder' => __('lang_v1.description')]); !!}
                     </div>
                 </div>
             </div>
@@ -139,16 +139,16 @@
                     <tbody>
                         <tr>
                             <td>
-                                {!! Form::text('start_dates[]', null, ['class' => 'form-control datepicker', 'placeholder' => __('business.start_date'), 'readonly' ]); !!}
+                                {!! html()->text('start_dates[]', null)->attributes(['class' => 'form-control datepicker', 'placeholder' => __('business.start_date'), 'readonly' ]); !!}
                             </td>
                             <td>
-                                {!! Form::text('months[]', null, ['class' => 'form-control input_number', 'placeholder' => __('assetmanagement::lang.warranty_months')]); !!}
+                                {!! html()->text('months[]', null)->attributes(['class' => 'form-control input_number', 'placeholder' => __('assetmanagement::lang.warranty_months')]); !!}
                             </td>
                             <td>
-                                {!! Form::text('additional_cost[]', 0, ['class' => 'form-control input_number', 'placeholder' => __('assetmanagement::lang.additional_cost')]); !!}
+                                {!! html()->text('additional_cost[]', 0)->attributes(['class' => 'form-control input_number', 'placeholder' => __('assetmanagement::lang.additional_cost')]); !!}
                             </td>
                             <td>
-                                {!! Form::textarea('additional_note[]', null, ['class' => 'form-control', 'placeholder' => __('purchase.additional_notes'), 'rows' => 3]); !!}
+                                {!! html()->textarea('additional_note[]', null)->attributes(['class' => 'form-control', 'placeholder' => __('purchase.additional_notes'), 'rows' => 3]); !!}
                             </td>
                             <td>&nbsp;</td>
                         </tr>
@@ -166,5 +166,5 @@
             </button>
         </div>
     </div>
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 </div>

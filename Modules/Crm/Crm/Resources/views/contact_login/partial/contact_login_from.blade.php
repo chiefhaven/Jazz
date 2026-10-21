@@ -11,72 +11,71 @@
 <div class="row @if($index !== 0)hide @endif" id="add_contact_person_div_{{$index}}">
 	<div class="col-md-2">
         <div class="form-group">
-         	{!! Form::label("surname$index", __( 'business.prefix' ) . ':') !!}
-         	{!! Form::text($index === '' ? 'surname' : "contact_persons[$index][surname]", null, ['class' => 'form-control', 'placeholder' => __( 'business.prefix_placeholder' ), 'id' => "surname$index" ]); !!}
+         	{!! html()->label(__( 'business.prefix' ) . ':', "surname$index")->attributes([]) !!}
+         	{!! html()->text($index === '' ? 'surname' : "contact_persons[$index][surname]", null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.prefix_placeholder' ), 'id' => "surname$index" ]); !!}
         </div>
     </div>
     <div class="col-md-5">
         <div class="form-group">
-			{!! Form::label("first_name$index", __( 'business.first_name' ) . ':*') !!}
-			{!! Form::text($index === '' ? 'first_name' : "contact_persons[$index][first_name]", null, ['class' => 'form-control', 'required', 'placeholder' => __( 'business.first_name' ), 'id' => "first_name$index" ]); !!}
+			{!! html()->label(__( 'business.first_name' ) . ':*', "first_name$index")->attributes([]) !!}
+			{!! html()->text($index === '' ? 'first_name' : "contact_persons[$index][first_name]", null)->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.first_name' ), 'id' => "first_name$index" ]); !!}
         </div>
 	</div>
 	<div class="col-md-5">
 		<div class="form-group">
-			{!! Form::label("last_name$index", __( 'business.last_name' ) . ':') !!}
-			{!! Form::text($index === '' ? 'last_name' : "contact_persons[$index][last_name]", null, ['class' => 'form-control', 'placeholder' => __( 'business.last_name' ), 'id' => "last_name$index" ]); !!}
+			{!! html()->label(__( 'business.last_name' ) . ':', "last_name$index")->attributes([]) !!}
+			{!! html()->text($index === '' ? 'last_name' : "contact_persons[$index][last_name]", null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.last_name' ), 'id' => "last_name$index" ]); !!}
 		</div>
 	</div>
 	<div class="clearfix"></div>
 	<div class="col-md-6">
 		<div class="form-group">
-			{!! Form::label("email$index", __( 'business.email' ) . ':') !!}
-			{!! Form::text($index ==='' ? 'email' : "contact_persons[$index][email]", null, ['class' => 'form-control', 'placeholder' => __( 'business.email' ), 'id' => "email$index" ]); !!}
+			{!! html()->label(__( 'business.email' ) . ':', "email$index")->attributes([]) !!}
+			{!! html()->text($index ==='' ? 'email' : "contact_persons[$index][email]", null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.email' ), 'id' => "email$index" ]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-		    {!! Form::label("contact_number$index", __( 'lang_v1.mobile_number' ) . ':') !!}
-		    {!! Form::text($index === '' ? 'contact_no' : "contact_persons[$index][contact_no]", !empty($user->contact_no) ? $user->contact_number : null, ['class' => 'form-control', 'placeholder' => __( 'lang_v1.mobile_number'), 'id'=>"contact_number$index" ]); !!}
+		    {!! html()->label(__( 'lang_v1.mobile_number' ) . ':', "contact_number$index")->attributes([]) !!}
+		    {!! html()->text($index === '' ? 'contact_no' : "contact_persons[$index][contact_no]", !empty($user->contact_no) ? $user->contact_number : null)->attributes(['class' => 'form-control', 'placeholder' => __( 'lang_v1.mobile_number'), 'id'=>"contact_number$index" ]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-		    {!! Form::label("alt_number$index", __( 'business.alternate_number' ) . ':') !!}
-		    {!! Form::text($index === '' ? 'alt_number' : "contact_persons[$index][alt_number]", !empty($user->alt_number) ? $user->alt_number : null, ['class' => 'form-control', 'placeholder' => __( 'business.alternate_number'), 'id'=>"alt_number$index" ]); !!}
+		    {!! html()->label(__( 'business.alternate_number' ) . ':', "alt_number$index")->attributes([]) !!}
+		    {!! html()->text($index === '' ? 'alt_number' : "contact_persons[$index][alt_number]", !empty($user->alt_number) ? $user->alt_number : null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.alternate_number'), 'id'=>"alt_number$index" ]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-		    {!! Form::label("family_number$index", __( 'lang_v1.family_contact_number' ) . ':') !!}
-		    {!! Form::text($index === '' ? 'family_number' : "contact_persons[$index][family_number]", !empty($user->family_number) ? $user->family_number : null, ['class' => 'form-control', 'placeholder' => __( 'lang_v1.family_contact_number'), 'id'=>"family_number$index" ]); !!}
+		    {!! html()->label(__( 'lang_v1.family_contact_number' ) . ':', "family_number$index")->attributes([]) !!}
+		    {!! html()->text($index === '' ? 'family_number' : "contact_persons[$index][family_number]", !empty($user->family_number) ? $user->family_number : null)->attributes(['class' => 'form-control', 'placeholder' => __( 'lang_v1.family_contact_number'), 'id'=>"family_number$index" ]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-		    {!! Form::label("department$index", __( 'lang_v1.department' ) . ':') !!}
-		    {!! Form::text($index === '' ? 'crm_department' : "contact_persons[$index][crm_department]", !empty($user->crm_department) ? $user->crm_department : null, ['class' => 'form-control', 'placeholder' => __( 'lang_v1.department'), 'id'=>"department$index" ]); !!}
+		    {!! html()->label(__( 'lang_v1.department' ) . ':', "department$index")->attributes([]) !!}
+		    {!! html()->text($index === '' ? 'crm_department' : "contact_persons[$index][crm_department]", !empty($user->crm_department) ? $user->crm_department : null)->attributes(['class' => 'form-control', 'placeholder' => __( 'lang_v1.department'), 'id'=>"department$index" ]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-		    {!! Form::label("designation$index", __( 'lang_v1.designation' ) . ':') !!}
-		    {!! Form::text($index === '' ? 'crm_designation' : "contact_persons[$index][crm_designation]", !empty($user->crm_designation) ? $user->crm_designation : null, ['class' => 'form-control', 'placeholder' => __( 'lang_v1.designation'), 'id'=>"designation$index" ]); !!}
+		    {!! html()->label(__( 'lang_v1.designation' ) . ':', "designation$index")->attributes([]) !!}
+		    {!! html()->text($index === '' ? 'crm_designation' : "contact_persons[$index][crm_designation]", !empty($user->crm_designation) ? $user->crm_designation : null)->attributes(['class' => 'form-control', 'placeholder' => __( 'lang_v1.designation'), 'id'=>"designation$index" ]); !!}
 		</div>
 	</div>
 	<div class="clearfix"></div>
 	<div class="col-md-6">
         <div class="form-group">
-          {!! Form::label("cmmsn_percent$index", __( 'lang_v1.cmmsn_percent' ) . ':') !!}
-            {!! Form::text("contact_persons[$index][cmmsn_percent]", !empty($user->cmmsn_percent) ? $user->cmmsn_percent : null, ['class' => 'form-control input_number', 'placeholder' => __( 'lang_v1.cmmsn_percent' ), 'id' => "cmmsn_percent$index" ]); !!}
+          {!! html()->label(__( 'lang_v1.cmmsn_percent' ) . ':', "cmmsn_percent$index")->attributes([]) !!}
+            {!! html()->text("contact_persons[$index][cmmsn_percent]", !empty($user->cmmsn_percent) ? $user->cmmsn_percent : null)->attributes(['class' => 'form-control input_number', 'placeholder' => __( 'lang_v1.cmmsn_percent' ), 'id' => "cmmsn_percent$index" ]); !!}
         </div>
  	</div>
 	<div class="col-md-6">
 		<div class="form-group">
             <div class="checkbox">
               <label>
-                {!! Form::checkbox($index === '' ? 'allow_login' : "contact_persons[$index][allow_login]", 1, false, 
-                [ 'class' => 'input-icheck allow_login', "data-loginDiv" => "loginDiv$index"]); !!} {{ __( 'lang_v1.allow_login' ) }}
+                {!! html()->checkbox($index === '' ? 'allow_login' : "contact_persons[$index][allow_login]", false, 1)->attributes([ 'class' => 'input-icheck allow_login', "data-loginDiv" => "loginDiv$index"]); !!} {{ __( 'lang_v1.allow_login' ) }}
               </label>
             </div>
         </div>
@@ -85,27 +84,27 @@
 <div class="row hide" id="loginDiv{{$index}}">
 	<div class="col-md-6">
 		<div class="form-group">
-			{!! Form::label("username$index", __( 'business.username' ) . ':*') !!}
-			{!! Form::text($index ==='' ? 'username' : "contact_persons[$index][username]", null, ['class' => 'form-control', 'placeholder' => __( 'business.username' ), 'required', 'id'=>"username$index"]); !!}
+			{!! html()->label(__( 'business.username' ) . ':*', "username$index")->attributes([]) !!}
+			{!! html()->text($index ==='' ? 'username' : "contact_persons[$index][username]", null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.username' ), 'required', 'id'=>"username$index"]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-			{!! Form::label("password$index", __( 'business.password' ) . ':*') !!}
-			{!! Form::password($index === '' ? 'password' : "contact_persons[$index][password]", ['class' => 'form-control', 'required', 'placeholder' => __( 'business.password' ), 'id'=>"password$index" ]); !!}
+			{!! html()->label(__( 'business.password' ) . ':*', "password$index")->attributes([]) !!}
+			{!! html()->password($index === '' ? 'password' : "contact_persons[$index][password]")->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.password' ), 'id'=>"password$index" ]); !!}
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="form-group">
-			{!! Form::label("confirm_password$index", __( 'business.confirm_password' ) . ':*') !!}
-			{!! Form::password($index === '' ? 'confirm_password' : "contact_persons[$index][confirm_password]", ['class' => 'form-control', 'required', 'placeholder' => __( 'business.confirm_password' ), 'id' => "confirm_password$index", 'data-rule-equalTo' => "#password$index" ]); !!}
+			{!! html()->label(__( 'business.confirm_password' ) . ':*', "confirm_password$index")->attributes([]) !!}
+			{!! html()->password($index === '' ? 'confirm_password' : "contact_persons[$index][confirm_password]")->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.confirm_password' ), 'id' => "confirm_password$index", 'data-rule-equalTo' => "#password$index" ]); !!}
 		</div>
 	</div>
   	<div class="clearfix"></div>
 	<div class="col-md-4">
 		<div class="form-group">
 			<label>
-				{!! Form::checkbox($index === '' ? 'is_active' : "contact_persons[$index][is_active]", 'active', true, ['class' => 'input-icheck status']); !!} {{ __('lang_v1.status_for_user') }}
+				{!! html()->checkbox($index === '' ? 'is_active' : "contact_persons[$index][is_active]", true, 'active')->attributes(['class' => 'input-icheck status']); !!} {{ __('lang_v1.status_for_user') }}
 			</label>
 			@show_tooltip(__('lang_v1.tooltip_enable_user_active'))
 		</div>

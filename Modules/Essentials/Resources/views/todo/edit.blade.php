@@ -1,6 +1,6 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
-    {!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\ToDoController::class, 'update'], $todo->id), 'id' => 'task_form', 'method' => 'put']) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\ToDoController::class, 'update'], $todo->id), 'id' => 'task_form', 'method' => 'put']))->open() !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -11,19 +11,19 @@
     	<div class="row">
     		<div class="col-md-12">
 		        <div class="form-group">
-		            {!! Form::label('task', __('essentials::lang.task') . ":*")!!}
-		            {!! Form::text('task', $todo->task, ['class' => 'form-control', 'required']) !!}
+		            {!! html()->label(__('essentials::lang.task') . ":*", 'task')->attributes([])!!}
+		            {!! html()->text('task', $todo->task)->attributes(['class' => 'form-control', 'required']) !!}
 		         </div>
 		    </div>
 		    @can('essentials.assign_todos')
 			<div class="col-md-12">
 		        <div class="form-group">
-					{!! Form::label('users', __('essentials::lang.assigned_to') . ':*') !!}
+					{!! html()->label(__('essentials::lang.assigned_to') . ':*', 'users')->attributes([]) !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-user"></i>
 						</span>
-						{!! Form::select('users[]', $users, $todo->users->pluck('id'), ['class' => 'form-control select2', 'multiple', 'required', 'style' => 'width: 100%;']); !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('users[]', $users, $todo->users->pluck('id'), ['class' => 'form-control select2', 'multiple', 'required', 'style' => 'width: 100%;'])); !!}
 					</div>
 				</div>
 			</div>
@@ -31,37 +31,37 @@
 			<div class="clearfix"></div>
 			<div class="col-md-6">
 		        <div class="form-group">
-					{!! Form::label('priority', __('essentials::lang.priority') . ':') !!}
-					{!! Form::select('priority', $priorities, $todo->priority, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;']); !!}
+					{!! html()->label(__('essentials::lang.priority') . ':', 'priority')->attributes([]) !!}
+					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('priority', $priorities, $todo->priority, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;'])); !!}
 				</div>
 			</div>
 			<div class="col-md-6">
 		        <div class="form-group">
-					{!! Form::label('status', __('sale.status') . ':') !!}
-					{!! Form::select('status', $task_statuses, $todo->status, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;']); !!}
+					{!! html()->label(__('sale.status') . ':', 'status')->attributes([]) !!}
+					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $task_statuses, $todo->status, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;'])); !!}
 				</div>
 			</div>
 
 		    <div class="clearfix"></div>
 		    <div class="col-md-6">
 		        <div class="form-group">
-					{!! Form::label('date', __('business.start_date') . ':*') !!}
+					{!! html()->label(__('business.start_date') . ':*', 'date')->attributes([]) !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-calendar"></i>
 						</span>
-						{!! Form::text('date', @format_datetime($todo->date), ['class' => 'form-control datepicker text-center', 'required', 'readonly']); !!}
+						{!! html()->text('date', @format_datetime($todo->date))->attributes(['class' => 'form-control datepicker text-center', 'required', 'readonly']); !!}
 					</div>
 				</div>
 			</div>
 			<div class="col-md-6">
 		        <div class="form-group">
-					{!! Form::label('end_date', __('essentials::lang.end_date') . ':') !!}
+					{!! html()->label(__('essentials::lang.end_date') . ':', 'end_date')->attributes([]) !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-calendar"></i>
 						</span>
-						{!! Form::text('end_date', !empty($todo->end_date) ? @format_datetime($todo->end_date) : '', ['class' => 'form-control datepicker text-center', 'readonly']); !!}
+						{!! html()->text('end_date', !empty($todo->end_date) ? @format_datetime($todo->end_date) : '')->attributes(['class' => 'form-control datepicker text-center', 'readonly']); !!}
 					</div>
 				</div>
 			</div>
@@ -69,20 +69,20 @@
 			
 			<div class="col-md-6">
 		        <div class="form-group">
-					{!! Form::label('estimated_hours', __('essentials::lang.estimated_hours') . ':') !!}
+					{!! html()->label(__('essentials::lang.estimated_hours') . ':', 'estimated_hours')->attributes([]) !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fas fa-clock"></i>
 						</span>
-						{!! Form::text('estimated_hours', $todo->estimated_hours, ['class' => 'form-control']); !!}
+						{!! html()->text('estimated_hours', $todo->estimated_hours)->attributes(['class' => 'form-control']); !!}
 					</div>
 				</div>
 			</div>
 		    <div class="clearfix"></div>
 	    	<div class="col-md-12">
 	    		<div class="form-group">
-					{!! Form::label('to_do_description', __('lang_v1.description') . ':') !!}
-					{!! Form::textarea('description', $todo->description, ['id' => 'to_do_description']); !!}
+					{!! html()->label(__('lang_v1.description') . ':', 'to_do_description')->attributes([]) !!}
+					{!! html()->textarea('description', $todo->description)->attributes(['id' => 'to_do_description']); !!}
 				</div>
 	    	</div>
 	    	<div class="col-md-12">
@@ -108,7 +108,7 @@
       <button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

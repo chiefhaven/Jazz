@@ -5,8 +5,8 @@
         </div>
     	<div class="col-xs-4">
             <div class="form-group">
-            	{!! Form::label('woocommerce_wh_oc_secret',  __('woocommerce::lang.webhook_secret') . ':') !!}
-            	{!! Form::text('woocommerce_wh_oc_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_oc_secret : null, ['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
+            	{!! html()->label(__('woocommerce::lang.webhook_secret') . ':', 'woocommerce_wh_oc_secret')->attributes([]) !!}
+            	{!! html()->text('woocommerce_wh_oc_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_oc_secret : null)->attributes(['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
             </div>
         </div>
         <div class="col-xs-8">
@@ -21,8 +21,8 @@
         </div>
         <div class="col-xs-4">
             <div class="form-group">
-                {!! Form::label('woocommerce_wh_ou_secret',  __('woocommerce::lang.webhook_secret') . ':') !!}
-                {!! Form::text('woocommerce_wh_ou_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_ou_secret : null, ['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
+                {!! html()->label(__('woocommerce::lang.webhook_secret') . ':', 'woocommerce_wh_ou_secret')->attributes([]) !!}
+                {!! html()->text('woocommerce_wh_ou_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_ou_secret : null)->attributes(['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
             </div>
         </div>
         <div class="col-xs-8">
@@ -37,8 +37,8 @@
         </div>
         <div class="col-xs-4">
             <div class="form-group">
-                {!! Form::label('woocommerce_wh_od_secret',  __('woocommerce::lang.webhook_secret') . ':') !!}
-                {!! Form::text('woocommerce_wh_od_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_od_secret : null, ['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
+                {!! html()->label(__('woocommerce::lang.webhook_secret') . ':', 'woocommerce_wh_od_secret')->attributes([]) !!}
+                {!! html()->text('woocommerce_wh_od_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_od_secret : null)->attributes(['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
             </div>
         </div>
         <div class="col-xs-8">
@@ -53,8 +53,8 @@
         </div>
         <div class="col-xs-4">
             <div class="form-group">
-                {!! Form::label('woocommerce_wh_or_secret',  __('woocommerce::lang.webhook_secret') . ':') !!}
-                {!! Form::text('woocommerce_wh_or_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_or_secret : null, ['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
+                {!! html()->label(__('woocommerce::lang.webhook_secret') . ':', 'woocommerce_wh_or_secret')->attributes([]) !!}
+                {!! html()->text('woocommerce_wh_or_secret', !empty($business->woocommerce_wh_oc_secret) ? $business->woocommerce_wh_or_secret : null)->attributes(['class' => 'form-control','placeholder' => __('woocommerce::lang.webhook_secret')]); !!}
             </div>
         </div>
         <div class="col-xs-8">

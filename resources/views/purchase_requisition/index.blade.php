@@ -15,28 +15,28 @@
         @component('components.filters', ['title' => __('report.filters')])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('pr_list_filter_location_id', __('purchase.business_location') . ':') !!}
-                    {!! Form::select('pr_list_filter_location_id', $business_locations, null, [
+                    {!! html()->label(__('purchase.business_location') . ':', 'pr_list_filter_location_id')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('pr_list_filter_location_id', $business_locations, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ]) !!}
+                    ])) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('pr_list_filter_status', __('sale.status') . ':') !!}
-                    {!! Form::select('pr_list_filter_status', $purchaseRequisitionStatuses, null, [
+                    {!! html()->label(__('sale.status') . ':', 'pr_list_filter_status')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('pr_list_filter_status', $purchaseRequisitionStatuses, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ]) !!}
+                    ])) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('po_list_filter_date_range', __('report.date_range') . ':') !!}
-                    {!! Form::text('po_list_filter_date_range', null, [
+                    {!! html()->label(__('report.date_range') . ':', 'po_list_filter_date_range')->attributes([]) !!}
+                    {!! html()->text('po_list_filter_date_range', null)->attributes([
                         'placeholder' => __('lang_v1.select_a_date_range'),
                         'class' => 'form-control',
                         'readonly',
@@ -46,8 +46,8 @@
 
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('pr_list_filter_required_by_date', __('lang_v1.required_by_date') . ':') !!}
-                    {!! Form::text('pr_list_filter_required_by_date', null, [
+                    {!! html()->label(__('lang_v1.required_by_date') . ':', 'pr_list_filter_required_by_date')->attributes([]) !!}
+                    {!! html()->text('pr_list_filter_required_by_date', null)->attributes([
                         'placeholder' => __('lang_v1.select_a_date_range'),
                         'class' => 'form-control',
                     ]) !!}

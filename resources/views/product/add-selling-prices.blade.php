@@ -10,8 +10,8 @@
 
 <!-- Main content -->
 <section class="content">
-	{!! Form::open(['url' => action([\App\Http\Controllers\ProductController::class, 'saveSellingPrices']), 'method' => 'post', 'id' => 'selling_price_form' ]) !!}
-	{!! Form::hidden('product_id', $product->id); !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ProductController::class, 'saveSellingPrices']), 'method' => 'post', 'id' => 'selling_price_form' ]))->open() !!}
+	{!! html()->hidden('product_id', $product->id)->attributes([]); !!}
 	<div class="row">
 		<div class="col-xs-12">
 		<div class="box box-solid">
@@ -47,7 +47,7 @@
 										<td><span class="display_currency" data-currency_symbol="true">{{$variation->sell_price_inc_tax}}</span></td>
 											@foreach($price_groups as $price_group)
 												<td>
-													{!! Form::text('group_prices[' . $price_group->id . '][' . $variation->id . '][price]', !empty($variation_prices[$variation->id][$price_group->id]['price']) ? @num_format($variation_prices[$variation->id][$price_group->id]['price']) : 0, ['class' => 'form-control input_number input-sm'] ); !!}
+													{!! html()->text('group_prices[' . $price_group->id . '][' . $variation->id . '][price]', !empty($variation_prices[$variation->id][$price_group->id]['price']) ? @num_format($variation_prices[$variation->id][$price_group->id]['price']) : 0)->attributes(['class' => 'form-control input_number input-sm']); !!}
                                                     
                                                     @php
                                                         $price_type = !empty($variation_prices[$variation->id][$price_group->id]['price_type']) ? $variation_prices[$variation->id][$price_group->id]['price_type'] : 'fixed';
@@ -74,7 +74,7 @@
 	</div>
 	<div class="row">
 		<div class="col-sm-12">
-			{!! Form::hidden('submit_type', 'save', ['id' => 'submit_type']); !!}
+			{!! html()->hidden('submit_type', 'save')->attributes(['id' => 'submit_type']); !!}
 			<div class="text-center">
       			<div class="btn-group">
 					<button id="opening_stock_button" @if($product->enable_stock == 0) disabled @endif type="submit" value="submit_n_add_opening_stock" class="tw-dw-btn tw-text-white tw-dw-btn-lg bg-purple submit_form">@lang('lang_v1.save_n_add_opening_stock')</button>
@@ -85,7 +85,7 @@
 		</div>
 	</div>
 
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 </section>
 @stop
 @section('javascript')

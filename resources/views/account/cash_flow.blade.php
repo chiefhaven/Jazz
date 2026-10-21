@@ -16,31 +16,31 @@
             @component('components.filters', ['title' => __('report.filters')])
             <div class="col-sm-4">
                 <div class="form-group">
-                    {!! Form::label('account_id', __('account.account') . ':') !!}
-                    {!! Form::select('account_id', $accounts, '', ['class' => 'form-control', 'placeholder' => __('messages.all')]) !!}
+                    {!! html()->label(__('account.account') . ':', 'account_id')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('account_id', $accounts, '', ['class' => 'form-control', 'placeholder' => __('messages.all')])) !!}
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('cash_flow_location_id',  __('purchase.business_location') . ':') !!}
-                    {!! Form::select('cash_flow_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
+                    {!! html()->label(__('purchase.business_location') . ':', 'cash_flow_location_id')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('cash_flow_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
                 </div>
             </div>
             <div class="col-sm-4">
                 <div class="form-group">
-                    {!! Form::label('transaction_date_range', __('report.date_range') . ':') !!}
+                    {!! html()->label(__('report.date_range') . ':', 'transaction_date_range')->attributes([]) !!}
                     <div class="input-group">
                         <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
-                        {!! Form::text('transaction_date_range', null, ['class' => 'form-control', 'readonly', 'placeholder' => __('report.date_range')]) !!}
+                        {!! html()->text('transaction_date_range', null)->attributes(['class' => 'form-control', 'readonly', 'placeholder' => __('report.date_range')]) !!}
                     </div>
                 </div>
             </div>
             <div class="col-sm-4">
                 <div class="form-group">
-                    {!! Form::label('transaction_type', __('account.transaction_type') . ':') !!}
+                    {!! html()->label(__('account.transaction_type') . ':', 'transaction_type')->attributes([]) !!}
                     <div class="input-group">
                         <span class="input-group-addon"><i class="fas fa-exchange-alt"></i></span>
-                        {!! Form::select('transaction_type', ['' => __('messages.all'),'debit' => __('account.debit'), 'credit' => __('account.credit')], '', ['class' => 'form-control']) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('transaction_type', ['' => __('messages.all'),'debit' => __('account.debit'), 'credit' => __('account.credit')], '', ['class' => 'form-control'])) !!}
                     </div>
                 </div>
             </div>

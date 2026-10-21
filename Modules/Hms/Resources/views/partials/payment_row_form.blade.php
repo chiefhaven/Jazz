@@ -6,31 +6,31 @@
 	@endphp
 	<div class="{{$col_class}}">
 		<div class="form-group">
-			{!! Form::label("amount_$row_index" ,__('sale.amount') . ':*') !!}
+			{!! html()->label(__('sale.amount') . ':*', "amount_$row_index")->attributes([]) !!}
 			<div class="input-group">
 				<span class="input-group-addon">
 					<i class="fas fa-money-bill-alt"></i>
 				</span>
-				{!! Form::text("payment[$row_index][amount]", @num_format($payment_line['amount']), ['class' => 'form-control payment-amount input_number', 'required', 'id' => "amount_$row_index", 'placeholder' => __('sale.amount'), 'readonly' => $readonly]); !!}
+				{!! html()->text("payment[$row_index][amount]", @num_format($payment_line['amount']))->attributes(['class' => 'form-control payment-amount input_number', 'required', 'id' => "amount_$row_index", 'placeholder' => __('sale.amount'), 'readonly' => $readonly]); !!}
 			</div>
 		</div>
 	</div>
 	{{-- @if(!empty($show_date))
 	<div class="{{$col_class}}">
 		<div class="form-group">
-			{!! Form::label("paid_on_$row_index" , __('lang_v1.paid_on') . ':*') !!}
+			{!! html()->label(__('lang_v1.paid_on') . ':*', "paid_on_$row_index")->attributes([]) !!}
 			<div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-calendar"></i>
               </span>
-              {!! Form::text("payment[$row_index][paid_on]", isset($payment_line['paid_on']) ? @format_datetime($payment_line['paid_on']) : @format_datetime('now'), ['class' => 'form-control paid_on', 'readonly', 'required']); !!}
+              {!! html()->text("payment[$row_index][paid_on]", isset($payment_line['paid_on']) ? @format_datetime($payment_line['paid_on']) : @format_datetime('now'))->attributes(['class' => 'form-control paid_on', 'readonly', 'required']); !!}
             </div>
 		</div>
 	</div>
 	@endif --}}
 	<div class="{{$col_class}}">
 		<div class="form-group">
-			{!! Form::label("method_$row_index" , __('lang_v1.payment_method') . ':*') !!}
+			{!! html()->label(__('lang_v1.payment_method') . ':*', "method_$row_index")->attributes([]) !!}
 			<div class="input-group">
 				<span class="input-group-addon">
 					<i class="fas fa-money-bill-alt"></i>
@@ -38,10 +38,10 @@
 				@php
 					$_payment_method = empty($payment_line['method']) && array_key_exists('cash', $payment_types) ? 'cash' : $payment_line['method'];
 				@endphp
-				{!! Form::select("payment[$row_index][method]", $payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'required', 'id' => !$readonly ? "method_$row_index" : "method_advance_$row_index", 'style' => 'width:100%;', 'disabled' => $readonly]); !!}
+				{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[$row_index][method]", $payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'required', 'id' => !$readonly ? "method_$row_index" : "method_advance_$row_index", 'style' => 'width:100%;', 'disabled' => $readonly])); !!}
 
 				@if($readonly)
-					{!! Form::hidden("payment[$row_index][method]", $payment_line['method'], ['class' => 'payment_types_dropdown', 'required', 'id' => "method_$row_index"]); !!}
+					{!! html()->hidden("payment[$row_index][method]", $payment_line['method'])->attributes(['class' => 'payment_types_dropdown', 'required', 'id' => "method_$row_index"]); !!}
 				@endif
 			</div>
 		</div>
@@ -90,7 +90,7 @@
                         <tr>
                           <td class="text-right">{{$dnm}}</td>
                           <td class="text-center" >X</td>
-                          <td>{!! Form::number("payment[$row_index][denominations][$dnm]", $count, ['class' => 'form-control cash_denomination input-sm', 'min' => 0, 'data-denomination' => $dnm, 'style' => 'width: 100px; margin:auto;' ]); !!}</td>
+                          <td>{!! html()->input('number', "payment[$row_index][denominations][$dnm]", $count)->attributes(['class' => 'form-control cash_denomination input-sm', 'min' => 0, 'data-denomination' => $dnm, 'style' => 'width: 100px; margin:auto;' ]); !!}</td>
                           <td class="text-center">=</td>
                           <td class="text-left">
                             <span class="denomination_subtotal">{{@num_format($sub_total)}}</span>
@@ -119,12 +119,12 @@
 	@if(!empty($accounts))
 		<div class="{{$col_class}}">
 			<div class="form-group @if($readonly) hide @endif">
-				{!! Form::label("account_$row_index" , __('lang_v1.payment_account') . ':') !!}
+				{!! html()->label(__('lang_v1.payment_account') . ':', "account_$row_index")->attributes([]) !!}
 				<div class="input-group">
 					<span class="input-group-addon">
 						<i class="fas fa-money-bill-alt"></i>
 					</span>
-					{!! Form::select("payment[$row_index][account_id]", $accounts, !empty($payment_line['account_id']) ? $payment_line['account_id'] : '' , ['class' => 'form-control select2 account-dropdown', 'id' => !$readonly ? "account_$row_index" : "account_advance_$row_index", 'style' => 'width:100%;', 'disabled' => $readonly]); !!}
+					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[$row_index][account_id]", $accounts, !empty($payment_line['account_id']) ? $payment_line['account_id'] : '', ['class' => 'form-control select2 account-dropdown', 'id' => !$readonly ? "account_$row_index" : "account_advance_$row_index", 'style' => 'width:100%;', 'disabled' => $readonly])); !!}
 				</div>
 			</div>
 		</div>
@@ -133,8 +133,8 @@
 		@include('hms::partials.payment_type_details')
 	<div class="col-md-12">
 		<div class="form-group">
-			{!! Form::label("note_$row_index", __('sale.payment_note') . ':') !!}
-			{!! Form::textarea("payment[$row_index][note]", $payment_line['note'], ['class' => 'form-control', 'rows' => 3, 'id' => "note_$row_index"]); !!}
+			{!! html()->label(__('sale.payment_note') . ':', "note_$row_index")->attributes([]) !!}
+			{!! html()->textarea("payment[$row_index][note]", $payment_line['note'])->attributes(['class' => 'form-control', 'rows' => 3, 'id' => "note_$row_index"]); !!}
 		</div>
 	</div>
 </div>

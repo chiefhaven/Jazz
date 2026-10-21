@@ -11,33 +11,33 @@
 
 <!-- Main content -->
 <section class="content">
-{!! Form::open(['url' => action([\App\Http\Controllers\ManageUserController::class, 'store']), 'method' => 'post', 'id' => 'user_add_form' ]) !!}
+{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ManageUserController::class, 'store']), 'method' => 'post', 'id' => 'user_add_form' ]))->open() !!}
   <div class="row">
     <div class="col-md-12">
   @component('components.widget')
       <div class="col-md-2">
         <div class="form-group">
-          {!! Form::label('surname', __( 'business.prefix' ) . ':') !!}
-            {!! Form::text('surname', null, ['class' => 'form-control', 'placeholder' => __( 'business.prefix_placeholder' ) ]); !!}
+          {!! html()->label(__( 'business.prefix' ) . ':', 'surname')->attributes([]) !!}
+            {!! html()->text('surname', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.prefix_placeholder' ) ]); !!}
         </div>
       </div>
       <div class="col-md-5">
         <div class="form-group">
-          {!! Form::label('first_name', __( 'business.first_name' ) . ':*') !!}
-            {!! Form::text('first_name', null, ['class' => 'form-control', 'required', 'placeholder' => __( 'business.first_name' ) ]); !!}
+          {!! html()->label(__( 'business.first_name' ) . ':*', 'first_name')->attributes([]) !!}
+            {!! html()->text('first_name', null)->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.first_name' ) ]); !!}
         </div>
       </div>
       <div class="col-md-5">
         <div class="form-group">
-          {!! Form::label('last_name', __( 'business.last_name' ) . ':') !!}
-            {!! Form::text('last_name', null, ['class' => 'form-control', 'placeholder' => __( 'business.last_name' ) ]); !!}
+          {!! html()->label(__( 'business.last_name' ) . ':', 'last_name')->attributes([]) !!}
+            {!! html()->text('last_name', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.last_name' ) ]); !!}
         </div>
       </div>
       <div class="clearfix"></div>
       <div class="col-md-4">
         <div class="form-group">
-          {!! Form::label('email', __( 'business.email' ) . ':*') !!}
-            {!! Form::text('email', null, ['class' => 'form-control', 'required', 'placeholder' => __( 'business.email' ) ]); !!}
+          {!! html()->label(__( 'business.email' ) . ':*', 'email')->attributes([]) !!}
+            {!! html()->text('email', null)->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.email' ) ]); !!}
         </div>
       </div>
 
@@ -46,7 +46,7 @@
           <div class="checkbox">
             <br/>
             <label>
-                 {!! Form::checkbox('is_active', 'active', true, ['class' => 'input-icheck status']); !!} {{ __('lang_v1.status_for_user') }}
+                 {!! html()->checkbox('is_active', true, 'active')->attributes(['class' => 'input-icheck status']); !!} {{ __('lang_v1.status_for_user') }}
             </label>
             @show_tooltip(__('lang_v1.tooltip_enable_user_active'))
           </div>
@@ -57,7 +57,7 @@
           <div class="checkbox">
             <br/>
             <label>
-                 {!! Form::checkbox('is_enable_service_staff_pin', 1, false, ['class' => 'input-icheck status', 'id' => 'is_enable_service_staff_pin']); !!} {{ __('lang_v1.enable_service_staff_pin') }}
+                 {!! html()->checkbox('is_enable_service_staff_pin', false, 1)->attributes(['class' => 'input-icheck status', 'id' => 'is_enable_service_staff_pin']); !!} {{ __('lang_v1.enable_service_staff_pin') }}
             </label>
             @show_tooltip(__('lang_v1.tooltip_is_enable_service_staff_pin'))
           </div>
@@ -65,8 +65,8 @@
       </div>
       <div class="col-md-2 hide service_staff_pin_div">
         <div class="form-group">
-          {!! Form::label('service_staff_pin', __( 'lang_v1.staff_pin' ) . ':') !!}
-            {!! Form::password('service_staff_pin', ['class' => 'form-control', 'required' => true, 'placeholder' => __( 'lang_v1.staff_pin' ) ]); !!}
+          {!! html()->label(__( 'lang_v1.staff_pin' ) . ':', 'service_staff_pin')->attributes([]) !!}
+            {!! html()->password('service_staff_pin')->attributes(['class' => 'form-control', 'required' => true, 'placeholder' => __( 'lang_v1.staff_pin' ) ]); !!}
         </div>
       </div>
   @endcomponent
@@ -77,8 +77,7 @@
         <div class="form-group">
             <div class="checkbox">
               <label>
-                {!! Form::checkbox('allow_login', 1, true, 
-                [ 'class' => 'input-icheck', 'id' => 'allow_login']); !!} {{ __( 'lang_v1.allow_login' ) }}
+                {!! html()->checkbox('allow_login', true, 1)->attributes([ 'class' => 'input-icheck', 'id' => 'allow_login']); !!} {{ __( 'lang_v1.allow_login' ) }}
               </label>
             </div>
         </div>
@@ -87,37 +86,37 @@
       <div class="user_auth_fields">
       <div class="col-md-4">
         <div class="form-group">
-          {!! Form::label('username', __( 'business.username' ) . ':') !!}
+          {!! html()->label(__( 'business.username' ) . ':', 'username')->attributes([]) !!}
           @if(!empty($username_ext))
             <div class="input-group">
-              {!! Form::text('username', null, ['class' => 'form-control', 'placeholder' => __( 'business.username' ) ]); !!}
+              {!! html()->text('username', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.username' ) ]); !!}
               <span class="input-group-addon">{{$username_ext}}</span>
             </div>
             <p class="help-block" id="show_username"></p>
           @else
-              {!! Form::text('username', null, ['class' => 'form-control', 'placeholder' => __( 'business.username' ) ]); !!}
+              {!! html()->text('username', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'business.username' ) ]); !!}
           @endif
           <p class="help-block">@lang('lang_v1.username_help')</p>
         </div>
       </div>
       <div class="col-md-4">
         <div class="form-group">
-          {!! Form::label('password', __( 'business.password' ) . ':*') !!}
-            {!! Form::password('password', ['class' => 'form-control', 'required', 'placeholder' => __( 'business.password' ) ]); !!}
+          {!! html()->label(__( 'business.password' ) . ':*', 'password')->attributes([]) !!}
+            {!! html()->password('password')->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.password' ) ]); !!}
         </div>
       </div>
       <div class="col-md-4">
         <div class="form-group">
-          {!! Form::label('confirm_password', __( 'business.confirm_password' ) . ':*') !!}
-            {!! Form::password('confirm_password', ['class' => 'form-control', 'required', 'placeholder' => __( 'business.confirm_password' ) ]); !!}
+          {!! html()->label(__( 'business.confirm_password' ) . ':*', 'confirm_password')->attributes([]) !!}
+            {!! html()->password('confirm_password')->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'business.confirm_password' ) ]); !!}
         </div>
       </div>
     </div>
       <div class="clearfix"></div>
       <div class="col-md-6">
         <div class="form-group">
-          {!! Form::label('role', __( 'user.role' ) . ':*') !!} @show_tooltip(__('lang_v1.admin_role_location_permission_help'))
-            {!! Form::select('role', $roles, null, ['class' => 'form-control select2']); !!}
+          {!! html()->label(__( 'user.role' ) . ':*', 'role')->attributes([]) !!} @show_tooltip(__('lang_v1.admin_role_location_permission_help'))
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('role', $roles, null, ['class' => 'form-control select2'])); !!}
         </div>
       </div>
       <div class="clearfix"></div>
@@ -128,8 +127,7 @@
           <div class="col-md-12">
             <div class="checkbox">
                 <label>
-                  {!! Form::checkbox('access_all_locations', 'access_all_locations', true, 
-                ['class' => 'input-icheck']); !!} {{ __( 'role.all_locations' ) }} 
+                  {!! html()->checkbox('access_all_locations', true, 'access_all_locations')->attributes(['class' => 'input-icheck']); !!} {{ __( 'role.all_locations' ) }} 
                 </label>
                 @show_tooltip(__('tooltip.all_location_permission'))
             </div>
@@ -138,8 +136,7 @@
           <div class="col-md-12">
             <div class="checkbox">
               <label>
-                {!! Form::checkbox('location_permissions[]', 'location.' . $location->id, false, 
-                [ 'class' => 'input-icheck']); !!} {{ $location->name }} @if(!empty($location->location_id))({{ $location->location_id}}) @endif
+                {!! html()->checkbox('location_permissions[]', false, 'location.' . $location->id)->attributes([ 'class' => 'input-icheck']); !!} {{ $location->name }} @if(!empty($location->location_id))({{ $location->location_id}}) @endif
               </label>
             </div>
           </div>
@@ -152,14 +149,14 @@
     @component('components.widget', ['title' => __('sale.sells')])
       <div class="col-md-4">
         <div class="form-group">
-          {!! Form::label('cmmsn_percent', __( 'lang_v1.cmmsn_percent' ) . ':') !!} @show_tooltip(__('lang_v1.commsn_percent_help'))
-            {!! Form::text('cmmsn_percent', null, ['class' => 'form-control input_number', 'placeholder' => __( 'lang_v1.cmmsn_percent' ) ]); !!}
+          {!! html()->label(__( 'lang_v1.cmmsn_percent' ) . ':', 'cmmsn_percent')->attributes([]) !!} @show_tooltip(__('lang_v1.commsn_percent_help'))
+            {!! html()->text('cmmsn_percent', null)->attributes(['class' => 'form-control input_number', 'placeholder' => __( 'lang_v1.cmmsn_percent' ) ]); !!}
         </div>
       </div>
       <div class="col-md-4">
         <div class="form-group">
-          {!! Form::label('max_sales_discount_percent', __( 'lang_v1.max_sales_discount_percent' ) . ':') !!} @show_tooltip(__('lang_v1.max_sales_discount_percent_help'))
-            {!! Form::text('max_sales_discount_percent', null, ['class' => 'form-control input_number', 'placeholder' => __( 'lang_v1.max_sales_discount_percent' ) ]); !!}
+          {!! html()->label(__( 'lang_v1.max_sales_discount_percent' ) . ':', 'max_sales_discount_percent')->attributes([]) !!} @show_tooltip(__('lang_v1.max_sales_discount_percent_help'))
+            {!! html()->text('max_sales_discount_percent', null)->attributes(['class' => 'form-control input_number', 'placeholder' => __( 'lang_v1.max_sales_discount_percent' ) ]); !!}
         </div>
       </div>
       <div class="clearfix"></div>
@@ -169,8 +166,7 @@
             <div class="checkbox">
             <br/>
               <label>
-                {!! Form::checkbox('selected_contacts', 1, false, 
-                [ 'class' => 'input-icheck', 'id' => 'selected_contacts']); !!} {{ __( 'lang_v1.allow_selected_contacts' ) }}
+                {!! html()->checkbox('selected_contacts', false, 1)->attributes([ 'class' => 'input-icheck', 'id' => 'selected_contacts']); !!} {{ __( 'lang_v1.allow_selected_contacts' ) }}
               </label>
               @show_tooltip(__('lang_v1.allow_selected_contacts_tooltip'))
             </div>
@@ -178,9 +174,9 @@
       </div>
       <div class="col-sm-4 hide selected_contacts_div">
           <div class="form-group">
-              {!! Form::label('user_allowed_contacts', __('lang_v1.selected_contacts') . ':') !!}
+              {!! html()->label(__('lang_v1.selected_contacts') . ':', 'user_allowed_contacts')->attributes([]) !!}
               <div class="form-group">
-                  {!! Form::select('selected_contact_ids[]', [], null, ['class' => 'form-control select2', 'multiple', 'style' => 'width: 100%;', 'id' => 'user_allowed_contacts' ]); !!}
+                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('selected_contact_ids[]', [], null, ['class' => 'form-control select2', 'multiple', 'style' => 'width: 100%;', 'id' => 'user_allowed_contacts' ])); !!}
               </div>
           </div>
       </div>
@@ -201,7 +197,7 @@
       <button type="submit" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white" id="submit_user_button">@lang( 'messages.save' )</button>
     </div>
   </div>
-{!! Form::close() !!}
+{!! html()->form()->close() !!}
   @stop
 @section('javascript')
 <script type="text/javascript">

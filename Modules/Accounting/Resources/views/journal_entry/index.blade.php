@@ -16,9 +16,8 @@
             @component('components.filters', ['title' => __('report.filters')])
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('journal_entry_date_range_filter', __('report.date_range') . ':') !!}
-                        {!! Form::text('journal_entry_date_range_filter', null, 
-                            ['placeholder' => __('lang_v1.select_a_date_range'), 
+                        {!! html()->label(__('report.date_range') . ':', 'journal_entry_date_range_filter')->attributes([]) !!}
+                        {!! html()->text('journal_entry_date_range_filter', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 
                             'class' => 'form-control', 'readonly']); !!}
                     </div>
                 </div>

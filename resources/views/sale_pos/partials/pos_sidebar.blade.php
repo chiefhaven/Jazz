@@ -160,12 +160,7 @@
 
     <!-- used in repair : filter for service/product -->
     <div class="col-md-6 hide" id="product_service_div">
-        {!! Form::select(
-            'is_enabled_stock',
-            ['' => __('messages.all'), 'product' => __('sale.product'), 'service' => __('lang_v1.service')],
-            null,
-            ['id' => 'is_enabled_stock', 'class' => 'select2', 'name' => null, 'style' => 'width:100% !important'],
-        ) !!}
+        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('is_enabled_stock', ['' => __('messages.all'), 'product' => __('sale.product'), 'service' => __('lang_v1.service')], null, ['id' => 'is_enabled_stock', 'class' => 'select2', 'name' => null, 'style' => 'width:100% !important'])) !!}
     </div>
 
     <div class="col-sm-4 @if (empty($featured_products)) hide @endif" id="feature_product_div">

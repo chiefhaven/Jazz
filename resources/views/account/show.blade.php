@@ -44,19 +44,19 @@
                 <div class="box-body">
                     <div class="col-sm-6">
                         <div class="form-group">
-                            {!! Form::label('transaction_date_range', __('report.date_range') . ':') !!}
+                            {!! html()->label(__('report.date_range') . ':', 'transaction_date_range')->attributes([]) !!}
                             <div class="input-group">
                                 <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
-                                {!! Form::text('transaction_date_range', null, ['class' => 'form-control', 'readonly', 'placeholder' => __('report.date_range')]) !!}
+                                {!! html()->text('transaction_date_range', null)->attributes(['class' => 'form-control', 'readonly', 'placeholder' => __('report.date_range')]) !!}
                             </div>
                         </div>
                     </div>
                     <div class="col-sm-6">
                         <div class="form-group">
-                            {!! Form::label('transaction_type', __('account.transaction_type') . ':') !!}
+                            {!! html()->label(__('account.transaction_type') . ':', 'transaction_type')->attributes([]) !!}
                             <div class="input-group">
                                 <span class="input-group-addon"><i class="fas fa-exchange-alt"></i></span>
-                                {!! Form::select('transaction_type', ['' => __('messages.all'),'credit' => __('account.credit'), 'debit' => __('account.debit')], '', ['class' => 'form-control']) !!}
+                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('transaction_type', ['' => __('messages.all'),'credit' => __('account.credit'), 'debit' => __('account.debit')], '', ['class' => 'form-control'])) !!}
                             </div>
                         </div>
                     </div>

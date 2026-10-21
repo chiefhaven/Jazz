@@ -24,15 +24,15 @@
                 <div class="box-body">
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! Form::label('tr_location_id',  __('purchase.business_location') . ':') !!}
-                            {!! Form::select('tr_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
+                            {!! html()->label(__('purchase.business_location') . ':', 'tr_location_id')->attributes([]) !!}
+                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('tr_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
                         </div>
                     </div>
 
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! Form::label('tr_date_range', __('report.date_range') . ':') !!}
-                            {!! Form::text('date_range', @format_date('first day of this month') . ' ~ ' . @format_date('last day of this month'), ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'tr_date_range', 'readonly']); !!}
+                            {!! html()->label(__('report.date_range') . ':', 'tr_date_range')->attributes([]) !!}
+                            {!! html()->text('date_range', @format_date('first day of this month') . ' ~ ' . @format_date('last day of this month'))->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'tr_date_range', 'readonly']); !!}
                         </div>
                     </div>
                 </div>

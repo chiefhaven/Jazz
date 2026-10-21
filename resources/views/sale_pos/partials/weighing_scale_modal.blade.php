@@ -9,8 +9,8 @@
 				<div class="row">
 					<div class="col-xs-12">
 				        <div class="form-group">
-				            {!! Form::label('weighing_scale_barcode', __('lang_v1.weighing_scale_barcode') . ':' ) !!} @show_tooltip(__('lang_v1.weighing_scale_barcode_help'))
-				            {!! Form::text('weighing_scale_barcode', null, ['class' => 'form-control']); !!}
+				            {!! html()->label(__('lang_v1.weighing_scale_barcode') . ':', 'weighing_scale_barcode')->attributes([]) !!} @show_tooltip(__('lang_v1.weighing_scale_barcode_help'))
+				            {!! html()->text('weighing_scale_barcode', null)->attributes(['class' => 'form-control']); !!}
 				        </div>
 				    </div>
 				</div>

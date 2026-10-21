@@ -15,8 +15,8 @@
             @if(!empty($users))
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('user_id_filter', __('essentials::lang.employee') . ':') !!}
-                    {!! Form::select('user_id_filter', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+                    {!! html()->label(__('essentials::lang.employee') . ':', 'user_id_filter')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('user_id_filter', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
                 </div>
             </div>
             @endif
@@ -33,14 +33,14 @@
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('leave_type_filter', __('essentials::lang.leave_type') . ':') !!}
-                    {!! Form::select('leave_type_filter', $leave_types, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+                    {!! html()->label(__('essentials::lang.leave_type') . ':', 'leave_type_filter')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('leave_type_filter', $leave_types, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('leave_filter_date_range', __('report.date_range') . ':') !!}
-                    {!! Form::text('leave_filter_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                    {!! html()->label(__('report.date_range') . ':', 'leave_filter_date_range')->attributes([]) !!}
+                    {!! html()->text('leave_filter_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                 </div>
             </div>
         @endcomponent

@@ -20,12 +20,12 @@
 					</div>
 					<div class="col-md-6">
 				        <div class="form-group">
-				            {!! Form::label('discount_type_modal', __('sale.discount_type') . ':*' ) !!}
+				            {!! html()->label(__('sale.discount_type') . ':*', 'discount_type_modal')->attributes([]) !!}
 				            <div class="input-group">
 				                <span class="input-group-addon">
 				                    <i class="fa fa-info"></i>
 				                </span>
-				                {!! Form::select('discount_type_modal', ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage')], $discount_type , ['class' => 'form-control','placeholder' => __('messages.please_select'), 'required']); !!}
+				                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('discount_type_modal', ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage')], $discount_type, ['class' => 'form-control','placeholder' => __('messages.please_select'), 'required'])); !!}
 				            </div>
 				        </div>
 				    </div>
@@ -37,12 +37,12 @@
 				    @endphp
 				    <div class="col-md-6">
 				        <div class="form-group">
-				            {!! Form::label('discount_amount_modal', __('sale.discount_amount') . ':*' ) !!}
+				            {!! html()->label(__('sale.discount_amount') . ':*', 'discount_amount_modal')->attributes([]) !!}
 				            <div class="input-group">
 				                <span class="input-group-addon">
 				                    <i class="fa fa-info"></i>
 				                </span>
-				                {!! Form::text('discount_amount_modal', @num_format($sales_discount), ['class' => 'form-control input_number', 'data-max-discount' => $max_discount, 'data-max-discount-error_msg' => __('lang_v1.max_discount_error_msg', ['discount' => $max_discount != '' ? @num_format($max_discount) : '']) ]); !!}
+				                {!! html()->text('discount_amount_modal', @num_format($sales_discount))->attributes(['class' => 'form-control input_number', 'data-max-discount' => $max_discount, 'data-max-discount-error_msg' => __('lang_v1.max_discount_error_msg', ['discount' => $max_discount != '' ? @num_format($max_discount) : '']) ]); !!}
 				            </div>
 				        </div>
 				    </div>
@@ -55,12 +55,12 @@
 					</div>
 					<div class="col-md-6">
 				        <div class="form-group">
-				            {!! Form::label('rp_redeemed_modal', __('lang_v1.redeemed') . ':' ) !!}
+				            {!! html()->label(__('lang_v1.redeemed') . ':', 'rp_redeemed_modal')->attributes([]) !!}
 				            <div class="input-group">
 				                <span class="input-group-addon">
 				                    <i class="fa fa-gift"></i>
 				                </span>
-				                {!! Form::number('rp_redeemed_modal', $rp_redeemed, ['class' => 'form-control', 'data-amount_per_unit_point' => session('business.redeem_amount_per_unit_rp'), 'data-max_points' => $max_available, 'min' => 0, 'data-min_order_total' => session('business.min_order_total_for_redeem') ]); !!}
+				                {!! html()->input('number', 'rp_redeemed_modal', $rp_redeemed)->attributes(['class' => 'form-control', 'data-amount_per_unit_point' => session('business.redeem_amount_per_unit_rp'), 'data-max_points' => $max_available, 'min' => 0, 'data-min_order_total' => session('business.min_order_total_for_redeem') ]); !!}
 				                <input type="hidden" id="rp_name" value="{{session('business.rp_name')}}">
 				            </div>
 				        </div>

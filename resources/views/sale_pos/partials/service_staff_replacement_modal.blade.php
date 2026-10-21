@@ -14,11 +14,11 @@
                     </div>
                 </div>
             </div>
-            {!! Form::open([
+            {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
                 'route' => ['change_service_staff', $transaction->id],
                 'method' => 'put',
                 'id' => 'change_service_staff',
-            ]) !!}
+            ]))->open() !!}
             {{ method_field('PUT') }}
             <div class="modal-body">
                 <div class="row">
@@ -36,11 +36,11 @@
                                     <span class="input-group-addon">
                                         <i class="fa fa-user-secret"></i>
                                     </span>
-                                    {!! Form::select('res_waiter_id', $waiters, $transaction->res_waiter_id, [
+                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('res_waiter_id', $waiters, $transaction->res_waiter_id, [
                                         'class' => 'form-control',
                                         'required' => $is_service_staff_required,
                                         'placeholder' => __('restaurant.select_service_staff'),
-                                    ]) !!}
+                                    ])) !!}
                                 </div>
                             </div>
                         </div>
@@ -71,16 +71,11 @@
                                                 <input type="hidden" name="sell_details[{{ $key }}][id]"
                                                     value="{{ $sell_detail->id }}">
                                                 <div class="form-group">
-                                                    {!! Form::select(
-                                                        'sell_details[' . $key . '][res_service_staff_id]',
-                                                        $waiters,
-                                                        $sell_detail->res_service_staff_id,
-                                                        [
+                                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sell_details[' . $key . '][res_service_staff_id]', $waiters, $sell_detail->res_service_staff_id, [
                                                             'class' => 'form-control select',
                                                             'placeholder' => __('restaurant.select_service_staff'),
                                                             'required' => $is_service_staff_required
-                                                        ],
-                                                    ) !!}
+                                                        ])) !!}
                                                 </div>
                                             </td>
                                         </tr>
@@ -97,6 +92,6 @@
                     <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white" data-dismiss="modal">Close</button>
                 </div>
             </div>
-            {!! Form::close() !!}
+            {!! html()->form()->close() !!}
         </div>
     </div>

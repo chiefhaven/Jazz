@@ -11,49 +11,49 @@
 
 <!-- Main content -->
 <section class="content no-print">
-	{!! Form::open(['url' => action([\App\Http\Controllers\CombinedPurchaseReturnController::class, 'save']), 'method' => 'post', 'id' => 'purchase_return_form', 'files' => true ]) !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\CombinedPurchaseReturnController::class, 'save']), 'method' => 'post', 'id' => 'purchase_return_form', 'files' => true ]))->open() !!}
 	<div class="box box-solid">
 		<div class="box-body">
 			<div class="row">
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('supplier_id', __('purchase.supplier') . ':*') !!}
+						{!! html()->label(__('purchase.supplier') . ':*', 'supplier_id')->attributes([]) !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-user"></i>
 							</span>
-							{!! Form::select('contact_id', [], null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'id' => 'supplier_id']); !!}
+							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'id' => 'supplier_id'])); !!}
 						</div>
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('location_id', __('purchase.business_location').':*') !!}
-						{!! Form::select('location_id', $business_locations, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required']); !!}
+						{!! html()->label(__('purchase.business_location').':*', 'location_id')->attributes([]) !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])); !!}
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('ref_no', __('purchase.ref_no').':') !!}
-						{!! Form::text('ref_no', null, ['class' => 'form-control']); !!}
+						{!! html()->label(__('purchase.ref_no').':', 'ref_no')->attributes([]) !!}
+						{!! html()->text('ref_no', null)->attributes(['class' => 'form-control']); !!}
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('transaction_date', __('messages.date') . ':*') !!}
+						{!! html()->label(__('messages.date') . ':*', 'transaction_date')->attributes([]) !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-calendar"></i>
 							</span>
-							{!! Form::text('transaction_date', @format_datetime('now'), ['class' => 'form-control', 'readonly', 'required']); !!}
+							{!! html()->text('transaction_date', @format_datetime('now'))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
 						</div>
 					</div>
 				</div>
 				<div class="clearfix"></div>
 				<div class="col-sm-3">
 	                <div class="form-group">
-	                    {!! Form::label('document', __('purchase.attach_document') . ':') !!}
-	                    {!! Form::file('document', ['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+	                    {!! html()->label(__('purchase.attach_document') . ':', 'document')->attributes([]) !!}
+	                    {!! html()->file('document')->attributes(['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
 	                    <p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
 	                    @includeIf('components.document_help_text')</p>
 	                </div>
@@ -73,7 +73,7 @@
 							<span class="input-group-addon">
 								<i class="fa fa-search"></i>
 							</span>
-							{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product_for_purchase_return', 'placeholder' => __('stock_adjustment.search_products'), 'disabled']); !!}
+							{!! html()->text('search_product', null)->attributes(['class' => 'form-control', 'id' => 'search_product_for_purchase_return', 'placeholder' => __('stock_adjustment.search_products'), 'disabled']); !!}
 						</div>
 					</div>
 				</div>
@@ -120,14 +120,14 @@
 				<div class="clearfix"></div>
 				<div class="col-md-4">
 					<div class="form-group">
-						{!! Form::label('tax_id', __('purchase.purchase_tax') . ':') !!}
+						{!! html()->label(__('purchase.purchase_tax') . ':', 'tax_id')->attributes([]) !!}
 						<select name="tax_id" id="tax_id" class="form-control select2" placeholder="'Please Select'">
 							<option value="" data-tax_amount="0" data-tax_type="fixed" selected>@lang('lang_v1.none')</option>
 							@foreach($taxes as $tax)
 								<option value="{{ $tax->id }}" data-tax_amount="{{ $tax->amount }}" data-tax_type="{{ $tax->calculation_type }}">{{ $tax->name }}</option>
 							@endforeach
 						</select>
-						{!! Form::hidden('tax_amount', 0, ['id' => 'tax_amount']); !!}
+						{!! html()->hidden('tax_amount', 0)->attributes(['id' => 'tax_amount']); !!}
 					</div>
 				</div>
 				<div class="col-md-8">
@@ -141,7 +141,7 @@
 			<button type="button" id="submit_purchase_return_form" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white">@lang('messages.submit')</button>
 		</div>
 	</div>
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 </section>
 @stop
 @section('javascript')

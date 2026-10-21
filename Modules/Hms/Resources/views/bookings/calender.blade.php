@@ -42,7 +42,7 @@
                     <thead>
                         <tr>
                             <th style="width: 150px;">
-                                {!! Form::select('type_id', $types,  request()->input('type_id') ? request()->input('type_id') : null  , ['class' => 'form-control', 'id' => 'type_id', 'placeholder' => __('hms::lang.type')]); !!}
+                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('type_id', $types, request()->input('type_id') ? request()->input('type_id') : null, ['class' => 'form-control', 'id' => 'type_id', 'placeholder' => __('hms::lang.type')])); !!}
                             </th>
                             {!! $date_html !!}
                         </tr>

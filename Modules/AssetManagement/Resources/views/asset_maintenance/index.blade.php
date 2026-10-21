@@ -13,20 +13,20 @@
 		@component('components.filters', ['title' => __('report.filters')])
 			<div class="col-md-4">
 	            <div class="form-group">
-	                {!! Form::label('status_filter',  __('sale.status') . ':') !!}
-	                {!! Form::select('status_filter', $statuses, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+	                {!! html()->label(__('sale.status') . ':', 'status_filter')->attributes([]) !!}
+	                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status_filter', $statuses, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
 	            </div>
 	        </div>
 	        <div class="col-md-4">
 	            <div class="form-group">
-	                {!! Form::label('priority_filter',  __('lang_v1.priority') . ':') !!}
-	                {!! Form::select('priority_filter', $priorities, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+	                {!! html()->label(__('lang_v1.priority') . ':', 'priority_filter')->attributes([]) !!}
+	                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('priority_filter', $priorities, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
 	            </div>
 	        </div>
 	        <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('assigned_to_filter', __('lang_v1.assigned_to') . ':' )!!}
-                    {!! Form::select('assigned_to_filter', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+                    {!! html()->label(__('lang_v1.assigned_to') . ':', 'assigned_to_filter')->attributes([])!!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('assigned_to_filter', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
                 </div>
             </div>
 		@endcomponent

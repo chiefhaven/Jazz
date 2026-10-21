@@ -15,19 +15,19 @@
             @component('components.filters', ['title' => __('report.filters')])
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('gst_report_supplier_filter', __('purchase.supplier') . ':') !!}
+                        {!! html()->label(__('purchase.supplier') . ':', 'gst_report_supplier_filter')->attributes([]) !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-user"></i>
                             </span>
-                            {!! Form::select('supplier_id', $suppliers, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'id' => 'gst_report_supplier_filter', 'style' => 'width:100%']); !!}
+                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('supplier_id', $suppliers, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'id' => 'gst_report_supplier_filter', 'style' => 'width:100%'])); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('gst_sr_date_filter', __('report.date_range') . ':') !!}
-                        {!! Form::text('date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'gst_sr_date_filter', 'readonly']); !!}
+                        {!! html()->label(__('report.date_range') . ':', 'gst_sr_date_filter')->attributes([]) !!}
+                        {!! html()->text('date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'gst_sr_date_filter', 'readonly']); !!}
                     </div>
                 </div>
             @endcomponent

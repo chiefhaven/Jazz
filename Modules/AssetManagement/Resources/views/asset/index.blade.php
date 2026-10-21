@@ -13,17 +13,17 @@
 		@component('components.filters', ['title' => __('report.filters')])
         <div class="col-md-3">
             <div class="form-group">
-                {!! Form::label('asset_list_filter_location_id',  __('purchase.business_location') . ':') !!}
-                {!! Form::select('asset_list_filter_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+                {!! html()->label(__('purchase.business_location') . ':', 'asset_list_filter_location_id')->attributes([]) !!}
+                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('asset_list_filter_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
             </div>
         </div>
         <div class="col-md-3">
-            {!! Form::label('asset_list_filter_category_id', __('assetmanagement::lang.asset_category') . ':' )!!}
-            {!! Form::select('asset_list_filter_category_id', $asset_category, null, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.all'), 'style' => 'width: 100%;']); !!}
+            {!! html()->label(__('assetmanagement::lang.asset_category') . ':', 'asset_list_filter_category_id')->attributes([])!!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('asset_list_filter_category_id', $asset_category, null, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.all'), 'style' => 'width: 100%;'])); !!}
         </div>
         <div class="col-md-3">
-            {!! Form::label('asset_list_filter_purchase_type', __('assetmanagement::lang.purchase_type') . ':' )!!}
-            {!! Form::select('asset_list_filter_purchase_type', $purchase_types, null, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.all'), 'style' => 'width: 100%;']); !!}
+            {!! html()->label(__('assetmanagement::lang.purchase_type') . ':', 'asset_list_filter_purchase_type')->attributes([])!!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('asset_list_filter_purchase_type', $purchase_types, null, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.all'), 'style' => 'width: 100%;'])); !!}
         </div>
         <div class="col-md-3">
             <div class="form-group">

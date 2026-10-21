@@ -17,13 +17,13 @@
             <div class="box-body">
                 <div class="row">
                     <div class="col-md-3">
-                        {!! Form::open([
+                        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
                             'url' => action([\Modules\Hms\Http\Controllers\HmsReportController::class, 'index']),
                             'method' => 'get',
-                        ]) !!}
+                        ]))->open() !!}
                             <div class="form-group">
-                                {!! Form::label('date_to', __('hms::lang.date_to') . ':') !!}
-                                {!! Form::text('date_to', request('date_to'), [
+                                {!! html()->label(__('hms::lang.date_to') . ':', 'date_to')->attributes([]) !!}
+                                {!! html()->text('date_to', request('date_to'))->attributes([
                                     'class' => 'form-control date_to',
                                     'placeholder' => __('hms::lang.date_to'),
                                     'readonly',
@@ -34,8 +34,8 @@
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! Form::label('date_from', __('hms::lang.date_from') . ':') !!}
-                            {!! Form::text('date_from', request('date_from'), [
+                            {!! html()->label(__('hms::lang.date_from') . ':', 'date_from')->attributes([]) !!}
+                            {!! html()->text('date_from', request('date_from'))->attributes([
                                 'class' => 'form-control date_from',
                                 'placeholder' => __('hms::lang.date_from'),
                                 'readonly',
@@ -50,7 +50,7 @@
                             <button type="submit" class="btn btn-primary form-control">@lang('hms::lang.generate')</button>
                         </div>
                     </div>
-                    {!! Form::close() !!}
+                    {!! html()->form()->close() !!}
                 </div>
             </div>
         </div>

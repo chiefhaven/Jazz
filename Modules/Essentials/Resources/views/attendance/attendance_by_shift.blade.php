@@ -1,7 +1,7 @@
 <div class="row">
 	<div class="col-md-4">
 		<div class="input-group date">
-    		{!! Form::text('attendance_by_shift_date_filter', @format_date('today'), ['class' => 'form-control', 'id' => 'attendance_by_shift_date_filter', 'readonly' ]); !!}
+    		{!! html()->text('attendance_by_shift_date_filter', @format_date('today'))->attributes(['class' => 'form-control', 'id' => 'attendance_by_shift_date_filter', 'readonly' ]); !!}
     		<span class="input-group-addon"><i class="fas fa-calendar"></i></span>
     	</div>
 	</div>

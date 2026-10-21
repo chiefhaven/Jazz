@@ -22,16 +22,16 @@
 		@foreach($locations as $key => $value)
 			<tr>
 				<td>{{$value}}</td>
-				<td>{!! Form::text('opening_stock[' . $key . '][quantity]', 0, ['class' => 'form-control input-sm input_number purchase_quantity', 'required']); !!}</td>
-				<td>{!! Form::text('opening_stock[' . $key . '][purchase_price]', null , ['class' => 'form-control input-sm input_number unit_price', 'required']); !!}</td>
+				<td>{!! html()->text('opening_stock[' . $key . '][quantity]', 0)->attributes(['class' => 'form-control input-sm input_number purchase_quantity', 'required']); !!}</td>
+				<td>{!! html()->text('opening_stock[' . $key . '][purchase_price]', null)->attributes(['class' => 'form-control input-sm input_number unit_price', 'required']); !!}</td>
 				@if($enable_expiry)
 					<td>
-						{!! Form::text('opening_stock[' . $key . '][exp_date]', null , ['class' => 'form-control input-sm os_exp_date', 'readonly']); !!}
+						{!! html()->text('opening_stock[' . $key . '][exp_date]', null)->attributes(['class' => 'form-control input-sm os_exp_date', 'readonly']); !!}
 					</td>
 				@endif
 				@if($enable_lot)
 					<td>
-						{!! Form::text('opening_stock[' . $key . '][lot_number]', null , ['class' => 'form-control input-sm']); !!}
+						{!! html()->text('opening_stock[' . $key . '][lot_number]', null)->attributes(['class' => 'form-control input-sm']); !!}
 					</td>
 				@endif
 				<td>

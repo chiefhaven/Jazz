@@ -16,7 +16,7 @@
             <div class="box-body">   
                 {{-- <div class="col-md-6">
                     <div class="form-group">
-                        {!! Form::label('customer', __('hms::lang.customer') . ':') !!}
+                        {!! html()->label(__('hms::lang.customer') . ':', 'customer')->attributes([]) !!}
                          {{ $transaction->name }}
                     </div>
                 </div> --}}
@@ -60,50 +60,50 @@
                     
                     @if($transaction->status == 'confirmed')
                         <div class="form-group">
-                            {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                            {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
                             <h6 class="bg-green badge">{{ucfirst($transaction->status) }}</h6>
                         </div>
                     @elseif($transaction->status == 'pending')
                         <div class="form-group">
-                            {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                            {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
                             <h6 class="bg-yellow badge">{{ucfirst($transaction->status) }}</h6>
                         </div>
                     @elseif($transaction->status == 'cancelled')
                         <div class="form-group">
-                            {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                            {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
                             <h6 class="bg-red badge">{{ucfirst($transaction->status) }}</h6>
                         </div>
                     @endif
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! Form::label('arrival_date', __('hms::lang.arrival_date') . ':') !!}
+                        {!! html()->label(__('hms::lang.arrival_date') . ':', 'arrival_date')->attributes([]) !!}
                         {{ @format_date($transaction->hms_booking_arrival_date_time) }}
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! Form::label('arrival_time', __('hms::lang.arrival_time') . ':') !!}
+                        {!! html()->label(__('hms::lang.arrival_time') . ':', 'arrival_time')->attributes([]) !!}
                         {{ @format_time($transaction->hms_booking_arrival_date_time) }}
                     </div>
                 </div>
                  <div class="col-md-6">
                     <div class="form-group">
-                        {!! Form::label('departure_date', __('hms::lang.departure_date') . ':') !!}
+                        {!! html()->label(__('hms::lang.departure_date') . ':', 'departure_date')->attributes([]) !!}
                         {{ @format_date($transaction->hms_booking_departure_date_time) }}
                     </div>
                     <div class="days_count"></div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! Form::label('departure_time', __('hms::lang.departure_time') . ':') !!}
+                        {!! html()->label(__('hms::lang.departure_time') . ':', 'departure_time')->attributes([]) !!}
                         {{ @format_time($transaction->hms_booking_departure_date_time) }}
                     </div>
                 </div>
                 @if(!empty($transaction->check_in))
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! Form::label('check_in', __('hms::lang.check_in') . ':') !!}
+                            {!! html()->label(__('hms::lang.check_in') . ':', 'check_in')->attributes([]) !!}
                             {{ @format_datetime($transaction->check_in) }}
                         </div>
                     </div>
@@ -111,7 +111,7 @@
                 @if(!empty($transaction->check_out))
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! Form::label('check_out', __('hms::lang.check_out') . ':') !!}
+                            {!! html()->label(__('hms::lang.check_out') . ':', 'check_out')->attributes([]) !!}
                             {{ @format_datetime($transaction->check_out) }}
                         </div>
                     </div>
@@ -254,7 +254,7 @@
                     <div class="row">
                         <div class="col-xs-12">
                             <div class="form-group">
-                                {!! Form::label('coupon_code', __('hms::lang.coupon_code') . ':') !!}
+                                {!! html()->label(__('hms::lang.coupon_code') . ':', 'coupon_code')->attributes([]) !!}
                                 {{ $transaction->coupon_code }}
                             </div>
                         </div>

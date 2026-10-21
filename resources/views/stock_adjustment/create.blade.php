@@ -15,50 +15,45 @@
 
     <!-- Main content -->
     <section class="content no-print">
-        {!! Form::open([
+        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
             'url' => action([\App\Http\Controllers\StockAdjustmentController::class, 'store']),
             'method' => 'post',
             'id' => 'stock_adjustment_form',
-        ]) !!}
+        ]))->open() !!}
 
         @component('components.widget', ['class' => 'box-solid'])
             <div class="row">
                 <div class="col-sm-3">
                     <div class="form-group">
-                        {!! Form::label('location_id', __('purchase.business_location') . ':*') !!}
-                        {!! Form::select('location_id', $business_locations, null, [
+                        {!! html()->label(__('purchase.business_location') . ':*', 'location_id')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, [
                             'class' => 'form-control select2',
                             'placeholder' => __('messages.please_select'),
                             'required',
-                        ]) !!}
+                        ])) !!}
                     </div>
                 </div>
                 <div class="col-sm-3">
                     <div class="form-group">
-                        {!! Form::label('ref_no', __('purchase.ref_no') . ':') !!}
-                        {!! Form::text('ref_no', null, ['class' => 'form-control']) !!}
+                        {!! html()->label(__('purchase.ref_no') . ':', 'ref_no')->attributes([]) !!}
+                        {!! html()->text('ref_no', null)->attributes(['class' => 'form-control']) !!}
                     </div>
                 </div>
                 <div class="col-sm-3">
                     <div class="form-group">
-                        {!! Form::label('transaction_date', __('messages.date') . ':*') !!}
+                        {!! html()->label(__('messages.date') . ':*', 'transaction_date')->attributes([]) !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-calendar"></i>
                             </span>
-                            {!! Form::text('transaction_date', @format_datetime('now'), ['class' => 'form-control', 'readonly', 'required']) !!}
+                            {!! html()->text('transaction_date', @format_datetime('now'))->attributes(['class' => 'form-control', 'readonly', 'required']) !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-3">
                     <div class="form-group">
-                        {!! Form::label('adjustment_type', __('stock_adjustment.adjustment_type') . ':*') !!} @show_tooltip(__('tooltip.adjustment_type'))
-                        {!! Form::select(
-                            'adjustment_type',
-                            ['normal' => __('stock_adjustment.normal'), 'abnormal' => __('stock_adjustment.abnormal')],
-                            null,
-                            ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'],
-                        ) !!}
+                        {!! html()->label(__('stock_adjustment.adjustment_type') . ':*', 'adjustment_type')->attributes([]) !!} @show_tooltip(__('tooltip.adjustment_type'))
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('adjustment_type', ['normal' => __('stock_adjustment.normal'), 'abnormal' => __('stock_adjustment.abnormal')], null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])) !!}
                     </div>
                 </div>
             </div>
@@ -72,7 +67,7 @@
                             <span class="input-group-addon">
                                 <i class="fa fa-search"></i>
                             </span>
-                            {!! Form::text('search_product', null, [
+                            {!! html()->text('search_product', null)->attributes([
                                 'class' => 'form-control',
                                 'id' => 'search_product_for_srock_adjustment',
                                 'placeholder' => __('stock_adjustment.search_product'),
@@ -126,8 +121,8 @@
             <div class="row">
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! Form::label('total_amount_recovered', __('stock_adjustment.total_amount_recovered') . ':') !!} @show_tooltip(__('tooltip.total_amount_recovered'))
-                        {!! Form::text('total_amount_recovered', 0, [
+                        {!! html()->label(__('stock_adjustment.total_amount_recovered') . ':', 'total_amount_recovered')->attributes([]) !!} @show_tooltip(__('tooltip.total_amount_recovered'))
+                        {!! html()->text('total_amount_recovered', 0)->attributes([
                             'class' => 'form-control input_number',
                             'placeholder' => __('stock_adjustment.total_amount_recovered'),
                         ]) !!}
@@ -135,8 +130,8 @@
                 </div>
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! Form::label('additional_notes', __('stock_adjustment.reason_for_stock_adjustment') . ':') !!}
-                        {!! Form::textarea('additional_notes', null, [
+                        {!! html()->label(__('stock_adjustment.reason_for_stock_adjustment') . ':', 'additional_notes')->attributes([]) !!}
+                        {!! html()->textarea('additional_notes', null)->attributes([
                             'class' => 'form-control',
                             'placeholder' => __('stock_adjustment.reason_for_stock_adjustment'),
                             'rows' => 3,
@@ -150,7 +145,7 @@
                 </div>
             </div>
         @endcomponent
-        {!! Form::close() !!}
+        {!! html()->form()->close() !!}
     </section>
 @stop
 @section('javascript')

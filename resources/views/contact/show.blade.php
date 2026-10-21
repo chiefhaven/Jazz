@@ -10,7 +10,7 @@
             <h3>@lang('contact.view_contact')</h3>
         </div>
         <div class="col-md-4 col-xs-12 mt-15 pull-right">
-            {!! Form::select('contact_id', $contact_dropdown, $contact->id , ['class' => 'form-control select2', 'id' => 'contact_id']); !!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', $contact_dropdown, $contact->id, ['class' => 'form-control select2', 'id' => 'contact_id'])); !!}
         </div>
     </div>
     <div class="hide print_table_part">
@@ -175,8 +175,8 @@
                             <div class="row">
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        {!! Form::label('purchase_list_filter_date_range', __('report.date_range') . ':') !!}
-                                        {!! Form::text('purchase_list_filter_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                                        {!! html()->label(__('report.date_range') . ':', 'purchase_list_filter_date_range')->attributes([]) !!}
+                                        {!! html()->text('purchase_list_filter_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                                     </div>
                                 </div>
                                 <div class="col-md-12">

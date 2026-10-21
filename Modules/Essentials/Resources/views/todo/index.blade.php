@@ -9,32 +9,32 @@
 		@can('essentials.assign_todos')
 			<div class="col-md-3">
 				<div class="form-group">
-					{!! Form::label('user_id_filter', __('essentials::lang.assigned_to') . ':') !!}
+					{!! html()->label(__('essentials::lang.assigned_to') . ':', 'user_id_filter')->attributes([]) !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-user"></i>
 						</span>
-						{!! Form::select('user_id_filter', $users, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all')]); !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('user_id_filter', $users, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all')])); !!}
 					</div>
 				</div>
 			</div>
 		@endcan
 		<div class="col-md-3">
 			<div class="form-group">
-				{!! Form::label('priority_filter', __('essentials::lang.priority') . ':') !!}
-				{!! Form::select('priority_filter', $priorities, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all')]); !!}
+				{!! html()->label(__('essentials::lang.priority') . ':', 'priority_filter')->attributes([]) !!}
+				{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('priority_filter', $priorities, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all')])); !!}
 			</div>
 		</div>
 		<div class="col-md-3">
 			<div class="form-group">
-				{!! Form::label('status_filter', __('sale.status') . ':') !!}
-				{!! Form::select('status_filter', $task_statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all')]); !!}
+				{!! html()->label(__('sale.status') . ':', 'status_filter')->attributes([]) !!}
+				{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status_filter', $task_statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all')])); !!}
 			</div>
 		</div>
 		<div class="col-md-3">
             <div class="form-group">
-                {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
-                {!! Form::text('date_range_filter', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                {!! html()->label(__('report.date_range') . ':', 'date_range_filter')->attributes([]) !!}
+                {!! html()->text('date_range_filter', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
             </div>
         </div>
 	@endcomponent

@@ -124,18 +124,14 @@
         <div id="toggle_visibility" @if(!empty($eis_settings['use_superadmin_settings'])) class="hide" @endif>
             <div class="col-xs-6">
                 <div class="form-group">
-                    {!! Form::label('terminal_activation_code', __('lang_v1.terminal_activation_code') . ':') !!}
+                    {!! html()->label(__('lang_v1.terminal_activation_code') . ':', 'terminal_activation_code')->attributes([]) !!}
 
                     <div class="input-group">
-                        {!! Form::text(
-                            'eis_settings[terminal_activation_code]',
-                            $eis_settings['terminal_activation_code'] ?? '',
-                            [
+                        {!! html()->text('eis_settings[terminal_activation_code]', $eis_settings['terminal_activation_code'] ?? '')->attributes([
                                 'class' => 'form-control',
                                 'placeholder' => __('lang_v1.terminal_activation_code'),
                                 'id' => 'terminal_activation_code_input'
-                            ]
-                        ) !!}
+                            ]) !!}
 
                         <span class="input-group-btn activate_eis_terminal_btn @if(!empty($eis_settings['use_superadmin_settings'])) hide @endif">
                             <button type="button"

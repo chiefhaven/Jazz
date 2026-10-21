@@ -24,7 +24,7 @@
                 </p>
             </div>
             <div class="col-xs-4 col-sm-4 col-md-4 col-lg-4">
-               {!! Form::open(['action' => '\Modules\Spreadsheet\Http\Controllers\SpreadsheetController@store', 'id' => 'spreadsheet', 'method' => 'post']) !!}
+               {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['action' => '\Modules\Spreadsheet\Http\Controllers\SpreadsheetController@store', 'id' => 'spreadsheet', 'method' => 'post']))->open() !!}
                         <button type="submit" class="btn btn-primary btn-lg pull-right">
                             <i class="fas fa-save"></i>
                             @lang('messages.save')
@@ -32,7 +32,7 @@
                     <input type="hidden" name="name" id="name" value="">
                     <input type="hidden" name="sheet_data" id="spread_sheet_data" value="">
                     <input type="hidden" name="folder_id" value="{{$folder_id}}">
-                {!! Form::close() !!}
+                {!! html()->form()->close() !!}
 
                 <button type="button" class="btn btn-primary btn-lg pull-right downloadSheet" style="margin-right: 5px;" onclick="alert('Feature Under Development')">
                 <i class="fas fa-download"></i>

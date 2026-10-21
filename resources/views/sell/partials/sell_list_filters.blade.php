@@ -1,41 +1,41 @@
 @if(empty($only) || in_array('sell_list_filter_location_id', $only))
 <div class="col-md-3">
     <div class="form-group">
-        {!! Form::label('sell_list_filter_location_id',  __('purchase.business_location') . ':') !!}
+        {!! html()->label(__('purchase.business_location') . ':', 'sell_list_filter_location_id')->attributes([]) !!}
 
-        {!! Form::select('sell_list_filter_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all') ]); !!}
+        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sell_list_filter_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all') ])); !!}
     </div>
 </div>
 @endif
 @if(empty($only) || in_array('sell_list_filter_customer_id', $only))
 <div class="col-md-3">
     <div class="form-group">
-        {!! Form::label('sell_list_filter_customer_id',  __('contact.customer') . ':') !!}
-        {!! Form::select('sell_list_filter_customer_id', $customers, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+        {!! html()->label(__('contact.customer') . ':', 'sell_list_filter_customer_id')->attributes([]) !!}
+        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sell_list_filter_customer_id', $customers, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
     </div>
 </div>
 @endif
 @if(empty($only) || in_array('sell_list_filter_payment_status', $only))
 <div class="col-md-3">
     <div class="form-group">
-        {!! Form::label('sell_list_filter_payment_status',  __('purchase.payment_status') . ':') !!}
-        {!! Form::select('sell_list_filter_payment_status', ['paid' => __('lang_v1.paid'), 'due' => __('lang_v1.due'), 'partial' => __('lang_v1.partial'), 'overdue' => __('lang_v1.overdue')], null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+        {!! html()->label(__('purchase.payment_status') . ':', 'sell_list_filter_payment_status')->attributes([]) !!}
+        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sell_list_filter_payment_status', ['paid' => __('lang_v1.paid'), 'due' => __('lang_v1.due'), 'partial' => __('lang_v1.partial'), 'overdue' => __('lang_v1.overdue')], null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
     </div>
 </div>
 @endif
 @if(empty($only) || in_array('sell_list_filter_date_range', $only))
 <div class="col-md-3">
     <div class="form-group">
-        {!! Form::label('sell_list_filter_date_range', __('report.date_range') . ':') !!}
-        {!! Form::text('sell_list_filter_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+        {!! html()->label(__('report.date_range') . ':', 'sell_list_filter_date_range')->attributes([]) !!}
+        {!! html()->text('sell_list_filter_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
     </div>
 </div>
 @endif
 @if((empty($only) || in_array('created_by', $only)) && !empty($sales_representative))
 <div class="col-md-3">
     <div class="form-group">
-        {!! Form::label('created_by',  __('report.user') . ':') !!}
-        {!! Form::select('created_by', $sales_representative, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
+        {!! html()->label(__('report.user') . ':', 'created_by')->attributes([]) !!}
+        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('created_by', $sales_representative, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
     </div>
 </div>
 @endif
@@ -43,8 +43,8 @@
 @if(!empty($is_cmsn_agent_enabled))
     <div class="col-md-3">
         <div class="form-group">
-            {!! Form::label('sales_cmsn_agnt',  __('lang_v1.sales_commission_agent') . ':') !!}
-            {!! Form::select('sales_cmsn_agnt', $commission_agents, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
+            {!! html()->label(__('lang_v1.sales_commission_agent') . ':', 'sales_cmsn_agnt')->attributes([]) !!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sales_cmsn_agnt', $commission_agents, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
         </div>
     </div>
 @endif
@@ -53,8 +53,8 @@
 @if(!empty($service_staffs))
     <div class="col-md-3">
         <div class="form-group">
-            {!! Form::label('service_staffs', __('restaurant.service_staff') . ':') !!}
-            {!! Form::select('service_staffs', $service_staffs, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+            {!! html()->label(__('restaurant.service_staff') . ':', 'service_staffs')->attributes([]) !!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('service_staffs', $service_staffs, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
         </div>
     </div>
 @endif
@@ -62,8 +62,8 @@
 @if(!empty($shipping_statuses))
     <div class="col-md-3">
         <div class="form-group">
-            {!! Form::label('shipping_status', __('lang_v1.shipping_status') . ':') !!}
-            {!! Form::select('shipping_status', $shipping_statuses, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+            {!! html()->label(__('lang_v1.shipping_status') . ':', 'shipping_status')->attributes([]) !!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('shipping_status', $shipping_statuses, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
         </div>
     </div>
 @endif
@@ -73,8 +73,7 @@
         <div class="checkbox">
             <label>
                 <br>
-              {!! Form::checkbox('only_subscriptions', 1, false, 
-              [ 'class' => 'input-icheck', 'id' => 'only_subscriptions']); !!} {{ __('lang_v1.subscriptions') }}
+              {!! html()->checkbox('only_subscriptions', false, 1)->attributes([ 'class' => 'input-icheck', 'id' => 'only_subscriptions']); !!} {{ __('lang_v1.subscriptions') }}
             </label>
         </div>
     </div>

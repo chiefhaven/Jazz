@@ -23,14 +23,14 @@
                 <div class="col-md-3">
                     <div class="form-group">
                         <label>
-                            {!! Form::checkbox('has_sell_due', 1, false, ['class' => 'input-icheck', 'id' => 'has_sell_due']) !!} <strong>@lang('lang_v1.sell_due')</strong>
+                            {!! html()->checkbox('has_sell_due', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'has_sell_due']) !!} <strong>@lang('lang_v1.sell_due')</strong>
                         </label>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label>
-                            {!! Form::checkbox('has_sell_return', 1, false, ['class' => 'input-icheck', 'id' => 'has_sell_return']) !!} <strong>@lang('lang_v1.sell_return')</strong>
+                            {!! html()->checkbox('has_sell_return', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'has_sell_return']) !!} <strong>@lang('lang_v1.sell_return')</strong>
                         </label>
                     </div>
                 </div>
@@ -38,14 +38,14 @@
                 <div class="col-md-3">
                     <div class="form-group">
                         <label>
-                            {!! Form::checkbox('has_purchase_due', 1, false, ['class' => 'input-icheck', 'id' => 'has_purchase_due']) !!} <strong>@lang('report.purchase_due')</strong>
+                            {!! html()->checkbox('has_purchase_due', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'has_purchase_due']) !!} <strong>@lang('report.purchase_due')</strong>
                         </label>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label>
-                            {!! Form::checkbox('has_purchase_return', 1, false, ['class' => 'input-icheck', 'id' => 'has_purchase_return']) !!} <strong>@lang('lang_v1.purchase_return')</strong>
+                            {!! html()->checkbox('has_purchase_return', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'has_purchase_return']) !!} <strong>@lang('lang_v1.purchase_return')</strong>
                         </label>
                     </div>
                 </div>
@@ -53,14 +53,14 @@
             <div class="col-md-3">
                 <div class="form-group">
                     <label>
-                        {!! Form::checkbox('has_advance_balance', 1, false, ['class' => 'input-icheck', 'id' => 'has_advance_balance']) !!} <strong>@lang('lang_v1.advance_balance')</strong>
+                        {!! html()->checkbox('has_advance_balance', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'has_advance_balance']) !!} <strong>@lang('lang_v1.advance_balance')</strong>
                     </label>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
                     <label>
-                        {!! Form::checkbox('has_opening_balance', 1, false, ['class' => 'input-icheck', 'id' => 'has_opening_balance']) !!} <strong>@lang('lang_v1.opening_balance')</strong>
+                        {!! html()->checkbox('has_opening_balance', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'has_opening_balance']) !!} <strong>@lang('lang_v1.opening_balance')</strong>
                     </label>
                 </div>
             </div>
@@ -68,24 +68,19 @@
                 <div class="col-md-3">
                     <div class="form-group">
                         <label for="has_no_sell_from">@lang('lang_v1.has_no_sell_from'):</label>
-                        {!! Form::select(
-                            'has_no_sell_from',
-                            [
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('has_no_sell_from', [
                                 'one_month' => __('lang_v1.one_month'),
                                 'three_months' => __('lang_v1.three_months'),
                                 'six_months' => __('lang_v1.six_months'),
                                 'one_year' => __('lang_v1.one_year'),
-                            ],
-                            null,
-                            ['class' => 'form-control', 'id' => 'has_no_sell_from', 'placeholder' => __('messages.please_select')],
-                        ) !!}
+                            ], null, ['class' => 'form-control', 'id' => 'has_no_sell_from', 'placeholder' => __('messages.please_select')])) !!}
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="form-group">
                         <label for="cg_filter">@lang('lang_v1.customer_group'):</label>
-                        {!! Form::select('cg_filter', $customer_groups, null, ['class' => 'form-control', 'id' => 'cg_filter']) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('cg_filter', $customer_groups, null, ['class' => 'form-control', 'id' => 'cg_filter'])) !!}
                     </div>
                 </div>
             @endif
@@ -93,8 +88,8 @@
             @if (config('constants.enable_contact_assign') === true)
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('assigned_to', __('lang_v1.assigned_to') . ':') !!}
-                        {!! Form::select('assigned_to', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%']) !!}
+                        {!! html()->label(__('lang_v1.assigned_to') . ':', 'assigned_to')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('assigned_to', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%'])) !!}
                     </div>
                 </div>
             @endif
@@ -102,12 +97,7 @@
             <div class="col-md-3">
                 <div class="form-group">
                     <label for="status_filter">@lang('sale.status'):</label>
-                    {!! Form::select(
-                        'status_filter',
-                        ['active' => __('business.is_active'), 'inactive' => __('lang_v1.inactive')],
-                        null,
-                        ['class' => 'form-control', 'id' => 'status_filter', 'placeholder' => __('lang_v1.none')],
-                    ) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status_filter', ['active' => __('business.is_active'), 'inactive' => __('lang_v1.inactive')], null, ['class' => 'form-control', 'id' => 'status_filter', 'placeholder' => __('lang_v1.none')])) !!}
                 </div>
             </div>
         @endcomponent

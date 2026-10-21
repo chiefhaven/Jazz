@@ -15,7 +15,7 @@
 
 <!-- Main content -->
 <section class="content no-print">
-	{!! Form::open(['url' => '#', 'method' => 'post', 'id' => 'preview_setting_form', 'onsubmit' => 'return false']) !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => '#', 'method' => 'post', 'id' => 'preview_setting_form', 'onsubmit' => 'return false']))->open() !!}
 	@component('components.widget', ['class' => 'box-primary', 'title' => __('product.add_product_for_labels')])
 		<div class="row">
 			<div class="col-sm-8 col-sm-offset-2">
@@ -24,7 +24,7 @@
 						<span class="input-group-addon">
 							<i class="fa fa-search"></i>
 						</span>
-						{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product_for_label', 'placeholder' => __('lang_v1.enter_product_name_to_print_labels'), 'autofocus']); !!}
+						{!! html()->text('search_product', null)->attributes(['class' => 'form-control', 'id' => 'search_product_for_label', 'placeholder' => __('lang_v1.enter_product_name_to_print_labels'), 'autofocus']); !!}
 					</div>
 				</div>
 			</div>
@@ -110,12 +110,12 @@
 							
 							<div class="" id="price_type_div">
 								<div class="form-group">
-									{!! Form::label('print[price_type]', @trans( 'barcode.show_price' ) . ':') !!}
+									{!! html()->label(@trans( 'barcode.show_price' ) . ':', 'print[price_type]')->attributes([]) !!}
 									<div class="input-group">
 										<span class="input-group-addon">
 											<i class="fa fa-info"></i>
 										</span>
-										{!! Form::select('print[price_type]', ['inclusive' => __('product.inc_of_tax'), 'exclusive' => __('product.exc_of_tax')], 'inclusive', ['class' => 'form-control']); !!}
+										{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('print[price_type]', ['inclusive' => __('product.inc_of_tax'), 'exclusive' => __('product.exc_of_tax')], 'inclusive', ['class' => 'form-control'])); !!}
 									</div>
 								</div>
 							</div>
@@ -238,12 +238,12 @@
 
 			<div class="col-sm-4">
 				<div class="form-group">
-					{!! Form::label('price_type', @trans( 'barcode.barcode_setting' ) . ':') !!}
+					{!! html()->label(@trans( 'barcode.barcode_setting' ) . ':', 'price_type')->attributes([]) !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-cog"></i>
 						</span>
-						{!! Form::select('barcode_setting', $barcode_settings, !empty($default) ? $default->id : null, ['class' => 'form-control']); !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('barcode_setting', $barcode_settings, !empty($default) ? $default->id : null, ['class' => 'form-control'])); !!}
 					</div>
 				</div>
 			</div>
@@ -255,7 +255,7 @@
 			</div>
 		</div>
 	@endcomponent
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 
 	<div class="col-sm-8 hide display_label_div">
 		<h3 class="box-title">@lang( 'barcode.preview' )</h3>

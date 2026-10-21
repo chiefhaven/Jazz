@@ -16,25 +16,22 @@
             @component('components.filters', ['title' => __('report.filters')])
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('transfer_from_filter', __( 'lang_v1.transfer_from' ) . ':') !!}
-                        {!! Form::select('transfer_from_filter', [], null,
-                            ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
-                            'id' => 'transfer_from_filter', 'placeholder' => __('lang_v1.all')]); !!}
+                        {!! html()->label(__( 'lang_v1.transfer_from' ) . ':', 'transfer_from_filter')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('transfer_from_filter', [], null, ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
+                            'id' => 'transfer_from_filter', 'placeholder' => __('lang_v1.all')])); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('transfer_to_filter', __( 'account.transfer_to' ) . ':') !!}
-                        {!! Form::select('transfer_to_filter', [], null,
-                            ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
-                            'id' => 'transfer_to_filter', 'placeholder' => __('lang_v1.all')]); !!}
+                        {!! html()->label(__( 'account.transfer_to' ) . ':', 'transfer_to_filter')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('transfer_to_filter', [], null, ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
+                            'id' => 'transfer_to_filter', 'placeholder' => __('lang_v1.all')])); !!}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        {!! Form::label('transfer_date_range_filter', __('report.date_range') . ':') !!}
-                        {!! Form::text('transfer_date_range_filter', null, 
-                            ['placeholder' => __('lang_v1.select_a_date_range'), 
+                        {!! html()->label(__('report.date_range') . ':', 'transfer_date_range_filter')->attributes([]) !!}
+                        {!! html()->text('transfer_date_range_filter', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 
                             'class' => 'form-control', 'readonly']); !!}
                     </div>
                 </div>

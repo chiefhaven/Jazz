@@ -3,6 +3,13 @@
 /public/storage
 /storage/*.key
 /storage/
+!/storage/
+!/storage/framework/
+!/storage/framework/cache/
+!/storage/framework/cache/data/
+!/storage/framework/cache/data/.gitignore
+!/storage/framework/views/
+!/storage/framework/views/.gitignore
 /vendor
 /.idea
 /.vagrant

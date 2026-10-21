@@ -34,14 +34,14 @@
             @endif
             @if(auth()->user()->can('superadmin') || auth()->user()->can('create.spreadsheet'))
             <div class="col-xs-4 col-sm-4 col-md-4 col-lg-4">
-                {!! Form::open(['url' => action([\Modules\Spreadsheet\Http\Controllers\SpreadsheetController::class, 'update'], $spreadsheet->id), 'id' => 'spreadsheet', 'method' => 'put']) !!}
+                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Spreadsheet\Http\Controllers\SpreadsheetController::class, 'update'], $spreadsheet->id), 'id' => 'spreadsheet', 'method' => 'put']))->open() !!}
                         <button type="submit" class="btn btn-primary btn-lg pull-right">
                             <i class="fas fa-save"></i>
                             @lang('messages.update')
                         </button>
                     <input type="hidden" name="name" id="name" value="">
                     <input type="hidden" name="sheet_data" id="spread_sheet_data" value="">
-                  {!! Form::close() !!}
+                  {!! html()->form()->close() !!}
             </div>
             @endif
     		<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">

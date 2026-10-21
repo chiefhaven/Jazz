@@ -65,7 +65,7 @@ class ConfigurationSyncService
         ]);
 
         try {
-            return DB::transaction(function () use ($businessId, $token) {
+            $configuration = DB::transaction(function () use ($businessId, $token) {
                 // Fetch configuration from EIS
                 $response = $this->client->latest($token);
 
@@ -137,6 +137,10 @@ class ConfigurationSyncService
 
                 return $configuration;
             });
+
+            static::businessLocation($businessId);
+
+            return $configuration;
         } catch (SyncException $e) {
             // Re-throw SyncException as-is
             throw $e;
@@ -1107,26 +1111,9 @@ class ConfigurationSyncService
         $eisConfiguration = EisConfiguration::where('business_id', $businessId)
             ->firstOrFail();
 
-        // Decode the stored EIS API response
-        $response = json_decode(
-            $eisConfiguration->raw_response,
-            true,
-            512,
-            JSON_THROW_ON_ERROR
-        );
-
         // Extract EIS configurations
-        $terminalConfig = data_get(
-            $response,
-            'data.terminalConfiguration',
-            []
-        );
-
-        $taxpayerConfig = data_get(
-            $response,
-            'data.taxpayerConfiguration',
-            []
-        );
+        $terminalConfig = data_get($eisConfiguration->raw_response, 'data.terminalConfiguration', []);
+        $taxpayerConfig = data_get($eisConfiguration->raw_response, 'data.taxpayerConfiguration', []);
 
         $terminalSite = data_get(
             $terminalConfig,
@@ -1188,31 +1175,58 @@ class ConfigurationSyncService
             |--------------------------------------------------------------------------
             */
 
-            $businessLocation = \App\BusinessLocation::updateOrCreate(
+            $businessLocation = \App\BusinessLocation::firstOrNew(
                 [
                     'business_id' => $business->id,
                     'eis_site_id' => $siteId,
                 ],
-                [
-                    'name' => data_get(
-                        $terminalSite,
-                        'siteName',
-                        'Location 1'
-                    ),
-
-                    'country' => 'Malawi',
-
-                    'mobile' => data_get(
-                        $terminalConfig,
-                        'phoneNumber'
-                    ),
-
-                    'email' => data_get(
-                        $terminalConfig,
-                        'emailAddress'
-                    ),
-                ]
             );
+
+            $businessLocation->fill([
+                'name' => data_get(
+                    $terminalSite,
+                    'siteName',
+                    'Location 1'
+                ),
+                'country' => 'Malawi',
+                'mobile' => data_get(
+                    $terminalConfig,
+                    'phoneNumber'
+                ),
+                'email' => data_get(
+                    $terminalConfig,
+                    'emailAddress'
+                ),
+            ]);
+
+            $invoiceLayout = \App\InvoiceLayout::where('business_id', $business->id)
+                ->where('is_default', 1)
+                ->first();
+
+            if (! $invoiceLayout) {
+                throw new \RuntimeException(
+                    "Business {$business->id} must have a default invoice layout before its EIS location can be synchronized."
+                );
+            }
+
+            $businessLocation->invoice_layout_id = $invoiceLayout->id;
+            $businessLocation->sale_invoice_layout_id = $invoiceLayout->id;
+
+            if (! $businessLocation->exists) {
+                $invoiceScheme = \App\InvoiceScheme::where('business_id', $business->id)
+                    ->where('is_default', 1)
+                    ->first();
+
+                if (! $invoiceScheme) {
+                    throw new \RuntimeException(
+                        "Business {$business->id} must have a default invoice scheme before its EIS location can be created."
+                    );
+                }
+
+                $businessLocation->invoice_scheme_id = $invoiceScheme->id;
+            }
+
+            $businessLocation->save();
 
             Log::info('EIS business location synchronized successfully', [
                 'business_id' => $business->id,

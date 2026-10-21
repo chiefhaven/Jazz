@@ -22,21 +22,21 @@
 			<div class="box-body">
 				<div class="row">
 					<div class="col-md-12">
-						{!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\DocumentController::class, 'store']), 'id' => 'upload_document_form','files' => true, 'style' => 'display:none']) !!}
+						{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\DocumentController::class, 'store']), 'id' => 'upload_document_form','files' => true, 'style' => 'display:none']))->open() !!}
 						<div class="row">
                             <div class="col-sm-12">
 	                            <div class="col-sm-6">
 	                                <div class="form-group">
-                                   		{!! Form::label('name', __('essentials::lang.heading') . ":*") !!}
+                                   		{!! html()->label(__('essentials::lang.heading') . ":*", 'name')->attributes([]) !!}
 
-                                   		{!! Form::text('name', null, ['class' => 'form-control', 'required']) !!}
+                                   		{!! html()->text('name', null)->attributes(['class' => 'form-control', 'required']) !!}
 	                                 </div>
 	                            </div>
 	                            <div class="clearfix"></div>
 	                            <div class="col-sm-6">
 	                                <div class="form-group">
-	                                    {!! Form::label('description', __('essentials::lang.description') . ":")!!}
-	                                    {!! Form::textarea('description', null, ['class' => 'form-control', 'rows' => '4', 'cols' => '50']) !!}
+	                                    {!! html()->label(__('essentials::lang.description') . ":", 'description')->attributes([])!!}
+	                                    {!! html()->textarea('description', null)->attributes(['class' => 'form-control', 'rows' => '4', 'cols' => '50']) !!}
 	                                 </div>
 	                            </div>
 	                            <div class="clearfix"></div>
@@ -52,7 +52,7 @@
                             </div>
                         </div>
                         <br><hr>
-					{!! Form::close() !!}
+					{!! html()->form()->close() !!}
 					</div>
 
 				</div>

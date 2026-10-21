@@ -15,11 +15,11 @@
             $is_discount_enabled = $pos_settings['disable_discount'] != 1 ? true : false;
             $is_rp_enabled = session('business.enable_rp') == 1 ? true : false;
         @endphp
-        {!! Form::open([
+        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
             'url' => action([\App\Http\Controllers\SellPosController::class, 'store']),
             'method' => 'post',
             'id' => 'add_pos_sell_form',
-        ]) !!}
+        ]))->open() !!}
         <div class="row mb-12">
             <div class="col-md-12 tw-pt-0 tw-mb-14">
                 <div class="row tw-flex lg:tw-flex-row md:tw-flex-col sm:tw-flex-col tw-flex-col tw-items-start md:tw-gap-4">
@@ -30,7 +30,7 @@
 
                             {{-- <div class="box box-solid mb-12 @if (!isMobile()) mb-40 @endif"> --}}
                                 <div class="box-body pb-0">
-                                    {!! Form::hidden('location_id', $default_location->id ?? null, [
+                                    {!! html()->hidden('location_id', $default_location->id ?? null)->attributes([
                                         'id' => 'location_id',
                                         'data-receipt_printer_type' => !empty($default_location->receipt_printer_type)
                                             ? $default_location->receipt_printer_type
@@ -38,7 +38,7 @@
                                         'data-default_payment_accounts' => $default_location->default_payment_accounts ?? '',
                                     ]) !!}
                                     <!-- sub_type -->
-                                    {!! Form::hidden('sub_type', isset($sub_type) ? $sub_type : null) !!}
+                                    {!! html()->hidden('sub_type', isset($sub_type) ? $sub_type : null)->attributes([]) !!}
                                     <input type="hidden" id="item_addition_method"
                                         value="{{ $business_details->item_addition_method }}">
                                     @include('sale_pos.partials.pos_form')
@@ -67,7 +67,7 @@
             </div>
         </div>
         @include('sale_pos.partials.pos_form_actions')
-        {!! Form::close() !!}
+        {!! html()->form()->close() !!}
     </section>
 
     <!-- This will be printed -->

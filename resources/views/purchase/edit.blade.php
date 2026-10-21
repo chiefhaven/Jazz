@@ -22,7 +22,7 @@
 
   @include('layouts.partials.error')
 
-  {!! Form::open(['url' =>  action([\App\Http\Controllers\PurchaseController::class, 'update'] , [$purchase->id] ), 'method' => 'PUT', 'id' => 'add_purchase_form', 'files' => true ]) !!}
+  {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' =>  action([\App\Http\Controllers\PurchaseController::class, 'update'] , [$purchase->id] ), 'method' => 'PUT', 'id' => 'add_purchase_form', 'files' => true ]))->open() !!}
 
   @php
     $currency_precision = session('business.currency_precision', 2);
@@ -34,12 +34,12 @@
         <div class="row">
             <div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
               <div class="form-group">
-                {!! Form::label('supplier_id', __('purchase.supplier') . ':*') !!}
+                {!! html()->label(__('purchase.supplier') . ':*', 'supplier_id')->attributes([]) !!}
                 <div class="input-group">
                   <span class="input-group-addon">
                     <i class="fa fa-user"></i>
                   </span>
-                  {!! Form::select('contact_id', [ $purchase->contact_id => $purchase->contact->name], $purchase->contact_id, ['class' => 'form-control', 'placeholder' => __('messages.please_select') , 'required', 'id' => 'supplier_id']); !!}
+                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [ $purchase->contact_id => $purchase->contact->name], $purchase->contact_id, ['class' => 'form-control', 'placeholder' => __('messages.please_select') , 'required', 'id' => 'supplier_id'])); !!}
                   <span class="input-group-btn">
                     <button type="button" class="btn btn-default bg-white btn-flat add_new_supplier" data-name=""><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
                   </span>
@@ -55,49 +55,49 @@
 
             <div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
               <div class="form-group">
-                {!! Form::label('ref_no', __('purchase.ref_no') . '*') !!}
+                {!! html()->label(__('purchase.ref_no') . '*', 'ref_no')->attributes([]) !!}
                 @show_tooltip(__('lang_v1.leave_empty_to_autogenerate'))
-                {!! Form::text('ref_no', $purchase->ref_no, ['class' => 'form-control', 'required']); !!}
+                {!! html()->text('ref_no', $purchase->ref_no)->attributes(['class' => 'form-control', 'required']); !!}
               </div>
             </div>
             
             <div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
               <div class="form-group">
-                {!! Form::label('transaction_date', __('purchase.purchase_date') . ':*') !!}
+                {!! html()->label(__('purchase.purchase_date') . ':*', 'transaction_date')->attributes([]) !!}
                 <div class="input-group">
                   <span class="input-group-addon">
                     <i class="fa fa-calendar"></i>
                   </span>
-                  {!! Form::text('transaction_date', @format_datetime($purchase->transaction_date), ['class' => 'form-control', 'readonly', 'required']); !!}
+                  {!! html()->text('transaction_date', @format_datetime($purchase->transaction_date))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
                 </div>
               </div>
             </div>
             
             <div class="col-sm-3 @if(!empty($default_purchase_status)) hide @endif">
               <div class="form-group">
-                {!! Form::label('status', __('purchase.purchase_status') . ':*') !!}
+                {!! html()->label(__('purchase.purchase_status') . ':*', 'status')->attributes([]) !!}
                 @show_tooltip(__('tooltip.order_status'))
-                {!! Form::select('status', $orderStatuses, $purchase->status, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select') , 'required']); !!}
+                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $orderStatuses, $purchase->status, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select') , 'required'])); !!}
               </div>
             </div>
             <div class="col-sm-3">
               <div class="form-group">
-                {!! Form::label('location_id', __('purchase.business_location').':*') !!}
+                {!! html()->label(__('purchase.business_location').':*', 'location_id')->attributes([]) !!}
                 @show_tooltip(__('tooltip.purchase_location'))
-                {!! Form::select('location_id', $business_locations, $purchase->location_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'disabled']); !!}
+                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, $purchase->location_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'disabled'])); !!}
               </div>
             </div>
 
             <!-- Currency Exchange Rate -->
             <div class="col-sm-3 @if(!$currency_details->purchase_in_diff_currency) hide @endif">
               <div class="form-group">
-                {!! Form::label('exchange_rate', __('purchase.p_exchange_rate') . ':*') !!}
+                {!! html()->label(__('purchase.p_exchange_rate') . ':*', 'exchange_rate')->attributes([]) !!}
                 @show_tooltip(__('tooltip.currency_exchange_factor'))
                 <div class="input-group">
                   <span class="input-group-addon">
                     <i class="fa fa-info"></i>
                   </span>
-                  {!! Form::number('exchange_rate', $purchase->exchange_rate, ['class' => 'form-control', 'required', 'step' => 0.001]); !!}
+                  {!! html()->input('number', 'exchange_rate', $purchase->exchange_rate)->attributes(['class' => 'form-control', 'required', 'step' => 0.001]); !!}
                 </div>
                 <span class="help-block text-danger">
                   @lang('purchase.diff_purchase_currency_help', ['currency' => $currency_details->name])
@@ -108,23 +108,20 @@
             <div class="col-md-3">
                 <div class="form-group">
                   <div class="multi-input">
-                    {!! Form::label('pay_term_number', __('contact.pay_term') . ':') !!} @show_tooltip(__('tooltip.pay_term'))
+                    {!! html()->label(__('contact.pay_term') . ':', 'pay_term_number')->attributes([]) !!} @show_tooltip(__('tooltip.pay_term'))
                     <br/>
-                    {!! Form::number('pay_term_number', $purchase->pay_term_number, ['class' => 'form-control width-40 pull-left', 'min' => 0, 'placeholder' => __('contact.pay_term')]); !!}
+                    {!! html()->input('number', 'pay_term_number', $purchase->pay_term_number)->attributes(['class' => 'form-control width-40 pull-left', 'min' => 0, 'placeholder' => __('contact.pay_term')]); !!}
 
-                    {!! Form::select('pay_term_type', 
-                      ['months' => __('lang_v1.months'), 
-                        'days' => __('lang_v1.days')], 
-                        $purchase->pay_term_type, 
-                      ['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'id' => 'pay_term_type']); !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('pay_term_type', ['months' => __('lang_v1.months'), 
+                        'days' => __('lang_v1.days')], $purchase->pay_term_type, ['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'id' => 'pay_term_type'])); !!}
                   </div>
               </div>
           </div>
 
             <div class="col-sm-3">
                 <div class="form-group">
-                    {!! Form::label('document', __('purchase.attach_document') . ':') !!}
-                    {!! Form::file('document', ['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+                    {!! html()->label(__('purchase.attach_document') . ':', 'document')->attributes([]) !!}
+                    {!! html()->file('document')->attributes(['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
                     <p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
                     @includeIf('components.document_help_text')</p>
                 </div>
@@ -158,8 +155,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('custom_field_1', $label_1 ) !!}
-                    {!! Form::text('custom_field_1', $purchase->custom_field_1, ['class' => 'form-control','placeholder' => $custom_field_1_label, 'required' => $is_custom_field_1_required]); !!}
+                    {!! html()->label($label_1, 'custom_field_1')->attributes([]) !!}
+                    {!! html()->text('custom_field_1', $purchase->custom_field_1)->attributes(['class' => 'form-control','placeholder' => $custom_field_1_label, 'required' => $is_custom_field_1_required]); !!}
                 </div>
             </div>
         @endif
@@ -173,8 +170,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('custom_field_2', $label_2 ) !!}
-                    {!! Form::text('custom_field_2', $purchase->custom_field_2, ['class' => 'form-control','placeholder' => $custom_field_2_label, 'required' => $is_custom_field_2_required]); !!}
+                    {!! html()->label($label_2, 'custom_field_2')->attributes([]) !!}
+                    {!! html()->text('custom_field_2', $purchase->custom_field_2)->attributes(['class' => 'form-control','placeholder' => $custom_field_2_label, 'required' => $is_custom_field_2_required]); !!}
                 </div>
             </div>
         @endif
@@ -188,8 +185,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('custom_field_3', $label_3 ) !!}
-                    {!! Form::text('custom_field_3', $purchase->custom_field_3, ['class' => 'form-control','placeholder' => $custom_field_3_label, 'required' => $is_custom_field_3_required]); !!}
+                    {!! html()->label($label_3, 'custom_field_3')->attributes([]) !!}
+                    {!! html()->text('custom_field_3', $purchase->custom_field_3)->attributes(['class' => 'form-control','placeholder' => $custom_field_3_label, 'required' => $is_custom_field_3_required]); !!}
                 </div>
             </div>
         @endif
@@ -203,8 +200,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('custom_field_4', $label_4 ) !!}
-                    {!! Form::text('custom_field_4', $purchase->custom_field_4, ['class' => 'form-control','placeholder' => $custom_field_4_label, 'required' => $is_custom_field_4_required]); !!}
+                    {!! html()->label($label_4, 'custom_field_4')->attributes([]) !!}
+                    {!! html()->text('custom_field_4', $purchase->custom_field_4)->attributes(['class' => 'form-control','placeholder' => $custom_field_4_label, 'required' => $is_custom_field_4_required]); !!}
                 </div>
             </div>
         @endif
@@ -213,8 +210,8 @@
         <div class="row">
           <div class="col-sm-3">
             <div class="form-group">
-              {!! Form::label('purchase_order_ids', __('lang_v1.purchase_order').':') !!}
-              {!! Form::select('purchase_order_ids[]', $purchase_orders, $purchase->purchase_order_ids, ['class' => 'form-control select2', 'multiple', 'id' => 'purchase_order_ids']); !!}
+              {!! html()->label(__('lang_v1.purchase_order').':', 'purchase_order_ids')->attributes([]) !!}
+              {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('purchase_order_ids[]', $purchase_orders, $purchase->purchase_order_ids, ['class' => 'form-control select2', 'multiple', 'id' => 'purchase_order_ids'])); !!}
             </div>
           </div>
         </div>
@@ -232,7 +229,7 @@
                   <span class="input-group-addon">
                     <i class="fa fa-search"></i>
                   </span>
-                  {!! Form::text('search_product', null, ['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'autofocus']); !!}
+                  {!! html()->text('search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'autofocus']); !!}
                 </div>
               </div>
             </div>
@@ -286,21 +283,18 @@
                   <tr>
                     <td class="col-md-3">
                       <div class="form-group">
-                        {!! Form::label('discount_type', __( 'purchase.discount_type' ) . ':') !!}
-                        {!! Form::select('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], $purchase->discount_type, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
+                        {!! html()->label(__( 'purchase.discount_type' ) . ':', 'discount_type')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], $purchase->discount_type, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')])); !!}
                       </div>
                     </td>
                     <td class="col-md-3">
                       <div class="form-group">
-                      {!! Form::label('discount_amount', __( 'purchase.discount_amount' ) . ':') !!}
-                      {!! Form::text('discount_amount', 
-
-                      ($purchase->discount_type == 'fixed' ? 
+                      {!! html()->label(__( 'purchase.discount_amount' ) . ':', 'discount_amount')->attributes([]) !!}
+                      {!! html()->text('discount_amount', ($purchase->discount_type == 'fixed' ? 
                         number_format($purchase->discount_amount/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator)
                       :
                         number_format($purchase->discount_amount, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator)
-                      )
-                      , ['class' => 'form-control input_number']); !!}
+                      ))->attributes(['class' => 'form-control input_number']); !!}
                       </div>
                     </td>
                     <td class="col-md-3">
@@ -314,7 +308,7 @@
                   <tr>
                     <td>
                       <div class="form-group">
-                      {!! Form::label('tax_id', __( 'purchase.purchase_tax' ) . ':') !!}
+                      {!! html()->label(__( 'purchase.purchase_tax' ) . ':', 'tax_id')->attributes([]) !!}
                       <select name="tax_id" id="tax_id" class="form-control select2" placeholder="'Please Select'">
                         <option value="" data-tax_amount="0" selected>@lang('lang_v1.none')</option>
                         @foreach($taxes as $tax)
@@ -324,7 +318,7 @@
                           </option>
                         @endforeach
                       </select>
-                      {!! Form::hidden('tax_amount', $purchase->tax_amount, ['id' => 'tax_amount']); !!}
+                      {!! html()->hidden('tax_amount', $purchase->tax_amount)->attributes(['id' => 'tax_amount']); !!}
                       </div>
                     </td>
                     <td>&nbsp;</td>
@@ -337,8 +331,8 @@
                   <tr>
                     <td colspan="4">
                       <div class="form-group">
-                        {!! Form::label('additional_notes',__('purchase.additional_notes')) !!}
-                        {!! Form::textarea('additional_notes', $purchase->additional_notes, ['class' => 'form-control', 'rows' => 3]); !!}
+                        {!! html()->label(__('purchase.additional_notes'), 'additional_notes')->attributes([]) !!}
+                        {!! html()->textarea('additional_notes', $purchase->additional_notes)->attributes(['class' => 'form-control', 'rows' => 3]); !!}
                       </div>
                     </td>
                   </tr>
@@ -351,14 +345,14 @@
     <div class="row">
       <div class="col-md-4">
         <div class="form-group">
-        {!! Form::label('shipping_details', __( 'purchase.shipping_details' ) . ':') !!}
-        {!! Form::text('shipping_details', $purchase->shipping_details, ['class' => 'form-control']); !!}
+        {!! html()->label(__( 'purchase.shipping_details' ) . ':', 'shipping_details')->attributes([]) !!}
+        {!! html()->text('shipping_details', $purchase->shipping_details)->attributes(['class' => 'form-control']); !!}
         </div>
       </div>
       <div class="col-md-4 col-md-offset-4">
         <div class="form-group">
-          {!! Form::label('shipping_charges','(+) ' . __( 'purchase.additional_shipping_charges') . ':') !!}
-          {!! Form::text('shipping_charges', number_format($purchase->shipping_charges/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input_number']); !!}
+          {!! html()->label('(+) ' . __( 'purchase.additional_shipping_charges') . ':', 'shipping_charges')->attributes([]) !!}
+          {!! html()->text('shipping_charges', number_format($purchase->shipping_charges/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input_number']); !!}
           </div>
       </div>
     </div>
@@ -395,8 +389,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('shipping_custom_field_1', $label_1 ) !!}
-                    {!! Form::text('shipping_custom_field_1', $purchase->shipping_custom_field_1 ?? null, ['class' => 'form-control','placeholder' => $shipping_custom_label_1, 'required' => $is_shipping_custom_field_1_required]); !!}
+                    {!! html()->label($label_1, 'shipping_custom_field_1')->attributes([]) !!}
+                    {!! html()->text('shipping_custom_field_1', $purchase->shipping_custom_field_1 ?? null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_1, 'required' => $is_shipping_custom_field_1_required]); !!}
                 </div>
             </div>
         @endif
@@ -410,8 +404,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('shipping_custom_field_2', $label_2 ) !!}
-                    {!! Form::text('shipping_custom_field_2', $purchase->shipping_custom_field_2 ?? null, ['class' => 'form-control','placeholder' => $shipping_custom_label_2, 'required' => $is_shipping_custom_field_2_required]); !!}
+                    {!! html()->label($label_2, 'shipping_custom_field_2')->attributes([]) !!}
+                    {!! html()->text('shipping_custom_field_2', $purchase->shipping_custom_field_2 ?? null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_2, 'required' => $is_shipping_custom_field_2_required]); !!}
                 </div>
             </div>
         @endif
@@ -425,8 +419,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('shipping_custom_field_3', $label_3 ) !!}
-                    {!! Form::text('shipping_custom_field_3', $purchase->shipping_custom_field_3 ?? null, ['class' => 'form-control','placeholder' => $shipping_custom_label_3, 'required' => $is_shipping_custom_field_3_required]); !!}
+                    {!! html()->label($label_3, 'shipping_custom_field_3')->attributes([]) !!}
+                    {!! html()->text('shipping_custom_field_3', $purchase->shipping_custom_field_3 ?? null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_3, 'required' => $is_shipping_custom_field_3_required]); !!}
                 </div>
             </div>
         @endif
@@ -440,8 +434,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('shipping_custom_field_4', $label_4 ) !!}
-                    {!! Form::text('shipping_custom_field_4', $purchase->shipping_custom_field_4 ?? null, ['class' => 'form-control','placeholder' => $shipping_custom_label_4, 'required' => $is_shipping_custom_field_4_required]); !!}
+                    {!! html()->label($label_4, 'shipping_custom_field_4')->attributes([]) !!}
+                    {!! html()->text('shipping_custom_field_4', $purchase->shipping_custom_field_4 ?? null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_4, 'required' => $is_shipping_custom_field_4_required]); !!}
                 </div>
             </div>
         @endif
@@ -455,8 +449,8 @@
 
           <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('shipping_custom_field_5', $label_5 ) !!}
-                    {!! Form::text('shipping_custom_field_5', $purchase->shipping_custom_field_5 ?? null, ['class' => 'form-control','placeholder' => $shipping_custom_label_5, 'required' => $is_shipping_custom_field_5_required]); !!}
+                    {!! html()->label($label_5, 'shipping_custom_field_5')->attributes([]) !!}
+                    {!! html()->text('shipping_custom_field_5', $purchase->shipping_custom_field_5 ?? null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_5, 'required' => $is_shipping_custom_field_5_required]); !!}
                 </div>
             </div>
         @endif
@@ -477,34 +471,34 @@
           <tbody>
             <tr>
               <td>
-                {!! Form::text('additional_expense_key_1', $purchase->additional_expense_key_1, ['class' => 'form-control', 'id' => 'additional_expense_key_1']); !!}
+                {!! html()->text('additional_expense_key_1', $purchase->additional_expense_key_1)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_1']); !!}
               </td>
               <td>
-                {!! Form::text('additional_expense_value_1', number_format($purchase->additional_expense_value_1/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input_number', 'id' => 'additional_expense_value_1']); !!}
-              </td>
-            </tr>
-            <tr>
-              <td>
-                {!! Form::text('additional_expense_key_2', $purchase->additional_expense_key_2, ['class' => 'form-control', 'id' => 'additional_expense_key_2']); !!}
-              </td>
-              <td>
-                {!! Form::text('additional_expense_value_2', number_format($purchase->additional_expense_value_2/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input_number', 'id' => 'additional_expense_value_2']); !!}
+                {!! html()->text('additional_expense_value_1', number_format($purchase->additional_expense_value_1/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_1']); !!}
               </td>
             </tr>
             <tr>
               <td>
-                {!! Form::text('additional_expense_key_3', $purchase->additional_expense_key_3, ['class' => 'form-control', 'id' => 'additional_expense_key_3']); !!}
+                {!! html()->text('additional_expense_key_2', $purchase->additional_expense_key_2)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_2']); !!}
               </td>
               <td>
-                {!! Form::text('additional_expense_value_3', number_format($purchase->additional_expense_value_3/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input_number', 'id' => 'additional_expense_value_3']); !!}
+                {!! html()->text('additional_expense_value_2', number_format($purchase->additional_expense_value_2/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_2']); !!}
               </td>
             </tr>
             <tr>
               <td>
-                {!! Form::text('additional_expense_key_4', $purchase->additional_expense_key_4, ['class' => 'form-control', 'id' => 'additional_expense_key_4']); !!}
+                {!! html()->text('additional_expense_key_3', $purchase->additional_expense_key_3)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_3']); !!}
               </td>
               <td>
-                {!! Form::text('additional_expense_value_4', number_format($purchase->additional_expense_value_4/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input_number', 'id' => 'additional_expense_value_4']); !!}
+                {!! html()->text('additional_expense_value_3', number_format($purchase->additional_expense_value_3/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_3']); !!}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                {!! html()->text('additional_expense_key_4', $purchase->additional_expense_key_4)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_4']); !!}
+              </td>
+              <td>
+                {!! html()->text('additional_expense_value_4', number_format($purchase->additional_expense_value_4/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_4']); !!}
               </td>
             </tr>
           </tbody>
@@ -513,7 +507,7 @@
     </div>
     <div class="row">
     <div class="col-md-12 text-right">
-      {!! Form::hidden('final_total', $purchase->final_total , ['id' => 'grand_total_hidden']); !!}
+      {!! html()->hidden('final_total', $purchase->final_total)->attributes(['id' => 'grand_total_hidden']); !!}
       <b>@lang('purchase.purchase_total'): </b><span id="grand_total" class="display_currency" data-currency_symbol='true'>{{$purchase->final_total}}</span>
     </div>
     </div>
@@ -524,7 +518,7 @@
           <button type="button" id="submit_purchase_form" class="tw-dw-btn tw-dw-btn-primary tw-text-white tw-dw-btn-lg">@lang('messages.update')</button>
         </div>
     </div>
-{!! Form::close() !!}
+{!! html()->form()->close() !!}
 </section>
 <!-- /.content -->
 <!-- quick product modal -->

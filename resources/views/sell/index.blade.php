@@ -16,12 +16,12 @@
             @if ($payment_types)
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('payment_method', __('lang_v1.payment_method') . ':') !!}
-                        {!! Form::select('payment_method', $payment_types, null, [
+                        {!! html()->label(__('lang_v1.payment_method') . ':', 'payment_method')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('payment_method', $payment_types, null, [
                             'class' => 'form-control select2',
                             'style' => 'width:100%',
                             'placeholder' => __('lang_v1.all'),
-                        ]) !!}
+                        ])) !!}
                     </div>
                 </div>
             @endif
@@ -29,13 +29,13 @@
             @if (!empty($sources))
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('sell_list_filter_source', __('lang_v1.sources') . ':') !!}
+                        {!! html()->label(__('lang_v1.sources') . ':', 'sell_list_filter_source')->attributes([]) !!}
 
-                        {!! Form::select('sell_list_filter_source', $sources, null, [
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sell_list_filter_source', $sources, null, [
                             'class' => 'form-control select2',
                             'style' => 'width:100%',
                             'placeholder' => __('lang_v1.all'),
-                        ]) !!}
+                        ])) !!}
                     </div>
                 </div>
             @endif

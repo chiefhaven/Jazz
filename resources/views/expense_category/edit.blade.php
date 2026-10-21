@@ -1,7 +1,7 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! Form::open(['url' => action([\App\Http\Controllers\ExpenseCategoryController::class, 'update'], [$expense_category->id]), 'method' => 'PUT', 'id' => 'expense_category_add_form' ]) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ExpenseCategoryController::class, 'update'], [$expense_category->id]), 'method' => 'PUT', 'id' => 'expense_category_add_form' ]))->open() !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -10,32 +10,32 @@
 
     <div class="modal-body">
      <div class="form-group">
-        {!! Form::label('name', __( 'expense.category_name' ) . ':*') !!}
-          {!! Form::text('name', $expense_category->name, ['class' => 'form-control', 'required', 'placeholder' => __( 'expense.category_name' )]); !!}
+        {!! html()->label(__( 'expense.category_name' ) . ':*', 'name')->attributes([]) !!}
+          {!! html()->text('name', $expense_category->name)->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'expense.category_name' )]); !!}
       </div>
 
       <div class="form-group">
-        {!! Form::label('code', __( 'expense.category_code' ) . ':') !!}
-          {!! Form::text('code', $expense_category->code, ['class' => 'form-control', 'placeholder' => __( 'expense.category_code' )]); !!}
+        {!! html()->label(__( 'expense.category_code' ) . ':', 'code')->attributes([]) !!}
+          {!! html()->text('code', $expense_category->code)->attributes(['class' => 'form-control', 'placeholder' => __( 'expense.category_code' )]); !!}
       </div>
 
         <div class="form-group">
             <div class="checkbox">
               <label>
-                 {!! Form::checkbox('add_as_sub_cat', 1, !empty($expense_category->parent_id) ,[ 'class' => 'toggler', 'data-toggle_id' => 'parent_cat_div' ]); !!} @lang( 'lang_v1.add_as_sub_cat' )
+                 {!! html()->checkbox('add_as_sub_cat', !empty($expense_category->parent_id), 1)->attributes([ 'class' => 'toggler', 'data-toggle_id' => 'parent_cat_div' ]); !!} @lang( 'lang_v1.add_as_sub_cat' )
               </label>
             </div>
         </div>
         <div class="form-group @if(empty($expense_category->parent_id)) hide @endif" id="parent_cat_div">
-            {!! Form::label('parent_id', __( 'category.select_parent_category' ) . ':') !!}
-            {!! Form::select('parent_id', $categories, $expense_category->parent_id, ['class' => 'form-control', 'placeholder' => __('lang_v1.none')]); !!}
+            {!! html()->label(__( 'category.select_parent_category' ) . ':', 'parent_id')->attributes([]) !!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('parent_id', $categories, $expense_category->parent_id, ['class' => 'form-control', 'placeholder' => __('lang_v1.none')])); !!}
         </div>
     <div class="modal-footer">
       <button type="submit" class="tw-dw-btn tw-dw-btn-primary tw-text-white">@lang( 'messages.update' )</button>
       <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

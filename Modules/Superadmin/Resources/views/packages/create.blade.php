@@ -22,7 +22,7 @@
 	<input type="hidden" id="p_thousand" value="{{$currency->thousand_separator}}">
 	<input type="hidden" id="p_decimal" value="{{$currency->decimal_separator}}">
 
-	{!! Form::open(['url' => action([\Modules\Superadmin\Http\Controllers\PackagesController::class, 'store']), 'method' => 'post', 'id' => 'add_package_form']) !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Superadmin\Http\Controllers\PackagesController::class, 'store']), 'method' => 'post', 'id' => 'add_package_form']))->open() !!}
 
 	<div class="box box-solid">
 		<div class="box-body">
@@ -30,23 +30,23 @@
 				
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('name', __('lang_v1.name').':') !!}
-						{!! Form::text('name', null, ['class' => 'form-control', 'required']); !!}
+						{!! html()->label(__('lang_v1.name').':', 'name')->attributes([]) !!}
+						{!! html()->text('name', null)->attributes(['class' => 'form-control', 'required']); !!}
 					</div>
 				</div>
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('description', __('superadmin::lang.description').':') !!}
-						{!! Form::text('description', null, ['class' => 'form-control', 'required']); !!}
+						{!! html()->label(__('superadmin::lang.description').':', 'description')->attributes([]) !!}
+						{!! html()->text('description', null)->attributes(['class' => 'form-control', 'required']); !!}
 					</div>
 				</div>
 
 				<div class="clearfix"></div>
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('location_count', __('superadmin::lang.location_count').':') !!}
-						{!! Form::number('location_count', null, ['class' => 'form-control', 'required', 'min' => 0]); !!}
+						{!! html()->label(__('superadmin::lang.location_count').':', 'location_count')->attributes([]) !!}
+						{!! html()->input('number', 'location_count', null)->attributes(['class' => 'form-control', 'required', 'min' => 0]); !!}
 
 						<span class="help-block">
 							@lang('superadmin::lang.infinite_help')
@@ -56,31 +56,8 @@
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('user_count', __('superadmin::lang.user_count').':') !!}
-						{!! Form::number('user_count', null, ['class' => 'form-control', 'required', 'min' => 0]); !!}
-
-						<span class="help-block">
-							@lang('superadmin::lang.infinite_help')
-						</span>
-					</div>
-				</div>
-				<div class="clearfix"></div>
-
-				<div class="col-sm-6">
-					<div class="form-group">
-						{!! Form::label('product_count', __('superadmin::lang.product_count').':') !!}
-						{!! Form::number('product_count', null, ['class' => 'form-control', 'required', 'min' => 0]); !!}
-
-						<span class="help-block">
-							@lang('superadmin::lang.infinite_help')
-						</span>
-					</div>
-				</div>
-
-				<div class="col-sm-6">
-					<div class="form-group">
-						{!! Form::label('invoice_count', __('superadmin::lang.invoice_count').':') !!}
-						{!! Form::number('invoice_count', null, ['class' => 'form-control', 'required', 'min' => 0]); !!}
+						{!! html()->label(__('superadmin::lang.user_count').':', 'user_count')->attributes([]) !!}
+						{!! html()->input('number', 'user_count', null)->attributes(['class' => 'form-control', 'required', 'min' => 0]); !!}
 
 						<span class="help-block">
 							@lang('superadmin::lang.infinite_help')
@@ -91,35 +68,58 @@
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('interval', __('superadmin::lang.interval').':') !!}
+						{!! html()->label(__('superadmin::lang.product_count').':', 'product_count')->attributes([]) !!}
+						{!! html()->input('number', 'product_count', null)->attributes(['class' => 'form-control', 'required', 'min' => 0]); !!}
 
-						{!! Form::select('interval', $intervals, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required']); !!}
+						<span class="help-block">
+							@lang('superadmin::lang.infinite_help')
+						</span>
 					</div>
 				</div>
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('interval_count	', __('superadmin::lang.interval_count').':') !!}
-						{!! Form::number('interval_count', null, ['class' => 'form-control', 'required', 'min' => 1]); !!}
+						{!! html()->label(__('superadmin::lang.invoice_count').':', 'invoice_count')->attributes([]) !!}
+						{!! html()->input('number', 'invoice_count', null)->attributes(['class' => 'form-control', 'required', 'min' => 0]); !!}
+
+						<span class="help-block">
+							@lang('superadmin::lang.infinite_help')
+						</span>
 					</div>
 				</div>
 				<div class="clearfix"></div>
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('trial_days	', __('superadmin::lang.trial_days').':') !!}
-						{!! Form::number('trial_days', null, ['class' => 'form-control', 'required', 'min' => 0]); !!}
+						{!! html()->label(__('superadmin::lang.interval').':', 'interval')->attributes([]) !!}
+
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('interval', $intervals, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])); !!}
 					</div>
 				</div>
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('price', __('superadmin::lang.price').':') !!}
+						{!! html()->label(__('superadmin::lang.interval_count').':', 'interval_count	')->attributes([]) !!}
+						{!! html()->input('number', 'interval_count', null)->attributes(['class' => 'form-control', 'required', 'min' => 1]); !!}
+					</div>
+				</div>
+				<div class="clearfix"></div>
+
+				<div class="col-sm-6">
+					<div class="form-group">
+						{!! html()->label(__('superadmin::lang.trial_days').':', 'trial_days	')->attributes([]) !!}
+						{!! html()->input('number', 'trial_days', null)->attributes(['class' => 'form-control', 'required', 'min' => 0]); !!}
+					</div>
+				</div>
+
+				<div class="col-sm-6">
+					<div class="form-group">
+						{!! html()->label(__('superadmin::lang.price').':', 'price')->attributes([]) !!}
 						@show_tooltip(__('superadmin::lang.tooltip_pkg_price'))
 
 						<div class="input-group">
 							<span class="input-group-addon" id="basic-addon3"><b>{{$currency->code}} {{$currency->symbol}}</b></span>
-							{!! Form::text('price', null, ['class' => 'form-control input_number', 'required']); !!}
+							{!! html()->text('price', null)->attributes(['class' => 'form-control input_number', 'required']); !!}
 						</div>
 						<span class="help-block">
 							0 = @lang('superadmin::lang.free_package')
@@ -130,8 +130,8 @@
 
 				<div class="col-sm-6">
 					<div class="form-group">
-						{!! Form::label('sort_order	', __('superadmin::lang.sort_order').':') !!}
-						{!! Form::number('sort_order', 1, ['class' => 'form-control', 'required']); !!}
+						{!! html()->label(__('superadmin::lang.sort_order').':', 'sort_order	')->attributes([]) !!}
+						{!! html()->input('number', 'sort_order', 1)->attributes(['class' => 'form-control', 'required']); !!}
 					</div>
 				</div>
 
@@ -139,7 +139,7 @@
 				<div class="col-sm-6">
 					<div class="checkbox">
 					<label>
-						{!! Form::checkbox('is_private', 1, false, ['class' => 'input-icheck']); !!}
+						{!! html()->checkbox('is_private', false, 1)->attributes(['class' => 'input-icheck']); !!}
                         {{__('superadmin::lang.private_superadmin_only')}}
 					</label>
 					</div>
@@ -148,7 +148,7 @@
 				<div class="col-sm-6">
 					<div class="checkbox">
 					<label>
-						{!! Form::checkbox('is_one_time', 1, false, ['class' => 'input-icheck']); !!}
+						{!! html()->checkbox('is_one_time', false, 1)->attributes(['class' => 'input-icheck']); !!}
                         {{__('superadmin::lang.one_time_only_subscription')}}
 					</label>
 					</div>
@@ -157,7 +157,7 @@
 				<div class="col-sm-4">
 					<div class="checkbox">
 					<label>
-						{!! Form::checkbox('enable_custom_link', 1, false, ['class' => 'input-icheck', 'id' => 'enable_custom_link']); !!}
+						{!! html()->checkbox('enable_custom_link', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'enable_custom_link']); !!}
                         {{__('superadmin::lang.enable_custom_subscription_link')}}
 					</label>
 					</div>
@@ -165,14 +165,14 @@
 				<div id="custom_link_div" class="hide">
 					<div class="col-sm-4">
 						<div class="form-group">
-							{!! Form::label('custom_link', __('superadmin::lang.custom_link').':') !!}
-							{!! Form::text('custom_link', null, ['class' => 'form-control']); !!}
+							{!! html()->label(__('superadmin::lang.custom_link').':', 'custom_link')->attributes([]) !!}
+							{!! html()->text('custom_link', null)->attributes(['class' => 'form-control']); !!}
 						</div>
 					</div>
 					<div class="col-sm-4">
 						<div class="form-group">
-							{!! Form::label('custom_link_text', __('superadmin::lang.custom_link_text').':') !!}
-							{!! Form::text('custom_link_text', null, ['class' => 'form-control']); !!}
+							{!! html()->label(__('superadmin::lang.custom_link_text').':', 'custom_link_text')->attributes([]) !!}
+							{!! html()->text('custom_link_text', null)->attributes(['class' => 'form-control']); !!}
 						</div>
 					</div>
 				</div>
@@ -182,17 +182,17 @@
 					<div class="col-sm-3">
                         @if(isset($permission['field_type']) && in_array($permission['field_type'], ['number', 'input']))
                         <div class="form-group">
-							{!! Form::label("custom_permissions[$permission[name]]", $permission['label'].':') !!} 
+							{!! html()->label($permission['label'].':', "custom_permissions[$permission[name]]")->attributes([]) !!} 
                             @if(isset($permission['tooltip']))
                                 @show_tooltip($permission['tooltip'])
                             @endif
                             
-							{!! Form::text("custom_permissions[$permission[name]]", null, ['class' => 'form-control', 'type' => $permission['field_type']]); !!} 
+							{!! html()->text("custom_permissions[$permission[name]]", null)->attributes(['class' => 'form-control', 'type' => $permission['field_type']]); !!} 
 						</div>
                         @else
                             <div class="checkbox">
                             <label>
-                                {!! Form::checkbox("custom_permissions[$permission[name]]", 1, $permission['default'], ['class' => 'input-icheck']); !!}
+                                {!! html()->checkbox("custom_permissions[$permission[name]]", $permission['default'], 1)->attributes(['class' => 'input-icheck']); !!}
                                 {{$permission['label']}}
                             </label>
                             </div>
@@ -204,7 +204,7 @@
 				<div class="col-sm-3">
 					<div class="checkbox">
 					<label>
-						{!! Form::checkbox('is_active', 1, true, ['class' => 'input-icheck']); !!}
+						{!! html()->checkbox('is_active', true, 1)->attributes(['class' => 'input-icheck']); !!}
                         {{__('superadmin::lang.is_active')}}
 					</label>
 					</div>
@@ -222,7 +222,7 @@
 		</div>
 	</div>
 
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 </section>
 
 @endsection

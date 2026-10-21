@@ -23,34 +23,34 @@
         <tr>
           <td>
             <div class="col-sm-6">
-              {!! Form::label('single_dpp', trans('product.exc_of_tax') . ':*') !!}
+              {!! html()->label(trans('product.exc_of_tax') . ':*', 'single_dpp')->attributes([]) !!}
 
-              {!! Form::text('single_dpp', $default, ['class' => 'form-control input-sm dpp input_number', 'placeholder' => __('product.exc_of_tax'), 'required']); !!}
+              {!! html()->text('single_dpp', $default)->attributes(['class' => 'form-control input-sm dpp input_number', 'placeholder' => __('product.exc_of_tax'), 'required']); !!}
             </div>
 
             <div class="col-sm-6">
-              {!! Form::label('single_dpp_inc_tax', trans('product.inc_of_tax') . ':*') !!}
+              {!! html()->label(trans('product.inc_of_tax') . ':*', 'single_dpp_inc_tax')->attributes([]) !!}
             
-              {!! Form::text('single_dpp_inc_tax', $default, ['class' => 'form-control input-sm dpp_inc_tax input_number', 'placeholder' => __('product.inc_of_tax'), 'required']); !!}
+              {!! html()->text('single_dpp_inc_tax', $default)->attributes(['class' => 'form-control input-sm dpp_inc_tax input_number', 'placeholder' => __('product.inc_of_tax'), 'required']); !!}
             </div>
           </td>
 
           <td>
             <br/>
-            {!! Form::text('profit_percent', @num_format($profit_percent), ['class' => 'form-control input-sm input_number', 'id' => 'profit_percent', 'required']); !!}
+            {!! html()->text('profit_percent', @num_format($profit_percent))->attributes(['class' => 'form-control input-sm input_number', 'id' => 'profit_percent', 'required']); !!}
           </td>
 
           <td>
             <label><span class="dsp_label">@lang('product.exc_of_tax')</span></label>
-            {!! Form::text('single_dsp', $default, ['class' => 'form-control input-sm dsp input_number', 'placeholder' => __('product.exc_of_tax'), 'id' => 'single_dsp', 'required']); !!}
+            {!! html()->text('single_dsp', $default)->attributes(['class' => 'form-control input-sm dsp input_number', 'placeholder' => __('product.exc_of_tax'), 'id' => 'single_dsp', 'required']); !!}
 
-            {!! Form::text('single_dsp_inc_tax', $default, ['class' => 'form-control input-sm hide input_number', 'placeholder' => __('product.inc_of_tax'), 'id' => 'single_dsp_inc_tax', 'required']); !!}
+            {!! html()->text('single_dsp_inc_tax', $default)->attributes(['class' => 'form-control input-sm hide input_number', 'placeholder' => __('product.inc_of_tax'), 'id' => 'single_dsp_inc_tax', 'required']); !!}
           </td>
           @if(empty($quick_add))
           <td>
               <div class="form-group">
-                {!! Form::label('variation_images', __('lang_v1.product_image') . ':') !!}
-                {!! Form::file('variation_images[]', ['class' => 'variation_images', 
+                {!! html()->label(__('lang_v1.product_image') . ':', 'variation_images')->attributes([]) !!}
+                {!! html()->file('variation_images[]')->attributes(['class' => 'variation_images', 
                     'accept' => 'image/*', 'multiple']); !!}
                 <small><p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)]) <br> @lang('lang_v1.aspect_ratio_should_be_1_1')</p></small>
               </div>

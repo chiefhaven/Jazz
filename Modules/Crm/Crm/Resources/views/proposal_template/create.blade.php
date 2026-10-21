@@ -12,12 +12,12 @@
 	<!-- Main content -->
 	<section class="content">
 		@component('components.widget', ['class' => 'box-solid'])
-			{!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\ProposalTemplateController::class, 'store']), 'method' => 'post', 'id' => 'proposal_template_form', 'files' => true]) !!}
+			{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\ProposalTemplateController::class, 'store']), 'method' => 'post', 'id' => 'proposal_template_form', 'files' => true]))->open() !!}
 				@includeIf('crm::proposal_template.partials.template_form', ['attachments' => true])
 				<button type="submit" class="btn btn-primary ladda-button pull-right m-5" data-style="expand-right">
                     <span class="ladda-label">@lang('messages.save')</span>
                 </button>
-			{!! Form::close() !!}
+			{!! html()->form()->close() !!}
     	@endcomponent
 	</section>
 @endsection

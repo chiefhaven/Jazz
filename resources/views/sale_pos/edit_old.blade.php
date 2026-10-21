@@ -43,11 +43,11 @@
               </div>
 				</div>
 				<input type="hidden" id="item_addition_method" value="{{$business_details->item_addition_method}}">
-				{!! Form::open(['url' => action([\App\Http\Controllers\SellPosController::class, 'update'], [$transaction->id]), 'method' => 'post', 'id' => 'edit_pos_sell_form' ]) !!}
+				{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\SellPosController::class, 'update'], [$transaction->id]), 'method' => 'post', 'id' => 'edit_pos_sell_form' ]))->open() !!}
 
 				{{ method_field('PUT') }}
 
-				{!! Form::hidden('location_id', $transaction->location_id, ['id' => 'location_id', 'data-receipt_printer_type' => !empty($location_printer_type) ? $location_printer_type : 'browser', 'data-default_accounts' => $transaction->location->default_payment_accounts]); !!}
+				{!! html()->hidden('location_id', $transaction->location_id)->attributes(['id' => 'location_id', 'data-receipt_printer_type' => !empty($location_printer_type) ? $location_printer_type : 'browser', 'data-default_accounts' => $transaction->location->default_payment_accounts]); !!}
 
 				<!-- /.box-header -->
 				<div class="box-body">
@@ -55,12 +55,12 @@
 						@if(!empty($pos_settings['enable_transaction_date']))
 						<div class="col-md-4 col-sm-6">
 							<div class="form-group">
-								{!! Form::label('transaction_date', __('sale.sale_date') . ':*') !!}
+								{!! html()->label(__('sale.sale_date') . ':*', 'transaction_date')->attributes([]) !!}
 								<div class="input-group">
 									<span class="input-group-addon">
 										<i class="fa fa-calendar"></i>
 									</span>
-									{!! Form::text('transaction_date', @format_datetime($transaction->transaction_date), ['class' => 'form-control', 'readonly', 'required']); !!}
+									{!! html()->text('transaction_date', @format_datetime($transaction->transaction_date))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
 								</div>
 							</div>
 						</div>
@@ -72,7 +72,7 @@
 										<span class="input-group-addon">
 											<i class="fas fa-exchange-alt"></i>
 										</span>
-										{!! Form::text('exchange_rate', @num_format($transaction->exchange_rate), ['class' => 'form-control input-sm input_number', 'placeholder' => __('lang_v1.currency_exchange_rate'), 'id' => 'exchange_rate']); !!}
+										{!! html()->text('exchange_rate', @num_format($transaction->exchange_rate))->attributes(['class' => 'form-control input-sm input_number', 'placeholder' => __('lang_v1.currency_exchange_rate'), 'id' => 'exchange_rate']); !!}
 									</div>
 								</div>
 							</div>
@@ -84,8 +84,8 @@
 										<span class="input-group-addon">
 											<i class="fas fa-money-bill-alt"></i>
 										</span>
-										{!! Form::hidden('price_group', $transaction->selling_price_group_id, ['id' => 'price_group']) !!}
-										{!! Form::text('price_group_text', $transaction->price_group->name, ['class' => 'form-control', 'readonly']); !!}
+										{!! html()->hidden('price_group', $transaction->selling_price_group_id)->attributes(['id' => 'price_group']) !!}
+										{!! html()->text('price_group_text', $transaction->price_group->name)->attributes(['class' => 'form-control', 'readonly']); !!}
 										<span class="input-group-addon">
 										@show_tooltip(__('lang_v1.price_group_help_text'))
 									</span> 
@@ -101,9 +101,9 @@
 										<span class="input-group-addon">
 											<i class="fa fa-external-link text-primary service_modal_btn" ></i>
 										</span>
-										{!! Form::text('types_of_service_text', $transaction->types_of_service->name, ['class' => 'form-control', 'readonly']); !!}
+										{!! html()->text('types_of_service_text', $transaction->types_of_service->name)->attributes(['class' => 'form-control', 'readonly']); !!}
 
-										{!! Form::hidden('types_of_service_id', $transaction->types_of_service_id, ['id' => 'types_of_service_id']) !!}
+										{!! html()->hidden('types_of_service_id', $transaction->types_of_service_id)->attributes(['id' => 'types_of_service_id']) !!}
 
 										<span class="input-group-addon">
 											@show_tooltip(__('lang_v1.types_of_service_help'))
@@ -123,7 +123,7 @@
 							<div class="col-md-4 pull-right col-sm-6">
 								<div class="checkbox">
 									<label>
-						              {!! Form::checkbox('is_recurring', 1, $transaction->is_recurring, ['class' => 'input-icheck', 'id' => 'is_recurring']); !!} @lang('lang_v1.subscribe')?
+						              {!! html()->checkbox('is_recurring', $transaction->is_recurring, 1)->attributes(['class' => 'input-icheck', 'id' => 'is_recurring']); !!} @lang('lang_v1.subscribe')?
 						            </label><button type="button" data-toggle="modal" data-target="#recurringInvoiceModal" class="btn btn-link"><i class="fa fa-external-link"></i></button>@show_tooltip(__('lang_v1.recurring_invoice_help'))
 								</div>
 							</div>
@@ -140,8 +140,7 @@
 									value="{{ $transaction->contact->id }}" >
 									<input type="hidden" id="default_customer_name" 
 									value="{{ $transaction->contact->name }}" >
-									{!! Form::select('contact_id', 
-										[], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required', 'style' => 'width: 100%;']); !!}
+									{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required', 'style' => 'width: 100%;'])); !!}
 									<span class="input-group-btn">
 										<button type="button" class="btn btn-default bg-white btn-flat add_new_customer" data-name=""><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
 									</span>
@@ -155,8 +154,7 @@
 						@if(!empty($commission_agent))
 						<div class="col-sm-4">
 							<div class="form-group">
-							{!! Form::select('commission_agent', 
-										$commission_agent, $transaction->commission_agent, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.commission_agent')]); !!}
+							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('commission_agent', $commission_agent, $transaction->commission_agent, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.commission_agent')])); !!}
 							</div>
 						</div>
 						@endif
@@ -166,7 +164,7 @@
 									<div class="input-group-btn">
 										<button type="button" class="btn btn-default bg-white btn-flat" data-toggle="modal" data-target="#configure_search_modal" title="{{__('lang_v1.configure_product_search')}}"><i class="fa fa-barcode"></i></button>
 									</div>
-									{!! Form::text('search_product', null, ['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'autofocus']); !!}
+									{!! html()->text('search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'autofocus']); !!}
 									<span class="input-group-btn">
 										<button type="button" class="btn btn-default bg-white btn-flat pos_add_quick_product" data-href="{{action([\App\Http\Controllers\ProductController::class, 'quickAdd'])}}" data-container=".quick_add_product_modal"><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
 									</span>
@@ -246,7 +244,7 @@
 					@endif
 				</div>
 				<!-- /.box-body -->
-				{!! Form::close() !!}
+				{!! html()->form()->close() !!}
 			</div>
 			<!-- /.box -->
 		</div>

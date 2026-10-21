@@ -9,8 +9,8 @@
 </section>
 <!-- Main content -->
 <section class="content">
-	{!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\ManageProfileController::class, 'updatePassword']), 'method' => 'post', 'id' => 'update_password',
-            'class' => 'form-horizontal' ]) !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\ManageProfileController::class, 'updatePassword']), 'method' => 'post', 'id' => 'update_password',
+            'class' => 'form-horizontal' ]))->open() !!}
 		<div class="row">
 		    <div class="col-sm-12">
 		        <div class="box box-solid"> <!--business info box start-->
@@ -21,35 +21,35 @@
 		            </div>
 		            <div class="box-body">
 		                <div class="form-group">
-		                    {!! Form::label('current_password', __('user.current_password') . ':*', ['class' => 'col-sm-3 control-label']) !!}
+		                    {!! html()->label(__('user.current_password') . ':*', 'current_password')->attributes(['class' => 'col-sm-3 control-label']) !!}
 		                    <div class="col-sm-9">
 		                        <div class="input-group">
 		                            <span class="input-group-addon">
 		                                <i class="fa fa-lock"></i>
 		                            </span>
-		                            {!! Form::password('current_password', ['class' => 'form-control','placeholder' => __('user.current_password'), 'required']); !!}
+		                            {!! html()->password('current_password')->attributes(['class' => 'form-control','placeholder' => __('user.current_password'), 'required']); !!}
 		                        </div>
 		                    </div>
 		                </div>
 		                <div class="form-group">
-		                    {!! Form::label('new_password', __('user.new_password') . ':*', ['class' => 'col-sm-3 control-label']) !!}
+		                    {!! html()->label(__('user.new_password') . ':*', 'new_password')->attributes(['class' => 'col-sm-3 control-label']) !!}
 		                    <div class="col-sm-9">
 		                        <div class="input-group">
 		                            <span class="input-group-addon">
 		                                <i class="fa fa-lock"></i>
 		                            </span>
-		                            {!! Form::password('new_password', ['class' => 'form-control','placeholder' => __('user.new_password'), 'required']); !!}
+		                            {!! html()->password('new_password')->attributes(['class' => 'form-control','placeholder' => __('user.new_password'), 'required']); !!}
 		                        </div>
 		                    </div>
 		                </div>
 		                <div class="form-group">
-		                    {!! Form::label('confirm_password', __('user.confirm_new_password') . ':*', ['class' => 'col-sm-3 control-label']) !!}
+		                    {!! html()->label(__('user.confirm_new_password') . ':*', 'confirm_password')->attributes(['class' => 'col-sm-3 control-label']) !!}
 		                    <div class="col-sm-9">
 		                        <div class="input-group">
 		                            <span class="input-group-addon">
 		                                <i class="fa fa-lock"></i>
 		                            </span>
-		                            {!! Form::password('confirm_password', ['class' => 'form-control','placeholder' =>  __('user.confirm_new_password'), 'required']); !!}
+		                            {!! html()->password('confirm_password')->attributes(['class' => 'form-control','placeholder' =>  __('user.confirm_new_password'), 'required']); !!}
 		                        </div>
 		                    </div>
 		                </div>
@@ -58,8 +58,8 @@
 		        </div>
 		    </div>
 		</div>
-	{!! Form::close() !!}
-	{!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\ManageProfileController::class, 'updateProfile']), 'method' => 'post', 'id' => 'edit_contact_profile', 'files' => true ]) !!}
+	{!! html()->form()->close() !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\ManageProfileController::class, 'updateProfile']), 'method' => 'post', 'id' => 'edit_contact_profile', 'files' => true ]))->open() !!}
 		<div class="row">
 		    <div class="col-sm-8">
 		        <div class="box box-solid"> <!--business info box start-->
@@ -72,48 +72,48 @@
 		            <input type="hidden" name="user_id" id="user_id" value="{{$user->id}}">
 		            <div class="box-body">
 		                <div class="form-group col-md-2">
-		                    {!! Form::label('surname', __('business.prefix') . ':') !!}
+		                    {!! html()->label(__('business.prefix') . ':', 'surname')->attributes([]) !!}
 		                    <div class="input-group">
 		                        <span class="input-group-addon">
 		                            <i class="fa fa-info"></i>
 		                        </span>
-		                        {!! Form::text('surname', $user->surname, ['class' => 'form-control','placeholder' => __('business.prefix_placeholder')]); !!}
+		                        {!! html()->text('surname', $user->surname)->attributes(['class' => 'form-control','placeholder' => __('business.prefix_placeholder')]); !!}
 		                    </div>
 		                </div>
 		                <div class="form-group col-md-5">
-		                    {!! Form::label('first_name', __('business.first_name') . ':*') !!}
+		                    {!! html()->label(__('business.first_name') . ':*', 'first_name')->attributes([]) !!}
 		                    <div class="input-group">
 		                        <span class="input-group-addon">
 		                            <i class="fa fa-info"></i>
 		                        </span>
-		                        {!! Form::text('first_name', $user->first_name, ['class' => 'form-control','placeholder' => __('business.first_name'), 'required']); !!}
+		                        {!! html()->text('first_name', $user->first_name)->attributes(['class' => 'form-control','placeholder' => __('business.first_name'), 'required']); !!}
 		                    </div>
 		                </div>
 		                <div class="form-group col-md-5">
-		                    {!! Form::label('last_name', __('business.last_name') . ':') !!}
+		                    {!! html()->label(__('business.last_name') . ':', 'last_name')->attributes([]) !!}
 		                    <div class="input-group">
 		                        <span class="input-group-addon">
 		                            <i class="fa fa-info"></i>
 		                        </span>
-		                        {!! Form::text('last_name', $user->last_name, ['class' => 'form-control','placeholder' => __('business.last_name')]); !!}
+		                        {!! html()->text('last_name', $user->last_name)->attributes(['class' => 'form-control','placeholder' => __('business.last_name')]); !!}
 		                    </div>
 		                </div>
 		                <div class="form-group col-md-6">
-		                    {!! Form::label('email', __('business.email') . ':*') !!}
+		                    {!! html()->label(__('business.email') . ':*', 'email')->attributes([]) !!}
 		                    <div class="input-group">
 		                        <span class="input-group-addon">
 		                            <i class="fa fa-info"></i>
 		                        </span>
-		                        {!! Form::email('email',  $user->email, ['class' => 'form-control','placeholder' => __('business.email'), 'required']); !!}
+		                        {!! html()->email('email', $user->email)->attributes(['class' => 'form-control','placeholder' => __('business.email'), 'required']); !!}
 		                    </div>
 		                </div>
 		                <div class="form-group col-md-6">
-		                    {!! Form::label('language', __('business.language') . ':') !!}
+		                    {!! html()->label(__('business.language') . ':', 'language')->attributes([]) !!}
 		                    <div class="input-group">
 		                        <span class="input-group-addon">
 		                            <i class="fa fa-info"></i>
 		                        </span>
-		                        {!! Form::select('language',$languages, $user->language, ['class' => 'form-control select2']); !!}
+		                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('language', $languages, $user->language, ['class' => 'form-control select2'])); !!}
 		                    </div>
 		                </div>
 		            </div>
@@ -128,8 +128,8 @@
 		            @endif
 		            <div class="col-md-12">
 		                <div class="form-group">
-		                    {!! Form::label('profile_photo', __('lang_v1.upload_image') . ':') !!}
-		                    {!! Form::file('profile_photo', ['id' => 'profile_photo', 'accept' => 'image/*']); !!}
+		                    {!! html()->label(__('lang_v1.upload_image') . ':', 'profile_photo')->attributes([]) !!}
+		                    {!! html()->file('profile_photo')->attributes(['id' => 'profile_photo', 'accept' => 'image/*']); !!}
 		                    <small><p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])</p></small>
 		                </div>
 		            </div>
@@ -141,7 +141,7 @@
 		        <button type="submit" class="btn btn-primary pull-right">@lang('messages.update')</button>
 		    </div>
 		</div>
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 </section>
 @endsection
 @section('javascript')

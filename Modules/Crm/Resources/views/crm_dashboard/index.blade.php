@@ -326,14 +326,14 @@
                 <div class="row">
                      <div class="col-md-3">
                         <div class="form-group">
-                            {!! Form::label('follow_up_user_date_range', __('report.date_range') . ':') !!}
-                            {!! Form::text('follow_up_user_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                            {!! html()->label(__('report.date_range') . ':', 'follow_up_user_date_range')->attributes([]) !!}
+                            {!! html()->text('follow_up_user_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! Form::label('followup_category_id', __('crm::lang.followup_category') .':*') !!}
-                            {!! Form::select('followup_category_id', $followup_category, null, ['class' => 'form-control select2', 'style' => 'width: 100%;', 'placeholder' => __('messages.all')]); !!}
+                            {!! html()->label(__('crm::lang.followup_category') .':*', 'followup_category_id')->attributes([]) !!}
+                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('followup_category_id', $followup_category, null, ['class' => 'form-control select2', 'style' => 'width: 100%;', 'placeholder' => __('messages.all')])); !!}
                         </div>
                     </div>
                     <br/>

@@ -11,7 +11,7 @@
 
 <!-- Main content -->
 <section class="content">
-{!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\PayrollController::class, 'update'], [$payroll->id]), 'method' => 'put', 'id' => 'add_payroll_form' ]) !!}
+{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\PayrollController::class, 'update'], [$payroll->id]), 'method' => 'put', 'id' => 'add_payroll_form' ]))->open() !!}
     <div class="row">
         <div class="col-md-12">
             @component('components.widget')
@@ -21,26 +21,26 @@
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('essentials_duration', __( 'essentials::lang.total_work_duration' ) . ':*') !!}
-                        {!! Form::text('essentials_duration', $payroll->essentials_duration, ['class' => 'form-control input_number', 'placeholder' => __( 'essentials::lang.total_work_duration' ), 'required' ]); !!}
+                        {!! html()->label(__( 'essentials::lang.total_work_duration' ) . ':*', 'essentials_duration')->attributes([]) !!}
+                        {!! html()->text('essentials_duration', $payroll->essentials_duration)->attributes(['class' => 'form-control input_number', 'placeholder' => __( 'essentials::lang.total_work_duration' ), 'required' ]); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('essentials_duration_unit', __( 'essentials::lang.duration_unit' ) . ':') !!}
-                        {!! Form::text('essentials_duration_unit', $payroll->essentials_duration_unit, ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.duration_unit' ) ]); !!}
+                        {!! html()->label(__( 'essentials::lang.duration_unit' ) . ':', 'essentials_duration_unit')->attributes([]) !!}
+                        {!! html()->text('essentials_duration_unit', $payroll->essentials_duration_unit)->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.duration_unit' ) ]); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('essentials_amount_per_unit_duration', __( 'essentials::lang.amount_per_unit_duartion' ) . ':*') !!}
-                        {!! Form::text('essentials_amount_per_unit_duration', @num_format($payroll->essentials_amount_per_unit_duration), ['class' => 'form-control input_number', 'placeholder' => __( 'essentials::lang.amount_per_unit_duartion' ), 'required' ]); !!}
+                        {!! html()->label(__( 'essentials::lang.amount_per_unit_duartion' ) . ':*', 'essentials_amount_per_unit_duration')->attributes([]) !!}
+                        {!! html()->text('essentials_amount_per_unit_duration', @num_format($payroll->essentials_amount_per_unit_duration))->attributes(['class' => 'form-control input_number', 'placeholder' => __( 'essentials::lang.amount_per_unit_duartion' ), 'required' ]); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('total', __( 'sale.total' ) . ':') !!}
-                        {!! Form::text('total', @num_format($payroll->essentials_duration * $payroll->essentials_amount_per_unit_duration), ['class' => 'form-control input_number', 'placeholder' => __( 'sale.total' ) ]); !!}
+                        {!! html()->label(__( 'sale.total' ) . ':', 'total')->attributes([]) !!}
+                        {!! html()->text('total', @num_format($payroll->essentials_duration * $payroll->essentials_amount_per_unit_duration))->attributes(['class' => 'form-control input_number', 'placeholder' => __( 'sale.total' ) ]); !!}
                     </div>
                 </div>
             @endcomponent
@@ -121,7 +121,7 @@
             </div>
             <div class="col-md-12">
                 <h4 class="pull-right">@lang('essentials::lang.gross_amount'): <span id="gross_amount_text" class="display_currency" data-currency_symbol="true">{{$payroll->final_total}}</span></h4>
-                {!! Form::hidden('final_total', $payroll->final_total, ['id' => 'gross_amount']); !!}<br>
+                {!! html()->hidden('final_total', $payroll->final_total)->attributes(['id' => 'gross_amount']); !!}<br>
             </div>
        
     </div>
@@ -130,7 +130,7 @@
             <button type="submit" class="btn btn-primary pull-right" >@lang( 'messages.update' )</button>
         </div>
     </div>
-{!! Form::close() !!}
+{!! html()->form()->close() !!}
 @stop
 @section('javascript')
     @includeIf('essentials::payroll.edit_form_script')

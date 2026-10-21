@@ -1,7 +1,7 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\EssentialsHolidayController::class, 'update'], [$holiday->id]), 'method' => 'put', 'id' => 'add_holiday_form' ]) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\EssentialsHolidayController::class, 'update'], [$holiday->id]), 'method' => 'put', 'id' => 'add_holiday_form' ]))->open() !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -11,34 +11,34 @@
     <div class="modal-body">
     	<div class="row">
     		<div class="form-group col-md-12">
-	        	{!! Form::label('name', __( 'lang_v1.name' ) . ':*') !!}
-	          	{!! Form::text('name', $holiday->name, ['class' => 'form-control', 'placeholder' => __( 'lang_v1.name' ), 'required']); !!}
+	        	{!! html()->label(__( 'lang_v1.name' ) . ':*', 'name')->attributes([]) !!}
+	          	{!! html()->text('name', $holiday->name)->attributes(['class' => 'form-control', 'placeholder' => __( 'lang_v1.name' ), 'required']); !!}
 	      	</div>
 
 	      	<div class="form-group col-md-6">
-	        	{!! Form::label('start_date', __( 'essentials::lang.start_date' ) . ':*') !!}
+	        	{!! html()->label(__( 'essentials::lang.start_date' ) . ':*', 'start_date')->attributes([]) !!}
 	        	<div class="input-group data">
-	        		{!! Form::text('start_date', @format_date($holiday->start_date), ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.start_date' ), 'readonly' ]); !!}
+	        		{!! html()->text('start_date', @format_date($holiday->start_date))->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.start_date' ), 'readonly' ]); !!}
 	        		<span class="input-group-addon"><i class="fa fa-calendar"></i></span>
 	        	</div>
 	      	</div>
 
 	      	<div class="form-group col-md-6">
-	        	{!! Form::label('end_date', __( 'essentials::lang.end_date' ) . ':*') !!}
+	        	{!! html()->label(__( 'essentials::lang.end_date' ) . ':*', 'end_date')->attributes([]) !!}
 		        	<div class="input-group data">
-		          	{!! Form::text('end_date', @format_date($holiday->end_date), ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.end_date' ), 'readonly', 'required' ]); !!}
+		          	{!! html()->text('end_date', @format_date($holiday->end_date))->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.end_date' ), 'readonly', 'required' ]); !!}
 		          	<span class="input-group-addon"><i class="fa fa-calendar"></i></span>
 	        	</div>
 	      	</div>
 
 	      	<div class="form-group col-md-12">
-	        	{!! Form::label('location_id', __( 'business.business_location' ) . ':') !!}
-	          	{!! Form::select('location_id', $locations, $holiday->location_id, ['class' => 'form-control select2', 'placeholder' => __( 'lang_v1.all' ) ]); !!}
+	        	{!! html()->label(__( 'business.business_location' ) . ':', 'location_id')->attributes([]) !!}
+	          	{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $locations, $holiday->location_id, ['class' => 'form-control select2', 'placeholder' => __( 'lang_v1.all' ) ])); !!}
 	      	</div>
 
 	      	<div class="form-group col-md-12">
-	        	{!! Form::label('note', __( 'brand.note' ) . ':') !!}
-	          	{!! Form::textarea('note', $holiday->note, ['class' => 'form-control', 'placeholder' => __( 'brand.note' ), 'rows' => 3 ]); !!}
+	        	{!! html()->label(__( 'brand.note' ) . ':', 'note')->attributes([]) !!}
+	          	{!! html()->textarea('note', $holiday->note)->attributes(['class' => 'form-control', 'placeholder' => __( 'brand.note' ), 'rows' => 3 ]); !!}
 	      	</div>
     	</div>
     </div>
@@ -48,7 +48,7 @@
       <button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

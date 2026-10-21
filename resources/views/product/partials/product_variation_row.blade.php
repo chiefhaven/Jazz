@@ -16,11 +16,11 @@
         <button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-error delete_complete_row"><i class="fa fa-trash"></i></button>
     </td>
     <td>
-        {!! Form::select('product_variation[' . $row_index .'][variation_template_id]', $variation_templates, null, ['class' => 'form-control input-sm variation_template', 'required']); !!}
+        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('product_variation[' . $row_index .'][variation_template_id]', $variation_templates, null, ['class' => 'form-control input-sm variation_template', 'required'])); !!}
         <input type="hidden" class="row_index" value="{{$row_index}}">
         <div class="form-group variation_template_values_div mt-15 hide">
             <label>@lang('lang_v1.select_variation_values')</label>
-            {!! Form::select('product_variation[' . $row_index .'][variation_template_values][]', [], null, ['class' => 'form-control input-sm variation_template_values', 'multiple', 'style' => 'width: 100%;']); !!}
+            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('product_variation[' . $row_index .'][variation_template_values][]', [], null, ['class' => 'form-control input-sm variation_template_values', 'multiple', 'style' => 'width: 100%;'])); !!}
         </div>
     </td>
 
@@ -50,19 +50,19 @@
             <tbody>
             <tr>
                 <td>
-                    {!! Form::text('product_variation[' . $row_index .'][variations][0][sub_sku]', null, ['class' => 'form-control input-sm']); !!}
+                    {!! html()->text('product_variation[' . $row_index .'][variations][0][sub_sku]', null)->attributes(['class' => 'form-control input-sm']); !!}
                 </td>
                 <td>
-                    {!! Form::text('product_variation[' . $row_index .'][variations][0][value]', null, ['class' => 'form-control input-sm variation_value_name', 'required']); !!}
+                    {!! html()->text('product_variation[' . $row_index .'][variations][0][value]', null)->attributes(['class' => 'form-control input-sm variation_value_name', 'required']); !!}
                 </td>
                 <td class="{{$class}}">
                     <div class="width-50 f-left">
-                        {!! Form::text('product_variation[' . $row_index .'][variations][0][default_purchase_price]', $default, ['class' => 'form-control input-sm variable_dpp input_number', 'placeholder' => __('product.exc_of_tax'), 'required']); !!}
+                        {!! html()->text('product_variation[' . $row_index .'][variations][0][default_purchase_price]', $default)->attributes(['class' => 'form-control input-sm variable_dpp input_number', 'placeholder' => __('product.exc_of_tax'), 'required']); !!}
                     </div>
 
                     <div class="width-50 f-left">
                         <div class="input-group">
-                            {!! Form::text('product_variation[' . $row_index .'][variations][0][dpp_inc_tax]', $default, ['class' => 'form-control input-sm variable_dpp_inc_tax input_number', 'placeholder' => __('product.inc_of_tax'), 'required']); !!}
+                            {!! html()->text('product_variation[' . $row_index .'][variations][0][dpp_inc_tax]', $default)->attributes(['class' => 'form-control input-sm variable_dpp_inc_tax input_number', 'placeholder' => __('product.inc_of_tax'), 'required']); !!}
                             <span class="input-group-btn">
                                 <button type="button" class="btn btn-default bg-white btn-flat apply-all btn-sm p-5-5" data-toggle="tooltip" title="@lang('lang_v1.apply_all')" data-target-class=".variable_dpp_inc_tax"><i class="fas fa-check-double"></i></button>
                             </span>
@@ -71,7 +71,7 @@
                 </td>
                 <td class="{{$class}}">
                     <div class="input-group">
-                        {!! Form::text('product_variation[' . $row_index .'][variations][0][profit_percent]', $profit_percent, ['class' => 'form-control input-sm variable_profit_percent input_number', 'required']); !!}
+                        {!! html()->text('product_variation[' . $row_index .'][variations][0][profit_percent]', $profit_percent)->attributes(['class' => 'form-control input-sm variable_profit_percent input_number', 'required']); !!}
 
                         <span class="input-group-btn">
                             <button type="button" class="btn btn-default bg-white btn-flat apply-all btn-sm p-5-5" data-toggle="tooltip" title="@lang('lang_v1.apply_all')" data-target-class=".variable_profit_percent"><i class="fas fa-check-double"></i></button>
@@ -79,11 +79,11 @@
                     </div>
                 </td>
                 <td class="{{$class}}">
-                    {!! Form::text('product_variation[' . $row_index .'][variations][0][default_sell_price]', $default, ['class' => 'form-control input-sm variable_dsp input_number', 'placeholder' => __('product.exc_of_tax'), 'required']); !!}
+                    {!! html()->text('product_variation[' . $row_index .'][variations][0][default_sell_price]', $default)->attributes(['class' => 'form-control input-sm variable_dsp input_number', 'placeholder' => __('product.exc_of_tax'), 'required']); !!}
 
-                     {!! Form::text('product_variation[' . $row_index .'][variations][0][sell_price_inc_tax]', $default, ['class' => 'form-control input-sm variable_dsp_inc_tax input_number', 'placeholder' => __('product.inc_of_tax'), 'required']); !!}
+                     {!! html()->text('product_variation[' . $row_index .'][variations][0][sell_price_inc_tax]', $default)->attributes(['class' => 'form-control input-sm variable_dsp_inc_tax input_number', 'placeholder' => __('product.inc_of_tax'), 'required']); !!}
                 </td>
-                <td>{!! Form::file('variation_images_' . $row_index .'_0[]', ['class' => 'variation_images', 
+                <td>{!! html()->file('variation_images_' . $row_index .'_0[]')->attributes(['class' => 'variation_images', 
                     'accept' => 'image/*', 'multiple']); !!}</td>
                 <td>
                     <button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-error remove_variation_value_row"><i class="fa fa-trash"></i></button>

@@ -14,22 +14,22 @@
 
 <!-- Main content -->
 <section class="content">
-{!! Form::open(['url' => action([\App\Http\Controllers\BarcodeController::class, 'update'], [$barcode->id]), 'method' => 'PUT', 
-'id' => 'add_barcode_settings_form' ]) !!}
+{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\BarcodeController::class, 'update'], [$barcode->id]), 'method' => 'PUT', 
+'id' => 'add_barcode_settings_form' ]))->open() !!}
   <div class="box box-solid">
     <div class="box-body">
       <div class="row">
         <div class="col-sm-12">
           <div class="form-group">
-            {!! Form::label('name', __('barcode.setting_name') . ':*') !!}
-              {!! Form::text('name', $barcode->name, ['class' => 'form-control', 'required',
+            {!! html()->label(__('barcode.setting_name') . ':*', 'name')->attributes([]) !!}
+              {!! html()->text('name', $barcode->name)->attributes(['class' => 'form-control', 'required',
               'placeholder' => __('barcode.setting_name')]); !!}
           </div>
         </div>
         <div class="col-sm-12">
           <div class="form-group">
-            {!! Form::label('description', __('barcode.setting_description') ) !!}
-              {!! Form::textarea('description', $barcode->description, ['class' => 'form-control',
+            {!! html()->label(__('barcode.setting_description'), 'description')->attributes([]) !!}
+              {!! html()->textarea('description', $barcode->description)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.setting_description'), 'rows' => 3]); !!}
           </div>
         </div>
@@ -37,30 +37,30 @@
           <div class="form-group">
             <div class="checkbox">
               <label>
-                {!! Form::checkbox('is_continuous', 1, $barcode->is_continuous, ['id' => 'is_continuous']); !!} @lang('barcode.is_continuous')</label>
+                {!! html()->checkbox('is_continuous', $barcode->is_continuous, 1)->attributes(['id' => 'is_continuous']); !!} @lang('barcode.is_continuous')</label>
               </div>
           </div>
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('top_margin', __('barcode.top_margin') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.top_margin') . ' ('. __('barcode.in_in') . '):*', 'top_margin')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-arrow-up" aria-hidden="true"></span>
               </span>
-              {!! Form::number('top_margin', $barcode->top_margin, ['class' => 'form-control',
+              {!! html()->input('number', 'top_margin', $barcode->top_margin)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.top_margin'), 'min' => 0, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('left_margin', __('barcode.left_margin') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.left_margin') . ' ('. __('barcode.in_in') . '):*', 'left_margin')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-arrow-left" aria-hidden="true"></span>
               </span>
-              {!! Form::number('left_margin', $barcode->left_margin, ['class' => 'form-control',
+              {!! html()->input('number', 'left_margin', $barcode->left_margin)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.left_margin'), 'min' => 0, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
@@ -68,24 +68,24 @@
         <div class="clearfix"></div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('width', __('barcode.width') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.width') . ' ('. __('barcode.in_in') . '):*', 'width')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-width" aria-hidden="true"></i>
               </span>
-              {!! Form::number('width', $barcode->width, ['class' => 'form-control',
+              {!! html()->input('number', 'width', $barcode->width)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.width'), 'min' => 0.1, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('height', __('barcode.height') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.height') . ' ('. __('barcode.in_in') . '):*', 'height')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-height" aria-hidden="true"></i>
               </span>
-              {!! Form::number('height', $barcode->height, ['class' => 'form-control',
+              {!! html()->input('number', 'height', $barcode->height)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.height'), 'min' => 0.1, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
@@ -93,36 +93,36 @@
         <div class="clearfix"></div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('paper_width', __('barcode.paper_width') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.paper_width') . ' ('. __('barcode.in_in') . '):*', 'paper_width')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-width" aria-hidden="true"></i>
               </span>
-              {!! Form::number('paper_width', $barcode->paper_width, ['class' => 'form-control',
+              {!! html()->input('number', 'paper_width', $barcode->paper_width)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.paper_width'), 'min' => 0.1, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
         </div>
         <div class="col-sm-6 paper_height_div @if( $barcode->is_continuous ) {{ 'hide' }} @endif">
           <div class="form-group">
-            {!! Form::label('paper_height', __('barcode.paper_height') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.paper_height') . ' ('. __('barcode.in_in') . '):*', 'paper_height')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-height" aria-hidden="true"></i>
               </span>
-              {!! Form::number('paper_height', $barcode->paper_height, ['class' => 'form-control',
+              {!! html()->input('number', 'paper_height', $barcode->paper_height)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.paper_height'), 'min' => 0.1, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('stickers_in_one_row', __('barcode.stickers_in_one_row'). ':*') !!}
+            {!! html()->label(__('barcode.stickers_in_one_row'). ':*', 'stickers_in_one_row')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
               </span>
-              {!! Form::number('stickers_in_one_row', $barcode->stickers_in_one_row, ['class' => 'form-control',
+              {!! html()->input('number', 'stickers_in_one_row', $barcode->stickers_in_one_row)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.stickers_in_one_row'), 'min' => 1, 'required']); !!}
             </div>
           </div>
@@ -130,24 +130,24 @@
         <div class="clearfix"></div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('row_distance', __('barcode.row_distance') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.row_distance') . ' ('. __('barcode.in_in') . '):*', 'row_distance')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-resize-vertical" aria-hidden="true"></span>
               </span>
-              {!! Form::number('row_distance', $barcode->row_distance, ['class' => 'form-control',
+              {!! html()->input('number', 'row_distance', $barcode->row_distance)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.row_distance'), 'min' => 0, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('col_distance', __('barcode.col_distance') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! html()->label(__('barcode.col_distance') . ' ('. __('barcode.in_in') . '):*', 'col_distance')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-resize-horizontal" aria-hidden="true"></span>
               </span>
-              {!! Form::number('col_distance', $barcode->col_distance, ['class' => 'form-control',
+              {!! html()->input('number', 'col_distance', $barcode->col_distance)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.col_distance'), 'min' => 0, 'step' => 0.00001, 'required']); !!}
             </div>
           </div>
@@ -155,12 +155,12 @@
         <div class="clearfix"></div>
         <div class="col-sm-6 stickers_per_sheet_div @if( $barcode->is_continuous ) {{ 'hide' }} @endif">
           <div class="form-group">
-            {!! Form::label('stickers_in_one_sheet', __('barcode.stickers_in_one_sheet') . ':*') !!}
+            {!! html()->label(__('barcode.stickers_in_one_sheet') . ':*', 'stickers_in_one_sheet')->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-th" aria-hidden="true"></i>
               </span>
-              {!! Form::number('stickers_in_one_sheet', $barcode->stickers_in_one_sheet, ['class' => 'form-control',
+              {!! html()->input('number', 'stickers_in_one_sheet', $barcode->stickers_in_one_sheet)->attributes(['class' => 'form-control',
               'placeholder' => __('barcode.stickers_in_one_sheet'), 'min' => 1, 'required']); !!}
             </div>
           </div>
@@ -172,7 +172,7 @@
       </div>
     </div>
   </div>
-  {!! Form::close() !!}
+  {!! html()->form()->close() !!}
 </section>
 <!-- /.content -->
 @endsection

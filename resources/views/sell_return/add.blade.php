@@ -11,10 +11,10 @@
 <!-- Main content -->
 <section class="content no-print">
 
-	{!! Form::hidden('location_id', $sell->location->id, ['id' => 'location_id', 'data-receipt_printer_type' => $sell->location->receipt_printer_type ]); !!}
+	{!! html()->hidden('location_id', $sell->location->id)->attributes(['id' => 'location_id', 'data-receipt_printer_type' => $sell->location->receipt_printer_type ]); !!}
 
-	{!! Form::open(['url' => action([\App\Http\Controllers\SellReturnController::class, 'store']), 'method' => 'post', 'id' => 'sell_return_form' ]) !!}
-	{!! Form::hidden('transaction_id', $sell->id); !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\SellReturnController::class, 'store']), 'method' => 'post', 'id' => 'sell_return_form' ]))->open() !!}
+	{!! html()->hidden('transaction_id', $sell->id)->attributes([]); !!}
 	<div class="box box-solid">
 		<div class="box-header">
 			<h3 class="box-title">@lang('lang_v1.parent_sale')</h3>
@@ -37,13 +37,13 @@
 			<div class="row">
 				<div class="col-sm-4">
 					<div class="form-group">
-						{!! Form::label('invoice_no', __('sale.invoice_no').':') !!}
-						{!! Form::text('invoice_no', !empty($sell->return_parent->invoice_no) ? $sell->return_parent->invoice_no : null, ['class' => 'form-control']); !!}
+						{!! html()->label(__('sale.invoice_no').':', 'invoice_no')->attributes([]) !!}
+						{!! html()->text('invoice_no', !empty($sell->return_parent->invoice_no) ? $sell->return_parent->invoice_no : null)->attributes(['class' => 'form-control']); !!}
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('transaction_date', __('messages.date') . ':*') !!}
+						{!! html()->label(__('messages.date') . ':*', 'transaction_date')->attributes([]) !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-calendar"></i>
@@ -51,7 +51,7 @@
 							@php
 							$transaction_date = !empty($sell->return_parent->transaction_date) ? $sell->return_parent->transaction_date : 'now';
 							@endphp
-							{!! Form::text('transaction_date', @format_datetime($transaction_date), ['class' => 'form-control', 'readonly', 'required']); !!}
+							{!! html()->text('transaction_date', @format_datetime($transaction_date))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
 						</div>
 					</div>
 				</div>
@@ -123,14 +123,14 @@
 				@endphp
 				<div class="col-sm-4">
 					<div class="form-group">
-						{!! Form::label('discount_type', __( 'purchase.discount_type' ) . ':') !!}
-						{!! Form::select('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], $discount_type, ['class' => 'form-control']); !!}
+						{!! html()->label(__( 'purchase.discount_type' ) . ':', 'discount_type')->attributes([]) !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], $discount_type, ['class' => 'form-control'])); !!}
 					</div>
 				</div>
 				<div class="col-sm-4">
 					<div class="form-group">
-						{!! Form::label('discount_amount', __( 'purchase.discount_amount' ) . ':') !!}
-						{!! Form::text('discount_amount', @num_format($discount_amount), ['class' => 'form-control input_number']); !!}
+						{!! html()->label(__( 'purchase.discount_amount' ) . ':', 'discount_amount')->attributes([]) !!}
+						{!! html()->text('discount_amount', @num_format($discount_amount))->attributes(['class' => 'form-control input_number']); !!}
 					</div>
 				</div>
 			</div>
@@ -140,9 +140,9 @@
 			$tax_percent = $sell->tax->amount;
 			}
 			@endphp
-			{!! Form::hidden('tax_id', $sell->tax_id); !!}
-			{!! Form::hidden('tax_amount', 0, ['id' => 'tax_amount']); !!}
-			{!! Form::hidden('tax_percent', $tax_percent, ['id' => 'tax_percent']); !!}
+			{!! html()->hidden('tax_id', $sell->tax_id)->attributes([]); !!}
+			{!! html()->hidden('tax_amount', 0)->attributes(['id' => 'tax_amount']); !!}
+			{!! html()->hidden('tax_percent', $tax_percent)->attributes(['id' => 'tax_percent']); !!}
 			<div class="row">
 				<div class="col-sm-12 text-right">
 					<strong>@lang('lang_v1.total_return_discount'):</strong>
@@ -165,7 +165,7 @@
 			</div>
 		</div>
 	</div>
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 
 </section>
 @stop

@@ -61,8 +61,8 @@
 <div class="modal fade" id="add_budget_modal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-        {!! Form::open(['url' => action('\Modules\Accounting\Http\Controllers\BudgetController@create'), 
-            'method' => 'get', 'id' => 'add_budget_form' ]) !!}
+        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action('\Modules\Accounting\Http\Controllers\BudgetController@create'), 
+            'method' => 'get', 'id' => 'add_budget_form' ]))->open() !!}
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" 
                 aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -72,7 +72,7 @@
                 <div class="row">
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! Form::number('financial_year', null, ['class' => 'form-control', 
+                            {!! html()->input('number', 'financial_year', null)->attributes(['class' => 'form-control', 
                                 'required', 'placeholder' => 
                                 __( 'accounting::lang.financial_year_for_the_budget' ), 'id' => 'financial_year' ]); !!}
                         </div>
@@ -83,7 +83,7 @@
                 <button type="submit" class="btn btn-primary">@lang( 'accounting::lang.continue' )</button>
                 <button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
             </div>
-            {!! Form::close() !!}
+            {!! html()->form()->close() !!}
         </div>
     </div>
 </div>

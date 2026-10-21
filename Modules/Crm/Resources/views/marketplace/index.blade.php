@@ -16,7 +16,7 @@
 			@component('components.widget', ['class' => 'box-solid', 'title' => 'Exporters India'])
 				<div class="row">
 					<div class="col-md-8">
-						{!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\CrmMarketplaceController::class, 'save']), 'method' => 'post' ]) !!}
+						{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\CrmMarketplaceController::class, 'save']), 'method' => 'post' ]))->open() !!}
 							<input type="hidden" name="marketplace" value="exportersindia">
 							<div class="form-group row">
 							    <label for="site_key" class="col-sm-2 col-form-label">@lang('crm::lang.key')*</label>
@@ -35,21 +35,21 @@
                      <div class="form-group row">
 							   <label for="assigned_users" class="col-sm-2 col-form-label">@lang('crm::lang.followup_assigned_to')*</label>
 							   <div class="col-sm-10">
-							      {!! Form::select('assigned_users[]', $users, $marketplace->assigned_users ?? [], ['class' => 'form-control select2', 'multiple', 'required', 'style' => 'width: 100%;', 'id' => 'assigned_users']); !!}
+							      {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('assigned_users[]', $users, $marketplace->assigned_users ?? [], ['class' => 'form-control select2', 'multiple', 'required', 'style' => 'width: 100%;', 'id' => 'assigned_users'])); !!}
 							   </div>
 							</div>
 
 							<div class="form-group row">
 							   <label for="source_id" class="col-sm-2 col-form-label">@lang('crm::lang.source')*</label>
 							   <div class="col-sm-10">
-							      {!! Form::select('source_id', $sources, $marketplace->source_id ?? '', ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'id' => 'source_id']); !!}
+							      {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('source_id', $sources, $marketplace->source_id ?? '', ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'id' => 'source_id'])); !!}
 							   </div>
 							</div>
 
 							<div class="form-group row">
 								<button type="submit" class="btn btn-primary pull-right">@lang('messages.submit')</button>
 							</div>
-						{!! Form::close() !!}
+						{!! html()->form()->close() !!}
 					</div>
 				</div>
 				<hr>

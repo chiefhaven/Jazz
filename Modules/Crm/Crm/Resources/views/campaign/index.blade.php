@@ -13,8 +13,8 @@
         <div class="row">
             <div class="col-md-4">
                 <div class="form-group">
-                    {!! Form::label('campaign_type', __('crm::lang.campaign_type') . ':') !!}
-                    {!! Form::select('campaign_type', ['sms' => __('crm::lang.sms'), 'email' => __('business.email')], null, ['class' => 'form-control select2', 'id' => 'campaign_type_filter', 'placeholder' => __('messages.all')]); !!}
+                    {!! html()->label(__('crm::lang.campaign_type') . ':', 'campaign_type')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('campaign_type', ['sms' => __('crm::lang.sms'), 'email' => __('business.email')], null, ['class' => 'form-control select2', 'id' => 'campaign_type_filter', 'placeholder' => __('messages.all')])); !!}
                 </div>    
             </div>
         </div>

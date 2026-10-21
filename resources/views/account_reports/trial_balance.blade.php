@@ -16,8 +16,8 @@
             @component('components.filters', ['title' => __('report.filters')])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! Form::label('trial_bal_location_id',  __('purchase.business_location') . ':') !!}
-                    {!! Form::select('trial_bal_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
+                    {!! html()->label(__('purchase.business_location') . ':', 'trial_bal_location_id')->attributes([]) !!}
+                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('trial_bal_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
                 </div>
             </div>
             <div class="col-sm-3 col-xs-6">

@@ -1,10 +1,10 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! Form::open(['url' => action([\App\Http\Controllers\TransactionPaymentController::class, 'store']), 'method' => 'post', 'id' => 'transaction_payment_add_form', 'files' => true ]) !!}
-    {!! Form::hidden('transaction_id', $transaction->id); !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\TransactionPaymentController::class, 'store']), 'method' => 'post', 'id' => 'transaction_payment_add_form', 'files' => true ]))->open() !!}
+    {!! html()->hidden('transaction_id', $transaction->id)->attributes([]); !!}
     @if(!empty($transaction->location))
-      {!! Form::hidden('default_payment_accounts', $transaction->location->default_payment_accounts, ['id' => 'default_payment_accounts']); !!}
+      {!! html()->hidden('default_payment_accounts', $transaction->location->default_payment_accounts)->attributes(['id' => 'default_payment_accounts']); !!}
     @endif
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -57,41 +57,41 @@
           @if(!empty($transaction->contact))
             <strong>@lang('lang_v1.advance_balance'):</strong> <span class="display_currency" data-currency_symbol="true">{{$transaction->contact->balance}}</span>
 
-            {!! Form::hidden('advance_balance', $transaction->contact->balance, ['id' => 'advance_balance', 'data-error-msg' => __('lang_v1.required_advance_balance_not_available')]); !!}
+            {!! html()->hidden('advance_balance', $transaction->contact->balance)->attributes(['id' => 'advance_balance', 'data-error-msg' => __('lang_v1.required_advance_balance_not_available')]); !!}
           @endif
         </div>
       </div>
       <div class="row payment_row">
         <div class="col-md-4">
           <div class="form-group">
-            {!! Form::label("method" , __('purchase.payment_method') . ':*') !!}
+            {!! html()->label(__('purchase.payment_method') . ':*', "method")->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fas fa-money-bill-alt"></i>
               </span>
-              {!! Form::select("method", $payment_types, $payment_line->method, ['class' => 'form-control select2 payment_types_dropdown', 'required', 'style' => 'width:100%;']); !!}
+              {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("method", $payment_types, $payment_line->method, ['class' => 'form-control select2 payment_types_dropdown', 'required', 'style' => 'width:100%;'])); !!}
             </div>
           </div>
         </div>
         <div class="col-md-4">
           <div class="form-group">
-            {!! Form::label("paid_on" , __('lang_v1.paid_on') . ':*') !!}
+            {!! html()->label(__('lang_v1.paid_on') . ':*', "paid_on")->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-calendar"></i>
               </span>
-              {!! Form::text('paid_on', @format_datetime($payment_line->paid_on), ['class' => 'form-control', 'readonly', 'required']); !!}
+              {!! html()->text('paid_on', @format_datetime($payment_line->paid_on))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
             </div>
           </div>
         </div>
         <div class="col-md-4">
           <div class="form-group">
-            {!! Form::label("amount" , __('sale.amount') . ':*') !!}
+            {!! html()->label(__('sale.amount') . ':*', "amount")->attributes([]) !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fas fa-money-bill-alt"></i>
               </span>
-              {!! Form::text("amount", @num_format($payment_line->amount), ['class' => 'form-control input_number payment_amount', 'required', 'placeholder' => 'Amount', 'data-rule-max-value' => $payment_line->amount, 'data-msg-max-value' => __('lang_v1.max_amount_to_be_paid_is', ['amount' => $amount_formated])]); !!}
+              {!! html()->text("amount", @num_format($payment_line->amount))->attributes(['class' => 'form-control input_number payment_amount', 'required', 'placeholder' => 'Amount', 'data-rule-max-value' => $payment_line->amount, 'data-msg-max-value' => __('lang_v1.max_amount_to_be_paid_is', ['amount' => $amount_formated])]); !!}
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@
                         <tr>
                           <td class="text-right">{{$dnm}}</td>
                           <td class="text-center" >X</td>
-                          <td>{!! Form::number("denominations[$dnm]", null, ['class' => 'form-control cash_denomination input-sm', 'min' => 0, 'data-denomination' => $dnm, 'style' => 'width: 100px; margin:auto;' ]); !!}</td>
+                          <td>{!! html()->input('number', "denominations[$dnm]", null)->attributes(['class' => 'form-control cash_denomination input-sm', 'min' => 0, 'data-denomination' => $dnm, 'style' => 'width: 100px; margin:auto;' ]); !!}</td>
                           <td class="text-center">=</td>
                           <td class="text-left">
                             <span class="denomination_subtotal">0</span>
@@ -152,20 +152,20 @@
         @if(!empty($accounts))
           <div class="col-md-6">
             <div class="form-group">
-              {!! Form::label("account_id" , __('lang_v1.payment_account') . ':') !!}
+              {!! html()->label(__('lang_v1.payment_account') . ':', "account_id")->attributes([]) !!}
               <div class="input-group">
                 <span class="input-group-addon">
                   <i class="fas fa-money-bill-alt"></i>
                 </span>
-                {!! Form::select("account_id", $accounts, !empty($payment_line->account_id) ? $payment_line->account_id : '' , ['class' => 'form-control select2', 'id' => "account_id", 'style' => 'width:100%;']); !!}
+                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("account_id", $accounts, !empty($payment_line->account_id) ? $payment_line->account_id : '', ['class' => 'form-control select2', 'id' => "account_id", 'style' => 'width:100%;'])); !!}
               </div>
             </div>
           </div>
         @endif
         <div class="col-md-4">
           <div class="form-group">
-            {!! Form::label('document', __('purchase.attach_document') . ':') !!}
-            {!! Form::file('document', ['accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+            {!! html()->label(__('purchase.attach_document') . ':', 'document')->attributes([]) !!}
+            {!! html()->file('document')->attributes(['accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
             <p class="help-block">
             @includeIf('components.document_help_text')</p>
           </div>
@@ -174,8 +174,8 @@
           @include('transaction_payment.payment_type_details')
         <div class="col-md-12">
           <div class="form-group">
-            {!! Form::label("note", __('lang_v1.payment_note') . ':') !!}
-            {!! Form::textarea("note", $payment_line->note, ['class' => 'form-control', 'rows' => 3]); !!}
+            {!! html()->label(__('lang_v1.payment_note') . ':', "note")->attributes([]) !!}
+            {!! html()->textarea("note", $payment_line->note)->attributes(['class' => 'form-control', 'rows' => 3]); !!}
           </div>
         </div>
       </div>
@@ -186,7 +186,7 @@
       <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

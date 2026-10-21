@@ -7,21 +7,21 @@
 	   <h1>@lang('crm::lang.add_schedule')</h1>
 	</section>
 	<section class="content no-print">
-		{!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\ScheduleController::class, 'store']), 'method' => 'post', 'id' => 'add_advance_schedule' ]) !!}
+		{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\ScheduleController::class, 'store']), 'method' => 'post', 'id' => 'add_advance_schedule' ]))->open() !!}
 
 		<div class="box box-solid">
         	<div class="box-body">
         		<div class="row">
         			<div class="col-md-4">
                         <div class="form-group">
-                            {!! Form::label('followup_category_id', __('crm::lang.followup_category') .':*') !!}
-                            {!! Form::select('followup_category_id', $followup_category, null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'placeholder' => __('messages.please_select')]); !!}
+                            {!! html()->label(__('crm::lang.followup_category') .':*', 'followup_category_id')->attributes([]) !!}
+                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('followup_category_id', $followup_category, null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'placeholder' => __('messages.please_select')])); !!}
                         </div>
                     </div>
                     
         			<div class="col-md-4">
 		               <div class="form-group">
-		                    {!! Form::label('follow_up_by', __('crm::lang.follow_up_by') .':') !!}
+		                    {!! html()->label(__('crm::lang.follow_up_by') .':', 'follow_up_by')->attributes([]) !!}
 		                    <select class="form-control" id="follow_up_by">
 		                    		<option value="">@lang('messages.please_select')</option>
 								  	<optgroup label="@lang('sale.payment_status')">
@@ -68,14 +68,14 @@
 		            </div>
 		            <div class="col-md-6 hide follow_up_by_payment_field" >
 		               <div class="form-group">
-		                    {!! Form::label('invoices', __('lang_v1.invoices') .':') !!}
+		                    {!! html()->label(__('lang_v1.invoices') .':', 'invoices')->attributes([]) !!}
 		                    <button type="button" class="btn btn-primary btn-xs select-all">
 		                        @lang('lang_v1.select_all')
 		                    </button>
 		                    <button type="button" class="btn btn-primary btn-xs deselect-all">
 		                        @lang('lang_v1.deselect_all')
 		                    </button>
-		                    {!! Form::select('invoices', [], null, ['class' => 'form-control select2', 'style' => 'width: 100%;', 'id' => 'invoices', 'multiple']); !!}
+		                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('invoices', [], null, ['class' => 'form-control select2', 'style' => 'width: 100%;', 'id' => 'invoices', 'multiple'])); !!}
 		               </div>
 		            </div>
 		            <div class="col-md-2 hide follow_up_by_payment_field" >
@@ -86,14 +86,14 @@
 		            </div>
 		            <div class="col-md-6 hide follow_up_by_contact_name" >
 		            	<div class="form-group">
-		                    {!! Form::label('contact_ids', __('lang_v1.customers') .':') !!}
+		                    {!! html()->label(__('lang_v1.customers') .':', 'contact_ids')->attributes([]) !!}
 		                    <button type="button" class="btn btn-primary btn-xs select-all">
 		                        @lang('lang_v1.select_all')
 		                    </button>
 		                    <button type="button" class="btn btn-primary btn-xs deselect-all">
 		                        @lang('lang_v1.deselect_all')
 		                    </button>
-		                    {!! Form::select('contact_ids', $customers, null, ['class' => 'form-control select2', 'style' => 'width: 100%;', 'id' => 'contact_ids', 'multiple']); !!}
+		                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_ids', $customers, null, ['class' => 'form-control select2', 'style' => 'width: 100%;', 'id' => 'contact_ids', 'multiple'])); !!}
 		               </div>
 		            </div>
 		            <div class="col-md-2 hide follow_up_by_contact_name" >
@@ -119,8 +119,8 @@
 				<div class="row">
 		            <div class="col-md-12">
 		               <div class="form-group">
-		                    {!! Form::label('title', __('crm::lang.title') . ':*' )!!}
-		                    {!! Form::text('title', null, ['class' => 'form-control', 'required' ]) !!}
+		                    {!! html()->label(__('crm::lang.title') . ':*', 'title')->attributes([])!!}
+		                    {!! html()->text('title', null)->attributes(['class' => 'form-control', 'required' ]) !!}
 		                    <p>
 								<strong>
 									{{$followup_tags['help_text']}}:
@@ -141,28 +141,28 @@
 		        <div class="row">
 		            <div class="col-md-4">
 		               <div class="form-group">
-		                    {!! Form::label('status', __('sale.status') .':') !!}
-		                    {!! Form::select('status', $statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;', 'id' => 'follow_up_create_status']); !!}
+		                    {!! html()->label(__('sale.status') .':', 'status')->attributes([]) !!}
+		                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;', 'id' => 'follow_up_create_status'])); !!}
 		               </div>
 		            </div>
 		            <div class="col-md-4">
 		               <div class="form-group">
-		                    {!! Form::label('start_datetime', __('crm::lang.start_datetime') . ':*' )!!}
-		                    {!! Form::text('start_datetime', null, ['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
+		                    {!! html()->label(__('crm::lang.start_datetime') . ':*', 'start_datetime')->attributes([])!!}
+		                    {!! html()->text('start_datetime', null)->attributes(['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
 		               </div>
 		            </div>
 		            <div class="col-md-4">
 		               <div class="form-group">
-		                    {!! Form::label('end_datetime', __('crm::lang.end_datetime') . ':*' )!!}
-		                    {!! Form::text('end_datetime', null, ['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
+		                    {!! html()->label(__('crm::lang.end_datetime') . ':*', 'end_datetime')->attributes([])!!}
+		                    {!! html()->text('end_datetime', null)->attributes(['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
 		               </div>
 		            </div>
 		        </div>
 		        <div class="row">
 		            <div class="col-md-12">
 		                <div class="form-group">
-		                    {!! Form::label('description', __('crm::lang.description') . ':') !!}
-		                    {!! Form::textarea('description', null, ['class' => 'form-control ', 'id' => 'description']); !!}
+		                    {!! html()->label(__('crm::lang.description') . ':', 'description')->attributes([]) !!}
+		                    {!! html()->textarea('description', null)->attributes(['class' => 'form-control ', 'id' => 'description']); !!}
 		                    <p>
 								<strong>
 									{{$followup_tags['help_text']}}:
@@ -183,15 +183,15 @@
 		        <div class="row">
 		            <div class="col-md-6">
 		                <div class="form-group">
-		                    {!! Form::label('schedule_type', __('crm::lang.schedule_type') .':*') !!}
-		                    {!! Form::select('schedule_type', $follow_up_types, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
+		                    {!! html()->label(__('crm::lang.schedule_type') .':*', 'schedule_type')->attributes([]) !!}
+		                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('schedule_type', $follow_up_types, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
 		                </div>
 		            </div>
 		            <div class="col-md-6">
 		                <div class="form-group">
 		                	<br>
 		                    <label>
-		                        {!! Form::checkbox('allow_notification', 1, false, ['class' => 'input-icheck', 'id' => 'allow_notification']); !!}
+		                        {!! html()->checkbox('allow_notification', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'allow_notification']); !!}
 		                        @lang('crm::lang.send_notification')
 		                    </label>
 		                    @show_tooltip(__('crm::lang.send_schedule_notificatoion'))
@@ -201,16 +201,16 @@
 		        <div class="row">
 		            <div class="allow_notification_elements hide">
 		                <div class="col-md-6">
-		                    {!! Form::label('notify_via', __('crm::lang.notify_via') .':*') !!} 
+		                    {!! html()->label(__('crm::lang.notify_via') .':*', 'notify_via')->attributes([]) !!} 
 		                    <div class="form-group checkbox-inline">
 		                        <label>
-		                            {!! Form::checkbox('notify_via[sms]', 1, false, ['class' => 'input-icheck']); !!}
+		                            {!! html()->checkbox('notify_via[sms]', false, 1)->attributes(['class' => 'input-icheck']); !!}
 		                            @lang('crm::lang.sms')
 		                        </label>
 		                    </div>
 		                    <div class="form-group checkbox-inline">
 		                        <label>
-		                            {!! Form::checkbox('notify_via[mail]', 1, true, ['class' => 'input-icheck']); !!}
+		                            {!! html()->checkbox('notify_via[mail]', true, 1)->attributes(['class' => 'input-icheck']); !!}
 		                            @lang('business.email')
 		                        </label>
 		                    </div>
@@ -218,11 +218,11 @@
 		                <div class="col-md-6">
 		                    <div class="form-group">
 		                        <div class="multi-input">
-		                            {!! Form::label('notify_before', __('crm::lang.notify_before') . ':*') !!}
+		                            {!! html()->label(__('crm::lang.notify_before') . ':*', 'notify_before')->attributes([]) !!}
 		                            <br/>
-		                            {!! Form::number('notify_before', 1, ['class' => 'form-control width-40 pull-left', 'placeholder' => __('crm::lang.notify_before'), 'required']); !!}
+		                            {!! html()->input('number', 'notify_before', 1)->attributes(['class' => 'form-control width-40 pull-left', 'placeholder' => __('crm::lang.notify_before'), 'required']); !!}
 
-		                            {!! Form::select('notify_type', $notify_type, 'hour', ['class' => 'form-control width-60 pull-left']); !!}
+		                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('notify_type', $notify_type, 'hour', ['class' => 'form-control width-60 pull-left'])); !!}
 		                        </div>
 		                    </div>
 		                </div>
@@ -242,7 +242,7 @@
 		    </div>
 	     </div>
 
-        {!! Form::close() !!}
+        {!! html()->form()->close() !!}
 	</section>
 @endsection
 @section('javascript')

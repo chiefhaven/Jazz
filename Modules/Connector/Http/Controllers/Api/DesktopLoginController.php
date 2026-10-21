@@ -34,8 +34,8 @@ class DesktopLoginController extends Controller
                 return $this->failure();
             }
 
-            // Accept credentials from the POST body only. Query parameters, Basic
-            // authorization, supplied usernames/scopes/grants cannot override them.
+            // Accept credentials from the POST body only. Query parameters and
+            // Basic authorization cannot override the submitted credentials.
             $input = $request->isJson() ? $request->json()->all() : $request->request->all();
             if (($input['source'] ?? null) !== 'desktop_app'
                 || ! in_array($input['access'] ?? null, ['admin', 'cashier'], true)) {
@@ -48,8 +48,27 @@ class DesktopLoginController extends Controller
                     return $this->failure();
                 }
             }
+            if ($input['access'] === 'cashier'
+                && (strlen($input['password']) > 6 || ! ctype_digit($input['password']))) {
+                return $this->failure();
+            }
+            $username = null;
+            if ($input['access'] === 'admin') {
+                if (! isset($input['username']) || ! is_string($input['username'])
+                    || $input['username'] === '' || strlen($input['username']) > 255
+                    || strpos($input['username'], "\0") !== false) {
+                    return $this->failure();
+                }
+                $username = $input['username'];
+            }
 
-            $user = $this->login->resolve($input['client_id'], $input['client_secret'], $input['password'], $input['access']);
+            $user = $this->login->resolve(
+                $input['client_id'],
+                $input['client_secret'],
+                $input['password'],
+                $input['access'],
+                $username
+            );
             if (! $user) {
                 return $this->failure();
             }

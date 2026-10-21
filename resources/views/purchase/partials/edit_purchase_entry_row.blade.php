@@ -54,17 +54,16 @@
 
             <td>
                 @if(!empty($purchase_line->purchase_order_line_id) && !empty($common_settings['enable_purchase_order']))
-                    {!! Form::hidden('purchases[' . $loop->index . '][purchase_order_line_id]', $purchase_line->purchase_order_line_id ); !!}
+                    {!! html()->hidden('purchases[' . $loop->index . '][purchase_order_line_id]', $purchase_line->purchase_order_line_id)->attributes([]); !!}
                 @endif
 
                 @if(!empty($purchase_line->purchase_requisition_line_id) && !empty($common_settings['enable_purchase_requisition']))
-                    {!! Form::hidden('purchases[' . $loop->index . '][purchase_requisition_line_id]', $purchase_line->purchase_requisition_line_id ); !!}
+                    {!! html()->hidden('purchases[' . $loop->index . '][purchase_requisition_line_id]', $purchase_line->purchase_requisition_line_id)->attributes([]); !!}
                 @endif
 
-                {!! Form::hidden('purchases[' . $loop->index . '][product_id]', $purchase_line->product_id ); !!}
-                {!! Form::hidden('purchases[' . $loop->index . '][variation_id]', $purchase_line->variation_id ); !!}
-                {!! Form::hidden('purchases[' . $loop->index . '][purchase_line_id]',
-                $purchase_line->id); !!}
+                {!! html()->hidden('purchases[' . $loop->index . '][product_id]', $purchase_line->product_id)->attributes([]); !!}
+                {!! html()->hidden('purchases[' . $loop->index . '][variation_id]', $purchase_line->variation_id)->attributes([]); !!}
+                {!! html()->hidden('purchases[' . $loop->index . '][purchase_line_id]', $purchase_line->id)->attributes([]); !!}
 
                 @php
                     $check_decimal = 'false';
@@ -123,14 +122,13 @@
                 @endif
             </td>
             <td>
-                {!! Form::text('purchases[' . $loop->index . '][pp_without_discount]', number_format($purchase_line->pp_without_discount/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input-sm purchase_unit_cost_without_discount input_number', 'required']); !!}
+                {!! html()->text('purchases[' . $loop->index . '][pp_without_discount]', number_format($purchase_line->pp_without_discount/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input-sm purchase_unit_cost_without_discount input_number', 'required']); !!}
             </td>
             <td>
-                {!! Form::text('purchases[' . $loop->index . '][discount_percent]', number_format($purchase_line->discount_percent, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input-sm inline_discounts input_number', 'required']); !!} <b>%</b>
+                {!! html()->text('purchases[' . $loop->index . '][discount_percent]', number_format($purchase_line->discount_percent, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input-sm inline_discounts input_number', 'required']); !!} <b>%</b>
             </td>
             <td>
-                {!! Form::text('purchases[' . $loop->index . '][purchase_price]', 
-                number_format($purchase_line->purchase_price/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input-sm purchase_unit_cost input_number', 'required']); !!}
+                {!! html()->text('purchases[' . $loop->index . '][purchase_price]', number_format($purchase_line->purchase_price/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input-sm purchase_unit_cost input_number', 'required']); !!}
             </td>
             <td class="{{$hide_tax}}">
                 <span class="row_subtotal_before_tax">
@@ -151,11 +149,11 @@
                     <span class="input-group-addon purchase_product_unit_tax_text">
                         {{number_format($purchase_line->item_tax/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator)}}
                     </span>
-                    {!! Form::hidden('purchases[' . $loop->index . '][item_tax]', number_format($purchase_line->item_tax/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'purchase_product_unit_tax']); !!}
+                    {!! html()->hidden('purchases[' . $loop->index . '][item_tax]', number_format($purchase_line->item_tax/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'purchase_product_unit_tax']); !!}
                 </div>
             </td>
             <td class="{{$hide_tax}}">
-                {!! Form::text('purchases[' . $loop->index . '][purchase_price_inc_tax]', number_format($purchase_line->purchase_price_inc_tax/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input-sm purchase_unit_cost_after_tax input_number', 'required']); !!}
+                {!! html()->text('purchases[' . $loop->index . '][purchase_price_inc_tax]', number_format($purchase_line->purchase_price_inc_tax/$purchase->exchange_rate, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input-sm purchase_unit_cost_after_tax input_number', 'required']); !!}
             </td>
             <td>
                 <span class="row_subtotal_after_tax">
@@ -178,14 +176,12 @@
                     }
                 @endphp
                 
-                {!! Form::text('purchases[' . $loop->index . '][profit_percent]', 
-                number_format($profit_percent, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), 
-                ['class' => 'form-control input-sm input_number profit_percent', 'required']); !!}
+                {!! html()->text('purchases[' . $loop->index . '][profit_percent]', number_format($profit_percent, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input-sm input_number profit_percent', 'required']); !!}
             </td>
             @if(empty($is_purchase_order))
             <td>
                 @if(session('business.enable_editing_product_from_purchase'))
-                    {!! Form::text('purchases[' . $loop->index . '][default_sell_price]', number_format($sp, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator), ['class' => 'form-control input-sm input_number default_sell_price', 'required']); !!}
+                    {!! html()->text('purchases[' . $loop->index . '][default_sell_price]', number_format($sp, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator))->attributes(['class' => 'form-control input-sm input_number default_sell_price', 'required']); !!}
                 @else
                     {{number_format($sp, $currency_precision, $currency_details->decimal_separator, $currency_details->thousand_separator)}}
                 @endif
@@ -193,7 +189,7 @@
             </td>
             @if(session('business.enable_lot_number'))
                 <td>
-                    {!! Form::text('purchases[' . $loop->index . '][lot_number]', $purchase_line->lot_number, ['class' => 'form-control input-sm']); !!}
+                    {!! html()->text('purchases[' . $loop->index . '][lot_number]', $purchase_line->lot_number)->attributes(['class' => 'form-control input-sm']); !!}
                 </td>
             @endif
 
@@ -231,14 +227,14 @@
                         <span class="input-group-addon">
                             <i class="fa fa-calendar"></i>
                         </span>
-                        {!! Form::text('purchases[' . $loop->index . '][mfg_date]', !empty($mfg_date) ? @format_date($mfg_date) : null, ['class' => 'form-control input-sm expiry_datepicker mfg_date', 'readonly']); !!}
+                        {!! html()->text('purchases[' . $loop->index . '][mfg_date]', !empty($mfg_date) ? @format_date($mfg_date) : null)->attributes(['class' => 'form-control input-sm expiry_datepicker mfg_date', 'readonly']); !!}
                     </div>
                     <b><small>@lang('product.exp_date'):</small></b>
                     <div class="input-group">
                         <span class="input-group-addon">
                             <i class="fa fa-calendar"></i>
                         </span>
-                        {!! Form::text('purchases[' . $loop->index . '][exp_date]', !empty($exp_date) ? @format_date($exp_date) : null, ['class' => 'form-control input-sm expiry_datepicker exp_date', 'readonly']); !!}
+                        {!! html()->text('purchases[' . $loop->index . '][exp_date]', !empty($exp_date) ? @format_date($exp_date) : null)->attributes(['class' => 'form-control input-sm expiry_datepicker exp_date', 'readonly']); !!}
                     </div>
                     @else
                     <div class="text-center">

@@ -136,8 +136,6 @@ class SyncEISConfigurationJob implements ShouldQueue
                 $successCount++;
             });
 
-            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($setting->business_id);
-            
         } catch (\Throwable $e) {
             $failureCount++;
             

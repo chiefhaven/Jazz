@@ -15,14 +15,14 @@
                 @component('components.filters', ['title' => __('report.filters')])
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('account_id', __('account.account') . ':') !!}
-                        {!! Form::select('account_id', $accounts, null, ['class' => 'form-control select2', 'style' => 'width:100%']) !!}
+                        {!! html()->label(__('account.account') . ':', 'account_id')->attributes([]) !!}
+                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('account_id', $accounts, null, ['class' => 'form-control select2', 'style' => 'width:100%'])) !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! Form::label('date_filter', __('report.date_range') . ':') !!}
-                        {!! Form::text('date_range', null, [
+                        {!! html()->label(__('report.date_range') . ':', 'date_filter')->attributes([]) !!}
+                        {!! html()->text('date_range', null)->attributes([
                             'placeholder' => __('lang_v1.select_a_date_range'),
                             'class' => 'form-control',
                             'id' => 'date_filter',

@@ -10,7 +10,7 @@
                 <h3>@lang( 'lang_v1.view_user' )</h3>
             </div>
             <div class="col-md-4 col-xs-12 mt-15 pull-right">
-                {!! Form::select('user_id', $users, $user->id , ['class' => 'form-control select2', 'id' => 'user_id']); !!}
+                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('user_id', $users, $user->id, ['class' => 'form-control select2', 'id' => 'user_id'])); !!}
             </div>
         </div>
         <br>

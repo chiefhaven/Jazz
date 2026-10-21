@@ -1,7 +1,7 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\EssentialsLeaveTypeController::class, 'update'], [$leave_type->id]), 'method' => 'put', 'id' => 'edit_leave_type_form' ]) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\EssentialsLeaveTypeController::class, 'update'], [$leave_type->id]), 'method' => 'put', 'id' => 'edit_leave_type_form' ]))->open() !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -10,25 +10,25 @@
 
     <div class="modal-body">
       	<div class="form-group">
-        	{!! Form::label('leave_type', __( 'essentials::lang.leave_type' ) . ':*') !!}
-          	{!! Form::text('leave_type', $leave_type->leave_type, ['class' => 'form-control', 'required', 'placeholder' => __( 'essentials::lang.leave_type' ) ]); !!}
+        	{!! html()->label(__( 'essentials::lang.leave_type' ) . ':*', 'leave_type')->attributes([]) !!}
+          	{!! html()->text('leave_type', $leave_type->leave_type)->attributes(['class' => 'form-control', 'required', 'placeholder' => __( 'essentials::lang.leave_type' ) ]); !!}
       	</div>
 
       	<div class="form-group">
-        	{!! Form::label('max_leave_count', __( 'essentials::lang.max_leave_count' ) . ':') !!}
-          	{!! Form::number('max_leave_count', $leave_type->max_leave_count, ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.max_leave_count' ) ]); !!}
+        	{!! html()->label(__( 'essentials::lang.max_leave_count' ) . ':', 'max_leave_count')->attributes([]) !!}
+          	{!! html()->input('number', 'max_leave_count', $leave_type->max_leave_count)->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.max_leave_count' ) ]); !!}
       	</div>
 
         <div class="form-group">
             <strong>@lang('essentials::lang.leave_count_interval')</strong><br>
             <label class="radio-inline">
-              {!! Form::radio('leave_count_interval', 'month', $leave_type->leave_count_interval == 'month'); !!} @lang('essentials::lang.current_month')
+              {!! html()->radio('leave_count_interval', $leave_type->leave_count_interval == 'month', ('month' === null ? null : (string) 'month'))->attribute('id', 'leave_count_interval')->attributes([]); !!} @lang('essentials::lang.current_month')
             </label>
             <label class="radio-inline">
-              {!! Form::radio('leave_count_interval', 'year', $leave_type->leave_count_interval == 'year'); !!} @lang('essentials::lang.current_fy')
+              {!! html()->radio('leave_count_interval', $leave_type->leave_count_interval == 'year', ('year' === null ? null : (string) 'year'))->attribute('id', 'leave_count_interval')->attributes([]); !!} @lang('essentials::lang.current_fy')
             </label>
             <label class="radio-inline">
-              {!! Form::radio('leave_count_interval', null, empty($leave_type->leave_count_interval)); !!} @lang('lang_v1.none')
+              {!! html()->radio('leave_count_interval', empty($leave_type->leave_count_interval), (null === null ? null : (string) null))->attribute('id', 'leave_count_interval')->attributes([]); !!} @lang('lang_v1.none')
             </label>
         </div>
     </div>
@@ -38,7 +38,7 @@
       	<button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

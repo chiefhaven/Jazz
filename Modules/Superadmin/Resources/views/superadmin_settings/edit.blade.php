@@ -16,7 +16,7 @@
 <section class="content">
     @include('layouts.partials.search_settings')
     <br>
-    {!! Form::open(['action' => '\Modules\Superadmin\Http\Controllers\SuperadminSettingsController@update', 'method' => 'put']) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['action' => '\Modules\Superadmin\Http\Controllers\SuperadminSettingsController@update', 'method' => 'put']))->open() !!}
     <div class="row">
         <div class="col-xs-12">
            <!--  <pos-tab-container> -->
@@ -50,11 +50,11 @@
     <div class="row">
         <div class="col-xs-12">
             <div class="form-group pull-right">
-            {{Form::submit(__('messages.update'), ['class'=>"btn btn-danger"])}}
+            {{html()->input('submit', null, __('messages.update'))->attributes(['class'=>"btn btn-danger"])}}
             </div>
         </div>
     </div>
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
 </section>
 @stop
 @section('javascript')

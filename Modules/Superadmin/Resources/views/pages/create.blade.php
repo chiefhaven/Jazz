@@ -12,33 +12,33 @@
 <!-- Main content -->
 <section class="content">
 
-	{!! Form::open(['url' => action([\Modules\Superadmin\Http\Controllers\PageController::class, 'store']), 'method' => 'post', 'id' => 'add_page_form']) !!}
+	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Superadmin\Http\Controllers\PageController::class, 'store']), 'method' => 'post', 'id' => 'add_page_form']))->open() !!}
 
 	<div class="box box-solid">
 		<div class="box-body">
 			<div class="row">
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('title', __('superadmin::lang.page_title').':') !!}
-						{!! Form::text('title', null, ['class' => 'form-control', 'placeholder' => __('superadmin::lang.page_title')]); !!}
+						{!! html()->label(__('superadmin::lang.page_title').':', 'title')->attributes([]) !!}
+						{!! html()->text('title', null)->attributes(['class' => 'form-control', 'placeholder' => __('superadmin::lang.page_title')]); !!}
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('slug', __('superadmin::lang.slug').':') !!}
-						{!! Form::text('slug', null, ['class' => 'form-control', 'placeholder' => __('superadmin::lang.slug'), 'required']); !!}
+						{!! html()->label(__('superadmin::lang.slug').':', 'slug')->attributes([]) !!}
+						{!! html()->text('slug', null)->attributes(['class' => 'form-control', 'placeholder' => __('superadmin::lang.slug'), 'required']); !!}
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! Form::label('menu_order', __('superadmin::lang.menu_order').':') !!} @show_tooltip(__('superadmin::lang.menu_order_tooltip'))
-						{!! Form::number('menu_order', 0, ['class' => 'form-control', 'placeholder' => __('superadmin::lang.menu_order')]); !!}
+						{!! html()->label(__('superadmin::lang.menu_order').':', 'menu_order')->attributes([]) !!} @show_tooltip(__('superadmin::lang.menu_order_tooltip'))
+						{!! html()->input('number', 'menu_order', 0)->attributes(['class' => 'form-control', 'placeholder' => __('superadmin::lang.menu_order')]); !!}
 					</div>
 				</div>
 				<div class="col-sm-3">
 					<div class="checkbox">
 					<label>
-						{!! Form::checkbox('is_shown', 1, true, ['class' => 'input-icheck']); !!}
+						{!! html()->checkbox('is_shown', true, 1)->attributes(['class' => 'input-icheck']); !!}
                         {{__('superadmin::lang.is_visible')}}
 					</label>
 					</div>
@@ -52,8 +52,8 @@
 			<div class="row">
 				<div class="col-sm-12">
 					<div class="form-group">
-						{!! Form::label('content', __('superadmin::lang.page_content').':') !!}
-						{!! Form::textarea('content', null, ['class' => 'form-control', 'placeholder' => __('superadmin::lang.page_content')]); !!}
+						{!! html()->label(__('superadmin::lang.page_content').':', 'content')->attributes([]) !!}
+						{!! html()->textarea('content', null)->attributes(['class' => 'form-control', 'placeholder' => __('superadmin::lang.page_content')]); !!}
 					</div>
 				</div>
 			</div>
@@ -66,7 +66,7 @@
 		</div>
 	</div>
 
-	{!! Form::close() !!}
+	{!! html()->form()->close() !!}
 </section>
 
 @endsection

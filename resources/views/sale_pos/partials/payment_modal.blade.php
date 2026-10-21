@@ -10,7 +10,7 @@
                 <div class="row">
                     <div class="col-md-12 mb-12">
                         <strong>@lang('lang_v1.advance_balance'):</strong> <span id="advance_balance_text"></span>
-                        {!! Form::hidden('advance_balance', null, [
+                        {!! html()->hidden('advance_balance', null)->attributes([
                             'id' => 'advance_balance',
                             'data-error-msg' => __('lang_v1.required_advance_balance_not_available'),
                         ]) !!}
@@ -62,7 +62,7 @@
                                     <div class="box-body">
                                         <div class="col-md-4">
                                             <div class="form-group">
-                                                {!! Form::label('change_return_method', __('lang_v1.change_return_payment_method') . ':*') !!}
+                                                {!! html()->label(__('lang_v1.change_return_payment_method') . ':*', 'change_return_method')->attributes([]) !!}
                                                 <div class="input-group">
                                                     <span class="input-group-addon">
                                                         <i class="fas fa-money-bill-alt"></i>
@@ -75,28 +75,23 @@
                                                             unset($_payment_types['advance']);
                                                         }
                                                     @endphp
-                                                    {!! Form::select('payment[change_return][method]', $_payment_types, $_payment_method, [
+                                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('payment[change_return][method]', $_payment_types, $_payment_method, [
                                                         'class' => 'form-control col-md-12 payment_types_dropdown',
                                                         'id' => 'change_return_method',
                                                         'style' => 'width:100%;',
-                                                    ]) !!}
+                                                    ])) !!}
                                                 </div>
                                             </div>
                                         </div>
                                         @if (!empty($accounts))
                                             <div class="col-md-4">
                                                 <div class="form-group">
-                                                    {!! Form::label('change_return_account', __('lang_v1.change_return_payment_account') . ':') !!}
+                                                    {!! html()->label(__('lang_v1.change_return_payment_account') . ':', 'change_return_account')->attributes([]) !!}
                                                     <div class="input-group">
                                                         <span class="input-group-addon">
                                                             <i class="fas fa-money-bill-alt"></i>
                                                         </span>
-                                                        {!! Form::select(
-                                                            'payment[change_return][account_id]',
-                                                            $accounts,
-                                                            !empty($change_return['account_id']) ? $change_return['account_id'] : '',
-                                                            ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;'],
-                                                        ) !!}
+                                                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('payment[change_return][account_id]', $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '', ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;'])) !!}
                                                     </div>
                                                 </div>
                                             </div>
@@ -113,8 +108,8 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! Form::label('sale_note', __('sale.sell_note') . ':') !!}
-                                    {!! Form::textarea('sale_note', !empty($transaction) ? $transaction->additional_notes : null, [
+                                    {!! html()->label(__('sale.sell_note') . ':', 'sale_note')->attributes([]) !!}
+                                    {!! html()->textarea('sale_note', !empty($transaction) ? $transaction->additional_notes : null)->attributes([
                                         'class' => 'form-control',
                                         'rows' => 3,
                                         'placeholder' => __('sale.sell_note'),
@@ -123,8 +118,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! Form::label('staff_note', __('sale.staff_note') . ':') !!}
-                                    {!! Form::textarea('staff_note', !empty($transaction) ? $transaction->staff_note : null, [
+                                    {!! html()->label(__('sale.staff_note') . ':', 'staff_note')->attributes([]) !!}
+                                    {!! html()->textarea('staff_note', !empty($transaction) ? $transaction->staff_note : null)->attributes([
                                         'class' => 'form-control',
                                         'rows' => 3,
                                         'placeholder' => __('sale.staff_note'),
@@ -170,7 +165,7 @@
                                     </strong>
                                     <br />
                                     <span class="lead text-bold change_return_span">0</span>
-                                    {!! Form::hidden('change_return', $change_return['amount'], [
+                                    {!! html()->hidden('change_return', $change_return['amount'])->attributes([
                                         'class' => 'form-control change_return input_number',
                                         'required',
                                         'id' => 'change_return',
@@ -223,8 +218,8 @@
 
                         <div class="col-md-4">
                             <div class="form-group">
-                                {!! Form::label('card_number', __('lang_v1.card_no')) !!}
-                                {!! Form::text('', null, [
+                                {!! html()->label(__('lang_v1.card_no'), 'card_number')->attributes([]) !!}
+                                {!! html()->text('', null)->attributes([
                                     'class' => 'form-control',
                                     'placeholder' => __('lang_v1.card_no'),
                                     'id' => 'card_number',
@@ -234,8 +229,8 @@
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                {!! Form::label('card_holder_name', __('lang_v1.card_holder_name')) !!}
-                                {!! Form::text('', null, [
+                                {!! html()->label(__('lang_v1.card_holder_name'), 'card_holder_name')->attributes([]) !!}
+                                {!! html()->text('', null)->attributes([
                                     'class' => 'form-control',
                                     'placeholder' => __('lang_v1.card_holder_name'),
                                     'id' => 'card_holder_name',
@@ -244,8 +239,8 @@
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                {!! Form::label('card_transaction_number', __('lang_v1.card_transaction_no')) !!}
-                                {!! Form::text('', null, [
+                                {!! html()->label(__('lang_v1.card_transaction_no'), 'card_transaction_number')->attributes([]) !!}
+                                {!! html()->text('', null)->attributes([
                                     'class' => 'form-control',
                                     'placeholder' => __('lang_v1.card_transaction_no'),
                                     'id' => 'card_transaction_number',
@@ -255,17 +250,17 @@
                         <div class="clearfix"></div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                {!! Form::label('card_type', __('lang_v1.card_type')) !!}
-                                {!! Form::select('', ['visa' => 'Visa', 'master' => 'MasterCard'], 'visa', [
+                                {!! html()->label(__('lang_v1.card_type'), 'card_type')->attributes([]) !!}
+                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('', ['visa' => 'Visa', 'master' => 'MasterCard'], 'visa', [
                                     'class' => 'form-control select2',
                                     'id' => 'card_type',
-                                ]) !!}
+                                ])) !!}
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                {!! Form::label('card_month', __('lang_v1.month')) !!}
-                                {!! Form::text('', null, [
+                                {!! html()->label(__('lang_v1.month'), 'card_month')->attributes([]) !!}
+                                {!! html()->text('', null)->attributes([
                                     'class' => 'form-control',
                                     'placeholder' => __('lang_v1.month'),
                                     'id' => 'card_month',
@@ -274,14 +269,14 @@
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                {!! Form::label('card_year', __('lang_v1.year')) !!}
-                                {!! Form::text('', null, ['class' => 'form-control', 'placeholder' => __('lang_v1.year'), 'id' => 'card_year']) !!}
+                                {!! html()->label(__('lang_v1.year'), 'card_year')->attributes([]) !!}
+                                {!! html()->text('', null)->attributes(['class' => 'form-control', 'placeholder' => __('lang_v1.year'), 'id' => 'card_year']) !!}
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                {!! Form::label('card_security', __('lang_v1.security_code')) !!}
-                                {!! Form::text('', null, [
+                                {!! html()->label(__('lang_v1.security_code'), 'card_security')->attributes([]) !!}
+                                {!! html()->text('', null)->attributes([
                                     'class' => 'form-control',
                                     'placeholder' => __('lang_v1.security_code'),
                                     'id' => 'card_security',

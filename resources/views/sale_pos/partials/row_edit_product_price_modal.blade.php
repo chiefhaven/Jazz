@@ -20,11 +20,11 @@
 				@endif
 				<div class="form-group col-xs-12 col-sm-6 @if(!$edit_discount) hide @endif">
 					<label>@lang('sale.discount_type')</label>
-						{!! Form::select("products[$row_count][line_discount_type]", ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage')], $discount_type , ['class' => 'form-control row_discount_type']); !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("products[$row_count][line_discount_type]", ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage')], $discount_type, ['class' => 'form-control row_discount_type'])); !!}
 				</div>
 				<div class="form-group col-xs-12 col-sm-6 @if(!$edit_discount) hide @endif">
 					<label>@lang('sale.discount_amount')</label>
-						{!! Form::text("products[$row_count][line_discount_amount]", @num_format($discount_amount), ['class' => 'form-control input_number row_discount_amount']); !!}
+						{!! html()->text("products[$row_count][line_discount_amount]", @num_format($discount_amount))->attributes(['class' => 'form-control input_number row_discount_amount']); !!}
 				</div>
 				@if(!empty($discount))
 					<div class="form-group col-xs-12">
@@ -34,14 +34,14 @@
 				<div class="form-group col-xs-12 {{$hide_tax}}">
 					<label>@lang('sale.tax')</label>
 
-					{!! Form::hidden("products[$row_count][item_tax]", @num_format($item_tax), ['class' => 'item_tax']); !!}
+					{!! html()->hidden("products[$row_count][item_tax]", @num_format($item_tax))->attributes(['class' => 'item_tax']); !!}
 		
-					{!! Form::select("products[$row_count][tax_id]", $tax_dropdown['tax_rates'], $tax_id, ['placeholder' => 'Select', 'class' => 'form-control tax_id'], $tax_dropdown['attributes']); !!}
+					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("products[$row_count][tax_id]", $tax_dropdown['tax_rates'], $tax_id, ['placeholder' => 'Select', 'class' => 'form-control tax_id'])); !!}
 				</div>
 				@if(!empty($warranties))
 					<div class="form-group col-xs-12">
 						<label>@lang('lang_v1.warranty')</label>
-						{!! Form::select("products[$row_count][warranty_id]", $warranties, $warranty_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control']); !!}
+						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("products[$row_count][warranty_id]", $warranties, $warranty_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control'])); !!}
 					</div>
 				@endif
 				<div class="form-group col-xs-12">

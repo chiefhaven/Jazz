@@ -48,43 +48,43 @@
                                 
                                 @if($transaction->status == 'confirmed')
                                     <div class="form-group">
-                                        {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                                        {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
                                         <h6 class="bg-green badge">{{ucfirst($transaction->status) }}</h6>
                                     </div>
                                 @elseif($transaction->status == 'pending')
                                     <div class="form-group">
-                                        {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                                        {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
                                         <h6 class="bg-yellow badge">{{ucfirst($transaction->status) }}</h6>
                                     </div>
                                 @elseif($transaction->status == 'cancelled')
                                     <div class="form-group">
-                                        {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                                        {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
                                         <h6 class="bg-red badge">{{ucfirst($transaction->status) }}</h6>
                                     </div>
                                 @endif
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! Form::label('arrival_date', __('hms::lang.arrival_date') . ':') !!}
+                                    {!! html()->label(__('hms::lang.arrival_date') . ':', 'arrival_date')->attributes([]) !!}
                                     {{ @format_date($transaction->hms_booking_arrival_date_time) }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! Form::label('arrival_time', __('hms::lang.arrival_time') . ':') !!}
+                                    {!! html()->label(__('hms::lang.arrival_time') . ':', 'arrival_time')->attributes([]) !!}
                                     {{ @format_time($transaction->hms_booking_arrival_date_time) }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! Form::label('departure_date', __('hms::lang.departure_date') . ':') !!}
+                                    {!! html()->label(__('hms::lang.departure_date') . ':', 'departure_date')->attributes([]) !!}
                                     {{ @format_date($transaction->hms_booking_departure_date_time) }}
                                 </div>
                                 <div class="days_count"></div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! Form::label('departure_time', __('hms::lang.departure_time') . ':') !!}
+                                    {!! html()->label(__('hms::lang.departure_time') . ':', 'departure_time')->attributes([]) !!}
                                     {{ @format_time($transaction->hms_booking_departure_date_time) }}
                                 </div>
                             </div>
@@ -236,7 +236,7 @@
                                         <div class="row">
                                             <div class="col-xs-12">
                                                 <div class="form-group">
-                                                    {!! Form::label('coupon_code', __('hms::lang.coupon_code') . ':') !!}
+                                                    {!! html()->label(__('hms::lang.coupon_code') . ':', 'coupon_code')->attributes([]) !!}
                                                     {{ $transaction->coupon_code }}
                                                 </div>
                                             </div>
@@ -248,13 +248,13 @@
                 </div>
             </div>
         </div>
-    {!! Form::open(['url' => action([\Modules\Hms\Http\Controllers\HmsBookingController::class, 'post_check_in_out'], $transaction->id), 'method' => 'put', 'id' => 'check_in_out' ]) !!}
+    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Hms\Http\Controllers\HmsBookingController::class, 'post_check_in_out'], $transaction->id), 'method' => 'put', 'id' => 'check_in_out' ]))->open() !!}
     <div class="col-md-12">
         <div class="col-md-3">
                 @if(empty($transaction->check_in))
                     <div class="form-group">
-                        {!! Form::label('date_from', __('hms::lang.check_in_date_time') . '*') !!}
-                        {!! Form::text('in_out_date_time', null, [
+                        {!! html()->label(__('hms::lang.check_in_date_time') . '*', 'date_from')->attributes([]) !!}
+                        {!! html()->text('in_out_date_time', null)->attributes([
                             'class' => 'form-control date_picker',
                             'required',
                             'readonly',
@@ -262,8 +262,8 @@
                     </div>
                 @elseif (!empty($transaction->check_in) && empty($transaction->check_out))
                     <div class="form-group">
-                        {!! Form::label('date_from', __('hms::lang.check_out_date_time') . '*') !!}
-                        {!! Form::text('in_out_date_time', null, [
+                        {!! html()->label(__('hms::lang.check_out_date_time') . '*', 'date_from')->attributes([]) !!}
+                        {!! html()->text('in_out_date_time', null)->attributes([
                             'class' => 'form-control date_picker',
                             'required',
                             'readonly',
@@ -284,7 +284,7 @@
             <button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
         @endif
     </div>
-    {!! Form::close() !!}
+    {!! html()->form()->close() !!}
   
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->

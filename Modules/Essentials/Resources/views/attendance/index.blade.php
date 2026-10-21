@@ -112,15 +112,15 @@
                             @can('essentials.crud_all_attendance')
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        {!! Form::label('employee_id', __('essentials::lang.employee') . ':') !!}
-                                        {!! Form::select('employee_id', $employees, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
+                                        {!! html()->label(__('essentials::lang.employee') . ':', 'employee_id')->attributes([]) !!}
+                                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('employee_id', $employees, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
                                     </div>
                                 </div>
                             @endcan
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    {!! Form::label('date_range', __('report.date_range') . ':') !!}
-                                    {!! Form::text('date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                                    {!! html()->label(__('report.date_range') . ':', 'date_range')->attributes([]) !!}
+                                    {!! html()->text('date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                                 </div>
                             </div>
                             @can('essentials.crud_all_attendance')

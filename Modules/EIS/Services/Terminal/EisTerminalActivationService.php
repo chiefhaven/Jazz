@@ -73,7 +73,9 @@ class EisTerminalActivationService
                 }
             }
 
-            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
+            if ($result['success']) {
+                \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
+            }
 
             return $result;
 
