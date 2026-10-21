@@ -200,9 +200,7 @@
                             icon: 'success'
                         });
                         
-                        if (result.data) {
-                            updateTerminalUI(result.data);
-                        }
+                        getTerminalStatus();
                         
                         // Display activation code if returned
                         if (result.activation_code) {
