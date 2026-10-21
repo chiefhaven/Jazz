@@ -4,6 +4,7 @@ namespace Modules\EIS\Services\Sales;
 
 use App\Transaction;
 use App\TransactionSellLine;
+use App\BusinessLocation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSetting;
@@ -113,7 +114,7 @@ class SaleTransformer
         }
 
         // Get site ID with fallback
-        $siteId = $this->getSiteId($settings);
+        $siteId = $this->getSiteId($transaction, $settings);
 
         // Get buyer information
         $buyerInfo = $this->getBuyerInfo($transaction);
@@ -276,9 +277,21 @@ class SaleTransformer
     /**
      * Get site ID with proper fallbacks
      */
-    private function getSiteId(EisSetting $settings): string
+    private function getSiteId(Transaction $transaction, EisSetting $settings): string
     {
-        return (string) ($settings->branch_id ?? 
+        $locationSiteId = null;
+        if ($transaction->location_id) {
+            $locationSiteId = BusinessLocation::withTrashed()
+                ->where('business_id', $transaction->business_id)
+                ->where('id', $transaction->location_id)
+                ->value('eis_site_id');
+        }
+
+        if (is_string($locationSiteId) && trim($locationSiteId) !== '') {
+            return trim($locationSiteId);
+        }
+
+        return (string) ($settings->branch_id ??
                         $settings->site_id ?? 
                         $settings->device_id ?? 
                         self::DEFAULT_SITE_ID);
