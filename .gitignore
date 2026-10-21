@@ -37,3 +37,4 @@ storage.zip
 vendor.zip
 /storage
 storage/logs/laravel.log
+*.log
