@@ -60,15 +60,24 @@ class EisTerminalActivationService
             if ($result['success']) {
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
-                $jwtToken = $result['terminal_credentials']['jwtToken'];
-                $siteId = $result['configuration']['terminalSite']['siteId'];
+                $jwtToken = $result['terminal_credentials']['jwtToken'] ?? null;
                 
-                if ($terminalId && $secretKey) {
-                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey, $siteId);
+                if ($terminalId && $secretKey && $jwtToken) {
+                    // Send activation confirmation to EIS API
+                    $confirmationSuccess = $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
+                    
+                    if (!$confirmationSuccess) {
+                        Log::warning('Activation confirmation could not be sent to EIS', [
+                            'terminal_id' => $terminalId,
+                            'business_id' => $businessId,
+                            'note' => 'Terminal configuration was saved but EIS confirmation may not have been received'
+                        ]);
+                    }
                 } else {
-                    Log::warning('Missing terminal ID or secret key for confirmation', [
+                    Log::warning('Missing required credentials for confirmation', [
                         'terminal_id' => $terminalId,
-                        'has_secret_key' => !empty($secretKey)
+                        'has_secret_key' => !empty($secretKey),
+                        'has_jwt_token' => !empty($jwtToken)
                     ]);
                 }
             }
