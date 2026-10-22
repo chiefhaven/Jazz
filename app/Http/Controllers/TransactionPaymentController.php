@@ -416,7 +416,23 @@ class TransactionPaymentController extends Controller
                 DB::beginTransaction();
 
                 if (! empty($payment->transaction_id)) {
-                    TransactionPayment::deletePayment($payment);
+                    $business_id = request()->session()->get('user.business_id');
+                    $result = \App\Services\Sales\SavedSaleWriteGuard::splitPaymentDeletion(
+                        DB::connection(),
+                        $payment->transaction_id,
+                        $business_id,
+                        auth()->user()->id,
+                        $payment->id,
+                        function ($is_split) use ($id, $business_id) {
+                            $payment = TransactionPayment::where('id', $id)
+                                ->whereHas('transaction', function ($query) use ($business_id) {
+                                    $query->where('business_id', $business_id);
+                                })->lockForUpdate()->findOrFail($id);
+                            TransactionPayment::deletePayment($payment);
+
+                            return ['success' => true];
+                        }
+                    );
                 } else { //advance payment
                     $adjusted_payments = TransactionPayment::where('parent_id',
                                                 $payment->id)

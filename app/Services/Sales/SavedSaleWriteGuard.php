@@ -12,6 +12,7 @@ class SavedSaleWriteGuard
 {
     private static $checkout = [];
     private static $payment = [];
+    private static $paymentDeletion = [];
     private static $stockAllocation = [];
 
     /** No callback is supplied by a caller. Only the verified reconciliation
@@ -200,15 +201,138 @@ class SavedSaleWriteGuard
         }
     }
 
+    public static function splitPaymentDeletion(Connection $db, $id, $businessId, $userId, $paymentId, callable $work)
+    {
+        if ($db->transactionLevel() < 1) {
+            throw new SavedSplitException('payment_requires_transaction', 'Split payment deletion requires a locked database transaction.');
+        }
+
+        $header = $db->table('transactions')->where('id', $id)->where('business_id', $businessId)
+            ->lockForUpdate()->first();
+        if (!$header || $header->type !== 'sell' || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
+            return $work(false);
+        }
+
+        $split = $db->table('saved_sale_split_operations')->where('business_id', $businessId)
+            ->where(function ($q) use ($id) {
+                $q->where('source_id', $id)->orWhere('result_id', $id);
+            })->lockForUpdate()->first();
+        if (!$split) {
+            return $work(false);
+        }
+
+        $payment = $db->table('transaction_payments')->where('id', $paymentId)
+            ->where('transaction_id', $id)->lockForUpdate()->first();
+        if (!$payment) {
+            throw new SavedSplitException('payment_not_found', 'Payment not found for this split sale.', 404);
+        }
+        if (!empty($payment->parent_id)) {
+            throw new SavedSplitException('split_payment_delete_unsupported',
+                'Payments allocated from a customer advance cannot be deleted here.');
+        }
+
+        $operation = (string) \Illuminate\Support\Str::uuid();
+        $payloadHash = hash('sha256', json_encode([
+            'kind' => 'payment_delete',
+            'business_id' => (int) $businessId,
+            'user_id' => (int) $userId,
+            'transaction_id' => (int) $id,
+            'payment_id' => (int) $paymentId,
+            'payment' => (array) $payment,
+        ], JSON_THROW_ON_ERROR));
+        $version = hash('sha256', json_encode([
+            'header' => (array) $header,
+            'payments' => $db->table('transaction_payments')->where('transaction_id', $id)
+                ->orderBy('id')->lockForUpdate()->get()->map(function ($row) {
+                    return (array) $row;
+                })->all(),
+        ], JSON_THROW_ON_ERROR));
+        $now = date('Y-m-d H:i:s');
+        $operationId = $db->table('saved_sale_split_operations')->insertGetId([
+            'business_id' => $businessId,
+            'user_id' => $userId,
+            'operation_id' => $operation,
+            'source_id' => $id,
+            'result_id' => $id,
+            'payload_hash' => $payloadHash,
+            'expected_version' => $version,
+            'allocation_json' => json_encode([
+                'kind' => 'payment_delete',
+                'transaction_id' => (int) $id,
+                'payment_id' => (int) $paymentId,
+                'before_version' => $version,
+            ], JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $key = spl_object_id($db).':'.$id;
+        if (isset(self::$paymentDeletion[$key])) {
+            throw new SavedSplitException('payment_delete_reentrant', 'Nested split payment deletions are forbidden.');
+        }
+        self::$paymentDeletion[$key] = [
+            'level' => $db->transactionLevel(),
+            'header' => (array) $header,
+            'payment_id' => $paymentId,
+        ];
+
+        try {
+            $response = $work(true);
+            if (!is_array($response) || empty($response['success'])) {
+                throw new SavedSplitException('payment_delete_incomplete', 'Split payment was not deleted; no operation was recorded.');
+            }
+
+            $db->table('saved_sale_split_operations')->where('id', $operationId)->update([
+                'response_json' => json_encode($response, JSON_THROW_ON_ERROR),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            return $response;
+        } finally {
+            unset(self::$paymentDeletion[$key]);
+        }
+    }
+
     private static function isPayment(Connection $db, $id)
     {
         $scope = self::$payment[spl_object_id($db).':'.$id] ?? null;
         return $scope && $db->transactionLevel() >= $scope['level'];
     }
 
+    private static function isPaymentDeletion(Connection $db, $id)
+    {
+        $scope = self::$paymentDeletion[spl_object_id($db).':'.$id] ?? null;
+        return $scope && $db->transactionLevel() >= $scope['level'];
+    }
+
     private static function validatePaymentModel($model, $headerModel, $id)
     {
-        $scope = self::$payment[spl_object_id($model->getConnection()).':'.$id] ?? null;
+        $db = $model->getConnection();
+        $scope = self::$payment[spl_object_id($db).':'.$id] ?? null;
+        $deletion = self::$paymentDeletion[spl_object_id($db).':'.$id] ?? null;
+        if ($deletion && $db->transactionLevel() >= $deletion['level']) {
+            if ($headerModel) {
+                $dirty = array_diff(array_keys($model->getDirty()), ['payment_status', 'updated_at']);
+                if (!$model instanceof \App\Transaction || !$model->exists ||
+                    (string) $model->getKey() !== (string) $id ||
+                    (string) $model->getRawOriginal('business_id') !== (string) $deletion['header']['business_id'] ||
+                    $dirty || !in_array($model->payment_status, ['due', 'partial', 'paid'], true)) {
+                    throw new SavedSplitException('split_write_fenced',
+                        'Split payment deletion may only update payment status on its saved sale.');
+                }
+                return;
+            }
+
+            if (!$model instanceof \App\TransactionPayment || !$model->exists ||
+                (string) $model->getKey() !== (string) $deletion['payment_id'] ||
+                (string) $model->getRawOriginal('transaction_id') !== (string) $id ||
+                !empty($model->parent_id) || $model->isDirty()) {
+                throw new SavedSplitException('split_write_fenced',
+                    'Split payment deletion may only delete the selected payment.');
+            }
+            return;
+        }
+
         if (!$scope || $model->getConnection()->transactionLevel() < $scope['level']) {
             throw new SavedSplitException('split_write_fenced', 'Invalid split payment write scope.');
         }
@@ -258,7 +382,8 @@ class SavedSaleWriteGuard
             ->where(function ($q) use ($id) {
                 $q->where('source_id', $id)->orWhere('result_id', $id);
             })->lockForUpdate()->first();
-        if ($split && !self::isCheckout($db, $id) && !self::isPayment($db, $id)) {
+        if ($split && !self::isCheckout($db, $id) && !self::isPayment($db, $id) &&
+            !self::isPaymentDeletion($db, $id)) {
             throw new SavedSplitException('split_write_fenced',
                 'This saved split bill is read-only to legacy writers. Use a split-aware payment or checkout.');
         }
@@ -337,7 +462,8 @@ class SavedSaleWriteGuard
         $ids = array_unique(array_filter($ids));
         sort($ids, SORT_NUMERIC);
         foreach ($ids as $id) {
-            if (self::isPayment($model->getConnection(), $id)) {
+            if (self::isPayment($model->getConnection(), $id) ||
+                self::isPaymentDeletion($model->getConnection(), $id)) {
                 self::validatePaymentModel($model, $headerModel, $id);
             }
             self::lock($model->getConnection(), $id);

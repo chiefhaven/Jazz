@@ -31,6 +31,15 @@ $container->instance('db', $capsule->getDatabaseManager());
 $container->instance('events', $events);
 $container->instance('translator', new Illuminate\Translation\Translator(new Illuminate\Translation\ArrayLoader(), 'en'));
 $container->instance('log', new Psr\Log\NullLogger());
+$config = new Illuminate\Config\Repository([
+    'database' => ['default' => 'default', 'connections' => ['default' => [
+        'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '',
+    ]]],
+    'auth' => ['defaults' => ['guard' => 'fixture'], 'guards' => ['fixture' => ['driver' => 'fixture']]],
+    'activitylog' => ['enabled' => true, 'default_log_name' => 'default', 'activity_model' => \Spatie\Activitylog\Models\Activity::class, 'table_name' => 'activity_log'],
+]);
+$container->instance('config', $config);
+$container->instance(Illuminate\Contracts\Config\Repository::class, $config);
 Facade::setFacadeApplication($container); Facade::clearResolvedInstances();
 if (! class_exists('DB')) { class_alias(DB::class, 'DB'); }
 if (! class_exists('Log')) { class_alias(Illuminate\Support\Facades\Log::class, 'Log'); }
@@ -61,14 +70,21 @@ $schema->create('saved_sale_split_operations', function (Blueprint $t) {
     $t->text('response_json')->nullable(); $t->timestamps();
 });
 $schema->create('business', function (Blueprint $t) {
-    $t->increments('id'); $t->text('custom_labels')->nullable();
+    $t->increments('id'); $t->text('custom_labels')->nullable(); $t->string('time_zone')->default('UTC');
 });
 $schema->create('business_locations', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->string('name');
     $t->text('default_payment_accounts')->nullable();
 });
+$schema->create('activity_log', function (Blueprint $t) {
+    $t->increments('id'); $t->string('log_name')->nullable(); $t->text('description');
+    $t->string('subject_type')->nullable(); $t->integer('subject_id')->nullable();
+    $t->string('causer_type')->nullable(); $t->integer('causer_id')->nullable();
+    $t->string('batch_uuid')->nullable(); $t->text('properties')->nullable();
+    $t->integer('business_id')->nullable(); $t->timestamps();
+});
 DB::table('contacts')->insert(['id' => 1, 'business_id' => 7]);
-DB::table('business')->insert(['id' => 7]);
+DB::table('business')->insert(['id' => 7, 'time_zone' => 'UTC']);
 DB::table('business_locations')->insert([
     'id' => 2, 'business_id' => 7, 'name' => 'Fixture Location',
     'default_payment_accounts' => json_encode([
@@ -84,8 +100,14 @@ $redirector = new Illuminate\Routing\Redirector(new Illuminate\Routing\UrlGenera
 $redirector->setSession($session); $container->instance('redirect', $redirector);
 $user = Mockery::mock(App\User::class)->makePartial();
 $user->id = 1; $user->business_id = 7; $user->shouldReceive('can')->andReturn(true);
-$auth = Mockery::mock(); $auth->shouldReceive('user')->andReturn($user);
+$authGuard = Mockery::mock();
+$authGuard->shouldReceive('user')->andReturn($user);
+$auth = Mockery::mock(Illuminate\Auth\AuthManager::class);
+$auth->shouldReceive('guard')->andReturn($authGuard);
+$auth->shouldReceive('user')->andReturn($user);
+$container->instance(Illuminate\Auth\AuthManager::class, $auth);
 $container->instance(Illuminate\Contracts\Auth\Factory::class, $auth);
+$container->instance('auth', $auth);
 /** @var TransactionUtil&\Mockery\MockInterface $util */
 $util = Mockery::mock(TransactionUtil::class)->makePartial();
 $util->shouldReceive('num_uf')->andReturnUsing(fn ($amount) => (float) $amount);
@@ -122,6 +144,14 @@ function postPayment(Transaction $sale, $amount, string $method = 'cash', ?strin
 }
 function addPayment(Transaction $sale, $amount, string $method = 'cash', ?string $operation = null): void {
     paymentCheck(postPayment($sale, $amount, $method, $operation)['success'] === true, 'Payment saved successfully');
+}
+function deletePayment(TransactionPayment $payment): array {
+    global $controller, $session, $container;
+    $request = Request::create('/payments/'.$payment->id, 'DELETE', [], [], [], [
+        'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest',
+    ]);
+    $request->setLaravelSession($session); $container->instance('request', $request);
+    return $controller->destroy($payment->id);
 }
 function trackSplit(Transaction $sale): void {
     DB::table('saved_sale_split_operations')->insert([
@@ -208,6 +238,37 @@ try {
 paymentCheck((float) $sale->fresh()->final_total === 100.0
     && TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
     'Rejected split header mutation rolls back completely');
+
+$sale = saleFixture(); trackSplit($sale);
+addPayment($sale, 60, 'cash', (string) Illuminate\Support\Str::uuid());
+$splitPayment = TransactionPayment::where('transaction_id', $sale->id)->firstOrFail();
+DB::beginTransaction();
+try {
+    $splitPayment->delete();
+    DB::commit();
+    throw new RuntimeException('Expected direct split payment deletion to be rejected');
+} catch (\App\Services\Sales\SavedSplitException $e) {
+    DB::rollBack();
+    paymentCheck($e->errorCode === 'split_write_fenced', 'Direct split payment deletion remains fenced');
+}
+paymentCheck(TransactionPayment::whereKey($splitPayment->id)->exists(), 'Rejected direct deletion preserves the split payment');
+$deleteResponse = deletePayment($splitPayment);
+paymentCheck($deleteResponse['success'] === true
+    && !TransactionPayment::whereKey($splitPayment->id)->exists()
+    && $sale->fresh()->payment_status === 'due',
+    'Split payment deletion uses the scoped guard and recalculates status');
+$deleteOperation = DB::table('saved_sale_split_operations')->where('source_id', $sale->id)
+    ->where('result_id', $sale->id)->orderByDesc('id')->first();
+paymentCheck(json_decode($deleteOperation->allocation_json, true)['kind'] === 'payment_delete'
+    && !empty($deleteOperation->response_json), 'Split payment deletion is recorded in the durable ledger');
+
+$ordinarySale = saleFixture();
+addPayment($ordinarySale, 50);
+$ordinaryPayment = TransactionPayment::where('transaction_id', $ordinarySale->id)->firstOrFail();
+paymentCheck(deletePayment($ordinaryPayment)['success'] === true
+    && !TransactionPayment::whereKey($ordinaryPayment->id)->exists()
+    && $ordinarySale->fresh()->payment_status === 'due',
+    'Ordinary sale payment deletion remains unchanged');
 
 // Edited partial payment becoming paid.
 $sale = saleFixture(); addPayment($sale, 50); $before = count($submitted);
