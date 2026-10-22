@@ -1442,7 +1442,7 @@ class SellController extends Controller
     {
         $business_id = request()->session()->get('user.business_id');
         
-        $count = Transaction::where('business_id', $business_id)
+        $unpaidInvoices = Transaction::where('business_id', $business_id)
                         ->where('type', 'sell')
                         ->where(function($query) {
                             $query->where('payment_status', 'due')
@@ -1450,11 +1450,21 @@ class SellController extends Controller
                                   ->orWhereNull('payment_status');
                         })
                         ->where('status', 'final')
-                        ->count();
+                        ->with(['payment_lines'])
+                        ->get();
+        
+        $total_due = 0;
+        foreach ($unpaidInvoices as $invoice) {
+            $due_amount = $invoice->final_total - $invoice->payment_lines->sum('amount');
+            if ($due_amount > 0) {
+                $total_due += $due_amount;
+            }
+        }
     
         return response()->json([
-            'count' => $count,
-            'has_unpaid' => $count > 0
+            'count' => $unpaidInvoices->count(),
+            'has_unpaid' => $unpaidInvoices->count() > 0,
+            'total_due' => $this->transactionUtil->num_f($total_due, true)
         ]);
     }
 
