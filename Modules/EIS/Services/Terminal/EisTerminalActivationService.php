@@ -502,7 +502,7 @@ class EisTerminalActivationService
                 return [
                     'success' => true,
                     'message' => $response->remark ?? 'Terminal activated successfully',
-                    'data' => $this->getTerminalDetails($terminal, $activatedTerminal),
+                    'data' => $this->getTerminalDetails($terminal, $activatedTerminal, $businessId),
                     'terminal_credentials' => $terminalCredentials,
                     'activation_code' => $activationCode,
                     'status_code' => $response->statusCode ?? 1
@@ -698,7 +698,7 @@ class EisTerminalActivationService
      * @param object|null $activatedTerminal
      * @return array
      */
-    private function getTerminalDetails(EisTerminalConfiguration $terminal, ?object $activatedTerminal = null): array
+    private function getTerminalDetails(EisTerminalConfiguration $terminal, ?object $activatedTerminal = null, ?int $businessId = null): array
     {
         $details = [
             'id' => $terminal->id,
@@ -729,6 +729,12 @@ class EisTerminalActivationService
             'confirmed_at' => $terminal->confirmed_at,
             'confirmation_response' => $terminal->confirmation_response ? $terminal->confirmation_response : null,
         ];
+
+        // Add business location branch if businessId is provided
+        if ($businessId) {
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)->first();
+            $details['branch'] = $businessLocation?->name ?? null;
+        }
 
         // Add site details
         if ($terminal->terminalSite) {
@@ -804,7 +810,7 @@ class EisTerminalActivationService
                 return [
                     'success' => true,
                     'message' => 'Terminal is already inactive',
-                    'data' => $this->getTerminalDetails($terminal)
+                    'data' => $this->getTerminalDetails($terminal, null, $businessId)
                 ];
             }
 
@@ -825,7 +831,7 @@ class EisTerminalActivationService
             return [
                 'success' => true,
                 'message' => 'Terminal deactivated successfully',
-                'data' => $this->getTerminalDetails($terminal)
+                'data' => $this->getTerminalDetails($terminal, null, $businessId)
             ];
 
         } catch (\Exception $e) {
@@ -904,7 +910,7 @@ class EisTerminalActivationService
             return [
                 'success' => true,
                 'message' => 'Terminal ' . ($newStatus ? 'activated' : 'deactivated') . ' successfully',
-                'data' => $this->getTerminalDetails($terminal)
+                'data' => $this->getTerminalDetails($terminal, null, $businessId)
             ];
 
         } catch (\Exception $e) {
@@ -1028,7 +1034,7 @@ class EisTerminalActivationService
                 'success' => true,
                 'is_active' => $terminal->is_active,
                 'is_confirmed' => $terminal->is_confirmed ?? false,
-                'data' => $this->getTerminalDetails($terminal)
+                'data' => $this->getTerminalDetails($terminal, null, $businessId)
             ];
 
         } catch (\Exception $e) {
@@ -1251,7 +1257,7 @@ class EisTerminalActivationService
             return [
                 'success' => true,
                 'message' => 'Terminal synced successfully',
-                'data' => $terminal ? $this->getTerminalDetails($terminal) : null
+                'data' => $terminal ? $this->getTerminalDetails($terminal, null, $businessId) : null
             ];
 
         } catch (\Exception $e) {

@@ -589,6 +589,7 @@
                 $('#email_address_display').text(data.email_address || 'N/A');
                 $('#phone_number_display').text(data.phone_number || 'N/A');
                 $('#activation_date_display').text(data.activation_date ? new Date(data.activation_date).toLocaleString() : 'N/A');
+                $('#branch').text(data.branch || 'N/A');
                 
                 // Update credentials
                 if (data.terminal_credentials) {
