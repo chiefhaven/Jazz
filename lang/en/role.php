@@ -12,6 +12,9 @@ return [
     */
 
     'add_role' => 'Add Role',
+    'restaurant_kitchen' => 'View and complete kitchen dispatch tickets',
+    'restaurant_bar' => 'View and complete bar dispatch tickets',
+    'restaurant_approve_void' => 'Approve or reject dispatched bill reductions (reason and stock disposition required)',
     'edit_role' => 'Edit Role',
     'user' => 'User',
     'supplier' => 'Supplier',

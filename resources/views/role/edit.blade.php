@@ -1785,6 +1785,9 @@
             </div>
           </div>
         @endif
+        @if(in_array('tables', $enabled_modules))
+          @include('role.partials.restaurant_workflow_permissions')
+        @endif
         @include('role.partials.module_permissions')
         <div class="row">
         <div class="col-md-12 text-center">

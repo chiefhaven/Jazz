@@ -53,6 +53,14 @@ Route::middleware('auth:api', 'timezone')->prefix('connector/api')->group(functi
     Route::get('sell/{id}/add-items-preview', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'additionsPreview']);
     Route::post('sell/{id}/add-items', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'addItems']);
     Route::post('sell/{id}/edit-items', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'editItems']);
+    Route::get('restaurant/{action}', [Modules\Connector\Http\Controllers\Api\RestaurantBillController::class, 'handle'])
+        ->where('action', 'config|board|queue|approvals');
+    Route::post('restaurant/create', [Modules\Connector\Http\Controllers\Api\RestaurantBillController::class, 'handle'])
+        ->defaults('action', 'create');
+    Route::get('restaurant/{action}/{id}', [Modules\Connector\Http\Controllers\Api\RestaurantBillController::class, 'handle'])
+        ->where('action', 'preview');
+    Route::post('restaurant/{action}/{id}', [Modules\Connector\Http\Controllers\Api\RestaurantBillController::class, 'handle'])
+        ->where('action', 'edit|approve|dispatch|transition|ticket|pay|retry-fiscal');
 
     Route::resource('sell', Modules\Connector\Http\Controllers\Api\SellController::class)->only('index', 'store', 'show', 'update', 'destroy');
 

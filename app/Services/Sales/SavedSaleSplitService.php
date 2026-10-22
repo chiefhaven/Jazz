@@ -21,7 +21,8 @@ class SavedSaleSplitService
         'contact_id', 'customer_group_id', 'transaction_date', 'created_by', 'is_suspend',
         'is_direct_sale', 'is_created_from_api', 'exchange_rate', 'additional_notes', 'staff_note',
         'custom_field_1', 'custom_field_2', 'custom_field_3', 'custom_field_4',
-        'selling_price_group_id', 'pay_term_number', 'pay_term_type', 'source'];
+        'selling_price_group_id', 'pay_term_number', 'pay_term_type', 'source',
+        'res_table_id', 'res_waiter_id', 'is_kitchen_order', 'res_order_status'];
     private const LINE_COPY = ['product_id', 'variation_id', 'quantity', 'unit_price_before_discount',
         'unit_price', 'unit_price_inc_tax', 'item_tax', 'tax_id', 'sell_line_note', 'children_type'];
     // Inactive configuration defaults do not represent a linked sale.
@@ -125,7 +126,21 @@ class SavedSaleSplitService
             $this->fail('split_not_found', 'Sale not found.', 404);
         }
         $h = (array) $header;
-        if (!$admin && (string) $h['created_by'] !== (string) $user->id) {
+        $restaurantManaged = $this->db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+            $this->db->table('restaurant_bills')->where('transaction_id', $id)->where('business_id', $user->business_id)->exists();
+        if ($restaurantManaged && $user->can('superadmin')) { $admin = true; }
+        if (!$restaurantManaged) {
+            foreach (['res_table_id', 'res_waiter_id', 'is_kitchen_order', 'res_order_status'] as $field) {
+                if (!self::zero($h[$field] ?? null)) {
+                    $this->fail('unsupported_restaurant_history', 'Legacy restaurant preparation history must be edited through its backend workflow, not the saved retail editor.');
+                }
+            }
+        }
+        if (!$admin && (string) $h['created_by'] !== (string) $user->id &&
+            !($restaurantManaged &&
+                ((string) ($h['res_waiter_id'] ?? '') === (string) $user->id ||
+                    ($user->can('sell.update') && ($user->can('sell.view') ||
+                        ($user->can('restaurant.approve_void') && RestaurantBillService::isEditing($this->db, $id))))))) {
             $this->fail('split_forbidden', 'Only the creator or a business admin may modify this saved sale.', 403);
         }
         if (!$this->db->table('users')->where('id', $h['created_by'])->where('business_id', $user->business_id)->exists()) {
@@ -423,6 +438,7 @@ class SavedSaleSplitService
             $g = $this->graph($id, $user, $admin);
             $reason = null;
             try {
+                $this->notRestaurantSplit($id);
                 $this->eligible($g);
             } catch (SavedSplitException $e) {
                 $reason = ['code' => $e->errorCode, 'message' => $e->getMessage()];
@@ -480,6 +496,7 @@ class SavedSaleSplitService
         try {
             return $this->db->transaction(function () use ($id, $user, $admin, $input, $operation, $quantities, $hash) {
                 $g = $this->graph($id, $user, $admin); // Lock header first, deterministic graph order.
+                $this->notRestaurantSplit($id);
                 $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
                     ->where('operation_id', $operation)->lockForUpdate()->first();
                 if ($existing) {
@@ -607,6 +624,14 @@ class SavedSaleSplitService
         $this->fail('invalid_split_partition', 'Source line disappeared.');
     }
 
+    private function notRestaurantSplit($id): void
+    {
+        if ($this->db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+            $this->db->table('restaurant_bills')->where('transaction_id', $id)->exists()) {
+            $this->fail('restaurant_workflow_required', 'Use mixed/partial cashier tenders for restaurant bills; splitting dispatched bills requires a ticket-aware partition.');
+        }
+    }
+
     private function checkoutEligible(array $g, $user, $admin)
     {
         $this->eligible($g);
@@ -672,6 +697,8 @@ class SavedSaleSplitService
             catch (SavedSplitException $e) { $reason = ['code' => $e->errorCode, 'message' => $e->getMessage()]; }
             return ['eligible' => $reason === null, 'reason' => $reason,
                 'location_id' => (int) $g['header']['location_id'],
+                'restaurant_managed' => $this->db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+                    $this->db->table('restaurant_bills')->where('transaction_id', $id)->exists(),
                 'expected_version' => self::fingerprint($g), 'source' => $this->bill($g)];
         });
     }
@@ -684,6 +711,90 @@ class SavedSaleSplitService
     public function editItems($id, $user, array $input)
     {
         return $this->writeItems($id, $user, $input, true);
+    }
+
+    public function createRestaurantBill($user, int $locationId, int $contactId, int $tableId, array $items)
+    {
+        if ($this->db->transactionLevel() < 1) {
+            $this->fail('restaurant_requires_transaction', 'Restaurant creation requires an enclosing workflow transaction.');
+        }
+        $this->storage(['variation_location_details', 'product_locations', 'reference_counts', 'invoice_schemes']);
+        if (!$user->hasRole('Admin#'.$user->business_id) && !$user->can('superadmin') && !$user->can('sell.create')) {
+            $this->fail('restaurant_forbidden', 'Backend sell.create permission is required.', 403);
+        }
+        $now = date('Y-m-d H:i:s');
+        $header = ['business_id' => $user->business_id, 'location_id' => $locationId, 'type' => 'sell',
+            'status' => 'final', 'payment_status' => 'due', 'contact_id' => $contactId, 'created_by' => $user->id,
+            'transaction_date' => $now, 'invoice_token' => Str::random(32), 'source' => 'desktop_pos',
+            'tax_amount' => '0.0000', 'exchange_rate' => '1.0000', 'is_suspend' => 0, 'is_direct_sale' => 0,
+            'is_created_from_api' => 1, 'res_table_id' => $tableId, 'res_waiter_id' => $user->id,
+            'created_at' => $now, 'updated_at' => $now];
+        $lines = [];
+        foreach ($items as $variationId => $quantity) {
+            $lines[] = $this->newRestaurantLine($header, (int) $variationId, $quantity, $now);
+        }
+        $header['total_before_tax'] = $header['final_total'] = self::decimal($this->total($lines));
+        if (bccomp($header['final_total'], '0', 4) <= 0) {
+            $this->fail('restaurant_positive_total_required', 'A restaurant bill must have a positive total; zero-value/full-void clearing is not supported.', 422);
+        }
+        $header['invoice_no'] = $this->systemInvoiceNumber($header);
+        $id = $this->db->table('transactions')->insertGetId($header);
+        foreach ($lines as $line) {
+            $line['transaction_id'] = $id;
+            $this->db->table('transaction_sell_lines')->insert($line);
+        }
+        $g = $this->loadGraph((array) $this->db->table('transactions')->where('id', $id)->first());
+        // Check ordinary pricing/metadata before stock; final mapping verification follows allocation.
+        $draft = $g;
+        $draft['header']['status'] = 'draft';
+        $business = $this->additionsEligible($draft);
+        $settings = empty($business->pos_settings) ? [] : json_decode($business->pos_settings, true, 512, JSON_THROW_ON_ERROR);
+        if (!empty($settings['disable_credit_sale_button']) ||
+            (!$user->hasRole('Admin#'.$user->business_id) && !$user->can('superadmin') && $user->can('disable_credit_sale'))) {
+            $this->fail('restaurant_forbidden', 'Unpaid order placement is disabled by backend POS settings.', 403);
+        }
+        SavedSaleWriteGuard::checkout($this->db, $id, function () use ($g, $settings, $business, $id, $locationId, $user) {
+            $this->decreaseSavedStock($g, $settings);
+            (new \App\Utils\TransactionUtil())->mapPurchaseSell(['id' => $user->business_id, 'location_id' => $locationId,
+                'accounting_method' => $business->accounting_method, 'pos_settings' => $settings],
+                \App\TransactionSellLine::where('transaction_id', $id)->orderBy('id')->get(), 'purchase', false);
+        });
+        $this->eligible($this->loadGraph((array) $this->db->table('transactions')->where('id', $id)->first()));
+        return $id;
+    }
+
+    private function newRestaurantLine(array $h, int $variationId, string $quantity, string $now)
+    {
+        $variation = $this->db->table('variations')->where('id', $variationId)->whereNull('deleted_at')->lockForUpdate()->first();
+        $product = $variation ? $this->db->table('products')->where('id', $variation->product_id)
+            ->where('business_id', $h['business_id'])->whereNull('deleted_at')->lockForUpdate()->first() : null;
+        if (!$product || !in_array($product->type, ['single', 'variable'], true) ||
+            !empty($product->not_for_selling) || !empty($product->is_inactive) ||
+            !$this->db->table('product_locations')->where('product_id', $product->id)->where('location_id', $h['location_id'])->exists()) {
+            $this->fail('invalid_add_product', 'A selected product is unavailable at this order location.', 422);
+        }
+        $unit = $this->db->table('units')->where('id', $product->unit_id)->where('business_id', $h['business_id'])->first();
+        if (!$unit || (!$unit->allow_decimal && bccomp($quantity, bcadd($quantity, '0', 0), 4) !== 0)) {
+            $this->fail('invalid_unit_quantity', 'Quantity is invalid for the product base unit.', 422);
+        }
+        $price = self::decimal($variation->default_sell_price);
+        $rate = '0.0000';
+        if (!self::zero($product->tax ?? null)) {
+            $tax = $this->db->table('tax_rates')->where('id', $product->tax)->where('business_id', $h['business_id'])
+                ->select('tax_rates.*')->selectRaw('CAST(CAST(amount AS DECIMAL(22,4)) AS CHAR) AS decimal_amount')->first();
+            if (!$tax || !empty($tax->is_tax_group)) {
+                $this->fail('invalid_add_product', 'A supported product tax rate is required.', 422);
+            }
+            $rate = self::decimal($tax->decimal_amount);
+        }
+        if (bccomp($price, '0', 4) < 0 || bccomp($rate, '0', 4) < 0) {
+            $this->fail('invalid_add_product', 'Product price and tax must be nonnegative.', 422);
+        }
+        $taxAmount = self::round4(bcdiv(bcmul($price, $rate, 8), '100', 8));
+        return ['product_id' => $product->id, 'variation_id' => $variationId, 'quantity' => $quantity,
+            'unit_price_before_discount' => $price, 'unit_price' => $price, 'item_tax' => $taxAmount,
+            'unit_price_inc_tax' => bcadd($price, $taxAmount, 4), 'tax_id' => $product->tax ?? null,
+            'children_type' => '', 'created_at' => $now, 'updated_at' => $now];
     }
 
     private function writeItems($id, $user, array $input, bool $editing)
@@ -719,6 +830,11 @@ class SavedSaleSplitService
                 if ($existing) { return $this->replay($existing, $user, $hash); }
                 if (!hash_equals(self::fingerprint($g), $input['expected_version'])) {
                     $this->fail('stale_split_version', 'The order changed. Refresh before saving items.');
+                }
+                if ($this->db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+                    $this->db->table('restaurant_bills')->where('transaction_id', $id)->exists() &&
+                    !RestaurantBillService::isEditing($this->db, $id)) {
+                    $this->fail('restaurant_workflow_required', 'Use the restaurant bill editor for this order.');
                 }
                 $business = $this->additionsEligible($g);
                 $h = $g['header'];
@@ -822,26 +938,8 @@ class SavedSaleSplitService
                     }
                     unset($savedLine);
                     if ($matched) { continue; }
-                    $price = self::decimal($variation->default_sell_price);
-                    $rate = '0.0000';
-                    if (!self::zero($product->tax ?? null)) {
-                        $tax = $this->db->table('tax_rates')->where('id', $product->tax)->where('business_id', $h['business_id'])
-                            ->select('tax_rates.*')
-                            ->selectRaw('CAST(CAST(amount AS DECIMAL(22,4)) AS CHAR) AS decimal_amount')->first();
-                        if (!$tax || !empty($tax->is_tax_group)) {
-                            $this->fail('invalid_add_product', 'A supported product tax rate is required.', 422);
-                        }
-                        $rate = self::decimal($tax->decimal_amount);
-                    }
-                    if (bccomp($price, '0', 4) < 0 || bccomp($rate, '0', 4) < 0) {
-                        $this->fail('invalid_add_product', 'Product price and tax must be nonnegative.', 422);
-                    }
-                    $taxAmount = self::round4(bcdiv(bcmul($price, $rate, 8), '100', 8));
-                    $newIds[] = $this->db->table('transaction_sell_lines')->insertGetId([
-                        'transaction_id' => $id, 'product_id' => $product->id, 'variation_id' => $variationId,
-                        'quantity' => $quantity, 'unit_price_before_discount' => $price, 'unit_price' => $price,
-                        'item_tax' => $taxAmount, 'unit_price_inc_tax' => bcadd($price, $taxAmount, 4),
-                        'tax_id' => $product->tax ?? null, 'children_type' => '', 'created_at' => $now, 'updated_at' => $now]);
+                    $newIds[] = $this->db->table('transaction_sell_lines')->insertGetId(
+                        ['transaction_id' => $id] + $this->newRestaurantLine($h, $variationId, $quantity, $now));
                 }
                 $newLines = $this->db->table('transaction_sell_lines')->whereIn('id', $newIds)->orderBy('id')
                     ->get()->map(fn ($line) => (array) $line)->all();
@@ -858,7 +956,7 @@ class SavedSaleSplitService
                             'pos_settings' => $settings], \App\TransactionSellLine::hydrate($deltaLines)->sortBy('id'), 'purchase', false);
                     });
                 }
-                $total = $this->total(array_merge($expectedLines, $newLines));
+                $total = self::decimal($this->total(array_merge($expectedLines, $newLines)));
                 $this->db->table('transactions')->where('id', $id)->update([
                     'total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now]);
                 $after = $this->graph($id, $user, $admin);
@@ -944,6 +1042,10 @@ class SavedSaleSplitService
         try {
             return $this->db->transaction(function () use ($id, $user, $admin, $input, $amount, $operation, $hash) {
                 $g = $this->graph($id, $user, $admin);
+                if ($this->db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+                    $this->db->table('restaurant_bills')->where('transaction_id', $id)->exists()) {
+                    $this->fail('restaurant_workflow_required', 'Use cashier clearing for restaurant bills.');
+                }
                 $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
                     ->where('operation_id', $operation)->lockForUpdate()->first();
                 // Replay precedes unpaid/version validation: a paid retry is not

@@ -112,6 +112,11 @@ class SavedSaleWriteGuard
         if (!$header || $header->type !== 'sell' || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
             return $work(false);
         }
+        if ($db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+            $db->table('restaurant_bills')->where('transaction_id', $id)->exists() &&
+            !RestaurantBillService::isClearing($db, $id)) {
+            throw new SavedSplitException('restaurant_write_fenced', 'Use restaurant cashier clearing for this bill.');
+        }
 
         $split = $db->table('saved_sale_split_operations')->where('business_id', $businessId)
             ->where(function ($q) use ($id) {
@@ -211,6 +216,10 @@ class SavedSaleWriteGuard
             ->lockForUpdate()->first();
         if (!$header || $header->type !== 'sell' || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
             return $work(false);
+        }
+        if ($db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+            $db->table('restaurant_bills')->where('transaction_id', $id)->exists()) {
+            throw new SavedSplitException('restaurant_write_fenced', 'Restaurant tender corrections require an audited refund workflow; direct payment deletion is unavailable.');
         }
 
         $split = $db->table('saved_sale_split_operations')->where('business_id', $businessId)
@@ -399,6 +408,11 @@ class SavedSaleWriteGuard
         }
         // Never use a consistent-read snapshot here: a split may have committed
         // while this writer waited for the header lock.
+        if ($db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+            $db->table('restaurant_bills')->where('transaction_id', $id)->lockForUpdate()->exists() &&
+            !self::isCheckout($db, $id) && !self::isPayment($db, $id) && !self::isPaymentDeletion($db, $id)) {
+            throw new SavedSplitException('restaurant_write_fenced', 'Use the audited restaurant workflow to modify this bill.');
+        }
         $split = $db->table('saved_sale_split_operations')
             ->where('business_id', $header->business_id)
             ->where(function ($q) use ($id) {
