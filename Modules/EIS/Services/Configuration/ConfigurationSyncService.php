@@ -1188,15 +1188,45 @@ class ConfigurationSyncService
             |--------------------------------------------------------------------------
             */
 
-            // Get the business's default invoice scheme for sales
+            // Get or create the business's default invoice scheme for sales
             $defaultInvoiceScheme = \App\InvoiceScheme::getDefault($business->id);
-            $saleInvoiceSchemeId = $defaultInvoiceScheme ? $defaultInvoiceScheme->id : null;
+            
+            if (!$defaultInvoiceScheme) {
+                // If no default scheme exists, create one
+                $defaultInvoiceScheme = \App\InvoiceScheme::create([
+                    'business_id' => $business->id,
+                    'name' => 'Default Invoice Scheme',
+                    'scheme_type' => 'blank',
+                    'prefix' => 'INV-',
+                    'start_number' => 1,
+                    'total_digits' => 6,
+                    'is_default' => true,
+                ]);
+                Log::info('Created default invoice scheme for business', [
+                    'business_id' => $business->id,
+                    'invoice_scheme_id' => $defaultInvoiceScheme->id,
+                ]);
+            }
+            $invoiceSchemeId = $defaultInvoiceScheme->id;
 
             // Get or create a default invoice layout if needed
             $defaultInvoiceLayout = \App\InvoiceLayout::where('business_id', $business->id)
                 ->where('is_default', 1)
                 ->first();
-            $invoiceLayoutId = $defaultInvoiceLayout ? $defaultInvoiceLayout->id : null;
+            
+            if (!$defaultInvoiceLayout) {
+                // If no default layout exists, create one
+                $defaultInvoiceLayout = \App\InvoiceLayout::create([
+                    'business_id' => $business->id,
+                    'name' => 'Default Invoice Layout',
+                    'is_default' => true,
+                ]);
+                Log::info('Created default invoice layout for business', [
+                    'business_id' => $business->id,
+                    'invoice_layout_id' => $defaultInvoiceLayout->id,
+                ]);
+            }
+            $invoiceLayoutId = $defaultInvoiceLayout->id;
 
             $businessLocation = \App\BusinessLocation::updateOrCreate(
                 [
@@ -1215,9 +1245,9 @@ class ConfigurationSyncService
                     'city' => 'Lilongwe',
                     'zip_code' => '00000',
 
-                    'invoice_scheme_id' => $saleInvoiceSchemeId,
+                    'invoice_scheme_id' => $invoiceSchemeId,
                     'invoice_layout_id' => $invoiceLayoutId,
-                    'sale_invoice_scheme_id' => $saleInvoiceSchemeId,
+                    'sale_invoice_scheme_id' => $invoiceSchemeId,
 
                     'mobile' => data_get(
                         $terminalConfig,
@@ -1235,7 +1265,7 @@ class ConfigurationSyncService
                 'business_id' => $business->id,
                 'business_location_id' => $businessLocation->id,
                 'eis_site_id' => $siteId,
-                'sale_invoice_scheme_id' => $saleInvoiceSchemeId,
+                'sale_invoice_scheme_id' => $invoiceSchemeId,
                 'business_location_name' => $businessLocation->name,
             ]);
 
