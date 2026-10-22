@@ -120,7 +120,11 @@ class TransactionPaymentController extends Controller
                 }
 
                 if (! empty($inputs['amount'])) {
-                    $tp = TransactionPayment::create($inputs);
+                    // Wrap payment creation in split-aware checkout context
+                    // This ensures payment can be added to transactions with split history
+                    $tp = \App\Services\Sales\SavedSaleWriteGuard::checkout(DB::connection(), $transaction_id, function () use ($inputs, $request) {
+                        return TransactionPayment::create($inputs);
+                    });
 
                     if (! empty($request->input('denominations'))) {
                         $this->transactionUtil->addCashDenominations($tp, $request->input('denominations'));

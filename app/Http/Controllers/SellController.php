@@ -1393,7 +1393,11 @@ class SellController extends Controller
                         'note' => __('lang_v1.bulk_payment_cleared')
                     ];
                     
-                    $payment = \App\TransactionPayment::create($payment_data);
+                    // Wrap payment creation in split-aware checkout context
+                    // This ensures payment can be created on transactions with split history
+                    \App\Services\Sales\SavedSaleWriteGuard::checkout(DB::connection(), $invoice->id, function () use ($payment_data) {
+                        \App\TransactionPayment::create($payment_data);
+                    });
                     
                     // Update payment status
                     $this->transactionUtil->updatePaymentStatus($invoice->id);

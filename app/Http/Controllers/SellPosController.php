@@ -2200,7 +2200,11 @@ class SellPosController extends Controller
                     'payment_ref_no' => $payment_ref_no,
                 ];
 
-                $tp = TransactionPayment::create($data);
+                // Wrap payment creation in split-aware checkout context
+                // This ensures payment can be added to transactions with split history
+                $tp = \App\Services\Sales\SavedSaleWriteGuard::checkout(DB::connection(), $id, function () use ($data) {
+                    return TransactionPayment::create($data);
+                });
 
                 $payment_status = $this->transactionUtil->updatePaymentStatus($transaction->id, $transaction->final_total);
                 $transaction->payment_status = $payment_status;
