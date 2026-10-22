@@ -709,6 +709,10 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
+            // Get business location for branch information
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)->first();
+            $branch = $businessLocation?->name ?? null;
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -731,7 +735,8 @@ class TerminalActivationController extends Controller
                         'deactivated_at' => $terminal->deactivated_at,
                         'activation_duration' => $terminal->activation_duration,
                         'has_credentials' => $terminal->hasCredentials(),
-                        'last_synced_at' => $terminal->last_synced_at
+                        'last_synced_at' => $terminal->last_synced_at,
+                        'branch' => $branch
                     ],
                     'site' => $terminal->terminalSite ? [
                         'site_id' => $terminal->terminalSite->site_id,
