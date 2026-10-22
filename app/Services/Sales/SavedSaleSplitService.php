@@ -5,8 +5,6 @@ namespace App\Services\Sales;
 use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
-use Modules\EIS\Exceptions\EisSaleException;
-use Modules\EIS\Services\Sales\InvoiceNumberGenerator;
 
 /** Locked historical partitions. Checkout is a distinct, restricted cash contract;
  * no client-supplied product/header data ever reaches the legacy update path.
@@ -470,13 +468,11 @@ class SavedSaleSplitService
     public function split($id, $user, array $input)
     {
         $admin = $this->actor($user);
-        $this->storage();
+        $this->storage(['reference_counts', 'invoice_schemes']);
         [$operation, $quantities] = $this->request($input);
         $hash = hash('sha256', json_encode([(string) $id, $input['expected_version'], $quantities], JSON_THROW_ON_ERROR));
-        $numbers = new InvoiceNumberGenerator();
         try {
-            return $numbers->withNumberingLock($this->db, (int) $user->business_id,
-                fn () => $this->db->transaction(function () use ($id, $user, $admin, $input, $operation, $quantities, $hash, $numbers) {
+            return $this->db->transaction(function () use ($id, $user, $admin, $input, $operation, $quantities, $hash) {
                 $g = $this->graph($id, $user, $admin); // Lock header first, deterministic graph order.
                 $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
                     ->where('operation_id', $operation)->lockForUpdate()->first();
@@ -516,14 +512,13 @@ class SavedSaleSplitService
                     $this->fail('split_rounding_not_conserved', 'These quantities cannot conserve historical totals at four decimal places.', 422);
                 }
                 $now = date('Y-m-d H:i:s');
+                $invoice = $this->systemInvoiceNumber($g['header']);
                 $opId = $this->db->table(self::OPERATIONS)->insertGetId(['business_id' => $user->business_id,
                     'user_id' => $user->id, 'operation_id' => $operation, 'source_id' => $id,
                     'payload_hash' => $hash, 'expected_version' => $input['expected_version'],
-                    'allocation_json' => json_encode(['before' => $g, 'bill_b_quantities' => $quantities,
-                        'invoice_number_rule' => 'eis'], JSON_THROW_ON_ERROR),
+                    'allocation_json' => json_encode(['before' => $g, 'bill_b_quantities' => $quantities], JSON_THROW_ON_ERROR),
                     'created_at' => $now, 'updated_at' => $now]);
                 $header = array_intersect_key($g['header'], array_flip(self::HEADER_COPY));
-                $invoice = $numbers->generateAvailableInvoiceNumber($this->db, (int) $user->business_id);
                 $header = array_merge($header, ['invoice_no' => $invoice, 'invoice_token' => (string) Str::uuid(),
                     'total_before_tax' => $totalB, 'final_total' => $totalB, 'tax_amount' => '0.0000',
                     'essentials_duration' => '0.0000', 'essentials_amount_per_unit_duration' => '0.0000',
@@ -558,9 +553,7 @@ class SavedSaleSplitService
                 $this->db->table(self::OPERATIONS)->where('id', $opId)->update(['result_id' => $newId,
                     'response_json' => json_encode($response, JSON_THROW_ON_ERROR), 'updated_at' => $now]);
                 return $response;
-            }));
-        } catch (EisSaleException $e) {
-            $this->fail('split_invoice_number_unavailable', $e->getMessage(), 503);
+            });
         } catch (QueryException $e) {
             // Simultaneous same UUID on different source headers: unique-key loser
             // rolls back completely, then reads the winner on a fresh transaction.
@@ -572,6 +565,30 @@ class SavedSaleSplitService
             }
             throw $e;
         }
+    }
+
+    private function systemInvoiceNumber(array $header): string
+    {
+        $businessId = $header['business_id'];
+        // The normal helper updates either the draft counter or the invoice scheme.
+        $this->db->table('business')->where('id', $businessId)->lockForUpdate()->first();
+        if ($header['status'] === 'final') {
+            $schemeId = $this->db->table('business_locations')->where('business_id', $businessId)
+                ->where('id', $header['location_id'])->value('invoice_scheme_id');
+            $scheme = $schemeId ? $this->db->table('invoice_schemes')->where('business_id', $businessId)
+                ->where('id', $schemeId)->lockForUpdate()->first() : null;
+            $scheme = $scheme ?? $this->db->table('invoice_schemes')->where('business_id', $businessId)
+                ->where('is_default', 1)->lockForUpdate()->first();
+            if (!$scheme || !in_array($scheme->number_type, ['sequential', 'random'], true)) {
+                $this->fail('split_invoice_number_unavailable', 'Configure a valid system invoice scheme before splitting.', 503);
+            }
+        }
+        $number = (new \App\Utils\TransactionUtil())->getInvoiceNumber(
+            $businessId, $header['status'], $header['location_id'], $scheme->id ?? null, 'sell');
+        if ($this->db->table('transactions')->where('business_id', $businessId)->where('invoice_no', $number)->exists()) {
+            $this->fail('split_invoice_number_unavailable', 'The system invoice number already exists. Check the invoice counter.', 503);
+        }
+        return $number;
     }
 
     private function findQuantity($lines, $id)

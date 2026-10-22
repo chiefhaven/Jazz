@@ -2,10 +2,8 @@
 
 namespace Modules\EIS\Services\Sales;
 
-use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Modules\EIS\Exceptions\EisSaleException;
 use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisSale;
 use Modules\EIS\Models\EisSetting;
@@ -13,68 +11,6 @@ use Modules\EIS\Models\EisTerminalConfiguration;
 
 class InvoiceNumberGenerator
 {
-    /** Hold through the split commit or fiscal tracking write, not external submission. */
-    public function withNumberingLock(Connection $db, int $businessId, callable $work)
-    {
-        if ($db->getDriverName() === 'sqlite' && $db->getDatabaseName() === ':memory:') {
-            return $work();
-        }
-        if ($db->getDriverName() !== 'mysql') {
-            throw new EisSaleException('EIS invoice numbering requires MySQL.');
-        }
-        $name = 'eis-number-'.sha1($db->getDatabaseName().':'.$businessId);
-        $lock = $db->selectOne('SELECT GET_LOCK(?, 10) AS acquired', [$name], false);
-        if ((int) ($lock->acquired ?? 0) !== 1) {
-            throw new EisSaleException('Invoice numbering is busy. Please retry.');
-        }
-        try {
-            return $work();
-        } finally {
-            $released = $db->selectOne('SELECT RELEASE_LOCK(?) AS released', [$name], false);
-            if ((int) ($released->released ?? 0) !== 1) {
-                throw new EisSaleException('The EIS invoice numbering lock could not be released.');
-            }
-        }
-    }
-
-    /** Caller holds the numbering lock until the number is durably stored. */
-    public function generateAvailableInvoiceNumber(Connection $db, int $businessId): string
-    {
-        $configuration = $db->table('eis_configurations')->where('business_id', $businessId)->oldest('id')->first();
-        $terminal = $configuration ? $db->table('eis_terminal_configurations')
-            ->where('configuration_id', $configuration->id)->oldest('id')->first() : null;
-        if (!$configuration) {
-            throw new EisSaleException('EIS configuration not found for business: '.$businessId);
-        }
-        $count = $db->table('eis_sales')->where('business_id', $businessId)
-            ->where('created_at', '>=', now()->startOfDay())->count() + 1;
-        if ($db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
-            $rule = $db->getDriverName() === 'mysql'
-                ? "JSON_UNQUOTE(JSON_EXTRACT(allocation_json, '$.invoice_number_rule'))"
-                : "json_extract(allocation_json, '$.invoice_number_rule')";
-            // Count unpaid reservations once; paid ones already appear in eis_sales.
-            $count += $db->table('saved_sale_split_operations')->where('business_id', $businessId)
-                ->where('created_at', '>=', now()->startOfDay())->whereNotNull('result_id')
-                ->whereRaw($rule.' = ?', ['eis'])->whereNotExists(function ($q) {
-                    $q->selectRaw('1')->from('eis_sales')
-                        ->whereColumn('eis_sales.transaction_id', 'saved_sale_split_operations.result_id');
-                })->count();
-        }
-        $submittedNumber = $db->getDriverName() === 'mysql'
-            ? "JSON_UNQUOTE(JSON_EXTRACT(request_payload, '$.invoiceHeader.invoiceNumber'))"
-            : "json_extract(request_payload, '$.invoiceHeader.invoiceNumber')";
-        do {
-            $number = $this->generateInvoiceNumber($businessId, $count++, (int) ($terminal->terminal_position ?? 1),
-                (int) ($terminal->taxpayer_id ?? 1), false);
-            // Split bills reserve their identity on transactions, without unpaid fiscal tracking.
-            $used = $db->table('transactions')->where('invoice_no', $number)->exists()
-                || $db->table('eis_sales')->where('fiscal_invoice_number', $number)
-                    ->orWhereRaw($submittedNumber.' = ?', [$number])
-                    ->exists();
-        } while ($used);
-        return $number;
-    }
-
     /**
      * Base64 character set for encoding.
      */
@@ -171,7 +107,7 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return string
      */
-    public function generateInvoiceNumber(int $businessId, int $transactionCount, ?int $terminalPosition, ?int $taxpayerId, bool $allowFallback = true): string
+    public function generateInvoiceNumber(int $businessId, int $transactionCount, ?int $terminalPosition, ?int $taxpayerId): string
     {
         try {
 
@@ -236,9 +172,6 @@ class InvoiceNumberGenerator
                 'trace' => $e->getTraceAsString()
             ]);
 
-            if (!$allowFallback) {
-                throw new EisSaleException('Unable to generate an EIS invoice number. Check the EIS settings and configuration.', 0, $e);
-            }
             return $this->generateFallbackInvoiceNumber($businessId);
         }
     }

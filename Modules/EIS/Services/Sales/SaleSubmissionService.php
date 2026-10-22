@@ -54,30 +54,17 @@ class SaleSubmissionService
         // ----------------------------
         // GENERATE EIS Number
         // ----------------------------
-        [$eisSale, $includeOfflineSignature, $eisInvoiceNumber] = $this->invoiceGenerator->withNumberingLock(
-            $transaction->getConnection(), (int) $transaction->business_id, function () use ($transaction, $eisSetting) {
-                $existing = EisSale::where('transaction_id', $transaction->id)->first();
-                if ($existing && $existing->status === 'submitted') {
-                    return [$existing, false, $existing->eis_invoice_number];
-                }
-                // Inspect history before resetting tracking; pending may have reached EIS.
-                $includeOfflineSignature = $existing && ($existing->status === 'failed' || !empty($existing->request_payload));
-                $includeOfflineSignature = $includeOfflineSignature || DB::table('eis_failed_transactions')
-                    ->where('business_id', $transaction->business_id)->where('transaction_id', $transaction->id)->exists();
-                $number = $existing?->eis_invoice_number
-                    ?? $existing?->fiscal_invoice_number
-                    ?? $this->splitInvoiceNumber($transaction)
-                    ?? $this->generateEISInvoiceNumber($transaction, $eisSetting);
-                // No encompassing DB transaction: legacy fiscal tables may be MyISAM.
-                $tracking = EisSale::updateOrCreate(['transaction_id' => $transaction->id], [
-                    'business_id' => $transaction->business_id, 'invoice_number' => $transaction->invoice_no,
-                    'fiscal_invoice_number' => $number, 'status' => 'pending',
-                ]);
-                return [$tracking, $includeOfflineSignature, $number];
-            });
-        if ($eisSale->status === 'submitted') {
-            return $eisSale;
-        }
+        // Inspect history before resetting tracking; pending may have reached EIS.
+        $includeOfflineSignature = $existing && ($existing->status === 'failed' || !empty($existing->request_payload));
+        $includeOfflineSignature = $includeOfflineSignature || DB::table('eis_failed_transactions')
+            ->where('business_id', $transaction->business_id)->where('transaction_id', $transaction->id)->exists();
+        $eisInvoiceNumber = $existing?->eis_invoice_number
+            ?? $existing?->fiscal_invoice_number
+            ?? $this->generateEISInvoiceNumber($transaction, $eisSetting);
+        $eisSale = EisSale::updateOrCreate(['transaction_id' => $transaction->id], [
+            'business_id' => $transaction->business_id, 'invoice_number' => $transaction->invoice_no,
+            'fiscal_invoice_number' => $eisInvoiceNumber, 'status' => 'pending',
+        ]);
 
         // Only a sale paid in full is submitted (see SaleSubmissionRule).
         if (! SaleSubmissionRule::isPaid($transaction)) {
@@ -140,29 +127,6 @@ class SaleSubmissionService
         }
     }
 
-    protected function splitInvoiceNumber(Transaction $transaction): ?string
-    {
-        $db = $transaction->getConnection();
-        if (!$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
-            return null;
-        }
-        $operation = $db->table('saved_sale_split_operations')->where('business_id', $transaction->business_id)
-            ->where('result_id', $transaction->id)->first();
-        if (!$operation) {
-            return null;
-        }
-        $allocation = json_decode($operation->allocation_json, true, 512, JSON_THROW_ON_ERROR);
-        if (($allocation['invoice_number_rule'] ?? null) !== 'eis') {
-            return null; // Older SPLIT-UUID bills still need their first EIS identity.
-        }
-        $response = json_decode($operation->response_json, true, 512, JSON_THROW_ON_ERROR);
-        $number = $response['bill_b']['invoice_no'] ?? null;
-        if (!is_string($number) || $number === '' || $transaction->invoice_no !== $number) {
-            throw new EisSaleException('The split invoice number does not match its saved audit record.');
-        }
-        return $number;
-    }
-
     /**
      * Generate EIS compliant invoice number.
      *
@@ -174,8 +138,11 @@ class SaleSubmissionService
     protected function generateEISInvoiceNumber(Transaction $transaction, EisSetting $setting): string
     {
         try {
-            $invoiceNumber = $this->invoiceGenerator->generateAvailableInvoiceNumber(
-                $transaction->getConnection(), (int) $transaction->business_id);
+            $terminalPosition = $this->getTerminalPosition($transaction->business_id);
+            $taxpayerId = $this->getTaxpayerId($transaction->business_id);
+            $transactionCount = $this->getTransactionCount($transaction->business_id);
+            $invoiceNumber = $this->invoiceGenerator->generateInvoiceNumber(
+                $transaction->business_id, $transactionCount, $terminalPosition, $taxpayerId);
 
             Log::debug('EIS Number generated', [
                 'transaction_id' => $transaction->id,

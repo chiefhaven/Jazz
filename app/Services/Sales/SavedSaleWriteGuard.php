@@ -11,6 +11,7 @@ use Illuminate\Database\Connection;
 class SavedSaleWriteGuard
 {
     private static $checkout = [];
+    private static $payment = [];
     private static $stockAllocation = [];
 
     /** No callback is supplied by a caller. Only the verified reconciliation
@@ -78,6 +79,169 @@ class SavedSaleWriteGuard
         return isset(self::$checkout[spl_object_id($db).':'.$id]) && $db->transactionLevel() >= self::$checkout[spl_object_id($db).':'.$id];
     }
 
+    public static function hasSplitHistory(Connection $db, $id)
+    {
+        if (!$id || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
+            return false;
+        }
+
+        $header = $db->table('transactions')->where('id', $id)->first();
+        if (!$header || $header->type !== 'sell') {
+            return false;
+        }
+
+        return $db->table('saved_sale_split_operations')->where('business_id', $header->business_id)
+            ->where(function ($q) use ($id) {
+                $q->where('source_id', $id)->orWhere('result_id', $id);
+            })->exists();
+    }
+
+    /**
+     * Run the normal payment workflow for a split participant with a locked,
+     * idempotent ledger entry. Other sales retain the existing payment path.
+     */
+    public static function splitPayment(Connection $db, $id, $businessId, $userId, $operation, $payloadHash, callable $work)
+    {
+        if ($db->transactionLevel() < 1) {
+            throw new SavedSplitException('payment_requires_transaction', 'Split payment requires a locked database transaction.');
+        }
+
+        $header = $db->table('transactions')->where('id', $id)->where('business_id', $businessId)
+            ->lockForUpdate()->first();
+        if (!$header || $header->type !== 'sell' || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
+            return $work(false);
+        }
+
+        $split = $db->table('saved_sale_split_operations')->where('business_id', $businessId)
+            ->where(function ($q) use ($id) {
+                $q->where('source_id', $id)->orWhere('result_id', $id);
+            })->lockForUpdate()->first();
+        if (!$split) {
+            return $work(false);
+        }
+
+        $paymentVersion = hash('sha256', json_encode([
+            'header' => (array) $header,
+            'payments' => $db->table('transaction_payments')->where('transaction_id', $id)->orderBy('id')
+                ->lockForUpdate()->get()->map(function ($row) {
+                    return (array) $row;
+                })->all(),
+        ], JSON_THROW_ON_ERROR));
+
+        if (!is_string($operation) || !\Illuminate\Support\Str::isUuid($operation) ||
+            !is_string($payloadHash) || !preg_match('/^[a-f0-9]{64}$/D', $payloadHash)) {
+            throw new SavedSplitException('invalid_payment_request', 'Reload the payment form and submit a valid payment operation.');
+        }
+
+        $operation = strtolower($operation);
+        $existing = $db->table('saved_sale_split_operations')->where('business_id', $businessId)
+            ->where('operation_id', $operation)->lockForUpdate()->first();
+        if ($existing) {
+            $allocation = json_decode($existing->allocation_json, true);
+            if ((string) $existing->user_id !== (string) $userId ||
+                !hash_equals((string) $existing->payload_hash, $payloadHash) ||
+                ($allocation['kind'] ?? null) !== 'payment') {
+                throw new SavedSplitException('operation_collision', 'Payment operation UUID already belongs to another actor or request.');
+            }
+            if (!$existing->response_json) {
+                throw new SavedSplitException('operation_incomplete', 'Stored payment operation is incomplete; manual investigation is required.');
+            }
+
+            return json_decode($existing->response_json, true, 512, JSON_THROW_ON_ERROR);
+        }
+
+        if ($header->payment_status === 'paid') {
+            return $work(false);
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $operationRowId = $db->table('saved_sale_split_operations')->insertGetId([
+            'business_id' => $businessId,
+            'user_id' => $userId,
+            'operation_id' => $operation,
+            'source_id' => $id,
+            'result_id' => $id,
+            'payload_hash' => $payloadHash,
+            'expected_version' => $paymentVersion,
+            'allocation_json' => json_encode([
+                'kind' => 'payment',
+                'transaction_id' => (int) $id,
+                'before_version' => $paymentVersion,
+            ], JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $key = spl_object_id($db).':'.$id;
+        if (isset(self::$payment[$key])) {
+            throw new SavedSplitException('payment_reentrant', 'Nested split payments are forbidden.');
+        }
+        self::$payment[$key] = ['level' => $db->transactionLevel(), 'header' => (array) $header, 'user_id' => $userId];
+
+        try {
+            $response = $work(true);
+            if (!is_array($response) || empty($response['success']) || empty($response['payment_id'])) {
+                throw new SavedSplitException('payment_incomplete', 'Split payment did not create a payment; no operation was recorded.');
+            }
+
+            $db->table('saved_sale_split_operations')->where('id', $operationRowId)->update([
+                'allocation_json' => json_encode([
+                    'kind' => 'payment',
+                    'transaction_id' => (int) $id,
+                    'payment_id' => (int) $response['payment_id'],
+                ], JSON_THROW_ON_ERROR),
+                'response_json' => json_encode($response, JSON_THROW_ON_ERROR),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            return $response;
+        } finally {
+            unset(self::$payment[$key]);
+        }
+    }
+
+    private static function isPayment(Connection $db, $id)
+    {
+        $scope = self::$payment[spl_object_id($db).':'.$id] ?? null;
+        return $scope && $db->transactionLevel() >= $scope['level'];
+    }
+
+    private static function validatePaymentModel($model, $headerModel, $id)
+    {
+        $scope = self::$payment[spl_object_id($model->getConnection()).':'.$id] ?? null;
+        if (!$scope || $model->getConnection()->transactionLevel() < $scope['level']) {
+            throw new SavedSplitException('split_write_fenced', 'Invalid split payment write scope.');
+        }
+
+        $header = $scope['header'];
+        if ($headerModel) {
+            $dirty = array_diff(array_keys($model->getDirty()), ['payment_status', 'updated_at']);
+            if (!$model instanceof \App\Transaction || !$model->exists || (string) $model->getKey() !== (string) $id ||
+                $model->getRawOriginal('type') !== 'sell' ||
+                (string) $model->getRawOriginal('business_id') !== (string) $header['business_id'] ||
+                $dirty || !in_array($model->payment_status, ['due', 'partial', 'paid'], true)) {
+                throw new SavedSplitException('split_write_fenced', 'Split payments may only update payment status on their saved sale.');
+            }
+
+            return;
+        }
+
+        $allowed = ['transaction_id', 'business_id', 'payment_for', 'created_by', 'amount', 'method',
+            'card_transaction_number', 'card_number', 'card_type', 'card_holder_name', 'card_month', 'card_year',
+            'card_security', 'cheque_number', 'bank_account_number', 'note', 'paid_on', 'transaction_no',
+            'payment_ref_no', 'account_id', 'document', 'created_at', 'updated_at'];
+        $attributes = $model->getAttributes();
+        if (!$model instanceof \App\TransactionPayment || $model->exists ||
+            (string) ($attributes['transaction_id'] ?? '') !== (string) $id ||
+            (string) ($attributes['business_id'] ?? '') !== (string) $header['business_id'] ||
+            (string) ($attributes['created_by'] ?? '') !== (string) $scope['user_id'] ||
+            (string) ($attributes['payment_for'] ?? '') !== (string) $header['contact_id'] ||
+            !is_numeric($attributes['amount'] ?? null) || (float) $attributes['amount'] <= 0 ||
+            empty($attributes['method']) || array_diff(array_keys($attributes), $allowed)) {
+            throw new SavedSplitException('split_write_fenced', 'Split payments may only add a valid payment to their saved sale.');
+        }
+    }
+
     public static function lock(Connection $db, $id)
     {
         if (!$id || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
@@ -94,9 +258,9 @@ class SavedSaleWriteGuard
             ->where(function ($q) use ($id) {
                 $q->where('source_id', $id)->orWhere('result_id', $id);
             })->lockForUpdate()->first();
-        if ($split && !self::isCheckout($db, $id)) {
+        if ($split && !self::isCheckout($db, $id) && !self::isPayment($db, $id)) {
             throw new SavedSplitException('split_write_fenced',
-                'This saved split bill is read-only to legacy writers. Split-aware checkout is required.');
+                'This saved split bill is read-only to legacy writers. Use a split-aware payment or checkout.');
         }
         if (in_array($header->status, ['draft', 'final'], true) && $db->transactionLevel() < 1) {
             throw new SavedSplitException('draft_write_requires_transaction',
@@ -106,8 +270,8 @@ class SavedSaleWriteGuard
         return $header;
     }
 
-    /** Fiscal tracking is not a legacy sale edit. Only a durably checked-out,
-     * committed paid split may reach MyISAM/EIS, never during checkout itself.
+    /** Fiscal tracking is not a legacy sale edit. Only a committed paid split
+     * with a recorded payment or checkout may reach MyISAM/EIS.
      */
     public static function fiscal(Connection $db, $id)
     {
@@ -119,9 +283,17 @@ class SavedSaleWriteGuard
                     ->where(function ($q) use ($id) { $q->where('source_id', $id)->orWhere('result_id', $id); })
                     ->lockForUpdate()->get();
                 if ($rows->count()) {
-                    $completed = $rows->contains(function ($r) {
+                    $completed = $rows->contains(function ($r) use ($db, $id) {
                         $allocation = json_decode($r->allocation_json, true);
-                        return ($allocation['kind'] ?? null) === 'checkout' && !empty($r->response_json);
+                        if (empty($r->response_json)) {
+                            return false;
+                        }
+                        if (($allocation['kind'] ?? null) === 'checkout') {
+                            return true;
+                        }
+                        return ($allocation['kind'] ?? null) === 'payment' && !empty($allocation['payment_id']) &&
+                            $db->table('transaction_payments')->where('id', $allocation['payment_id'])
+                                ->where('transaction_id', $id)->exists();
                     });
                     if (!$completed || $h->status !== 'final' || $h->payment_status !== 'paid' || $db->transactionLevel() > 1) {
                         throw new SavedSplitException('split_write_fenced', 'Only committed paid split checkouts may create fiscal tracking.');
@@ -165,6 +337,9 @@ class SavedSaleWriteGuard
         $ids = array_unique(array_filter($ids));
         sort($ids, SORT_NUMERIC);
         foreach ($ids as $id) {
+            if (self::isPayment($model->getConnection(), $id)) {
+                self::validatePaymentModel($model, $headerModel, $id);
+            }
             self::lock($model->getConnection(), $id);
         }
     }

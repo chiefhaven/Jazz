@@ -40,17 +40,23 @@ overselling and accounting configurations fail closed.
 Checkout returns data containing operation_id, source_id and bill with paid status.
 It preserves saved lines/prices and final allocations; draft checkout allocates
 stock within the transaction. EIS initiation is scheduled after commit. Legacy
-writes stay fenced: only the scoped version-aware checkout may mutate a split
-participant. Durable tenant/actor operation IDs prevent duplicate split/payment;
-the desktop stores encrypted exact pending requests before sending and reuses
-them after uncertain transport failures. Scope includes backend/business/user
-and permissions; operation UUIDs must never be regenerated for an uncertain retry.
+writes stay fenced. The standard web Add Payment modal supports the existing
+enabled tender methods and partial payments for split participants. It uses a
+server-issued operation UUID, locks and rereads the sale, and atomically records
+the payment and operation before returning. Replaying the same operation and
+payload does not duplicate the payment; reusing its UUID with changed data fails.
+Payment status is the only sale-header field that this scoped path can update.
+Normal account, advance-balance, cash-denomination and after-commit EIS behavior
+is retained. The desktop still uses its dedicated exact-cash checkout and stores
+encrypted pending requests before sending; operation UUIDs must never be regenerated
+for uncertain retries.
 
-Validation: 921 standalone in-memory backend checks and 14 fake-backend desktop
-checks passed, plus 2115 permission and 25 ownership regressions. The purchase
-allocation SQL projects computed availability as a string for exact decimal math.
-No live migration, business writes or production checkout were run. PHP 8.4 emits
-existing dependency/TransactionUtil deprecations, separate from feature errors.
+Validation: 1460 standalone in-memory split/checkout checks, 87 standalone
+add-payment checks and 14 fake-backend desktop checks passed, plus 2115 permission
+and 25 ownership regressions. The purchase allocation SQL projects computed
+availability as a string for exact decimal math. No live migration, business
+writes or production checkout were run. PHP 8.4 emits existing
+dependency/TransactionUtil deprecations, separate from feature errors.
 
 DEPLOYMENT GATE: the ledger migration still requires reviewed deployment. Local
 MySQL/InnoDB concurrent-writer tests have NOT been run. Synthetic tests are not
@@ -196,11 +202,12 @@ MyISAM. Public gateway payment refuses drafts before contacting a gateway.
 
 **Both saved split bills are READ-ONLY to legacy mutations**, even if a caller
 supplies a fresh version. Legacy payloads can contain stale quantities/line IDs and
-are not a safe checkout protocol. This deliberately blocks legacy edit, payment,
-finalize, delete, return, shipping and EIS tracking for split participants. The new
-split API may partition either bill again with a new preview/version and UUID.
-Version-aware checkout/payment/finalization is a separate necessary integration;
-these saved bills cannot yet be paid/finalized through the legacy UI/API.
+are not a safe edit/split protocol. Legacy edit, finalize, delete, return and
+shipping stay blocked. Payment is the exception: the standard web Add Payment
+workflow now runs inside a narrow split-payment scope that permits only a new
+payment and the corresponding payment-status update, with the normal accounting
+and fiscal side effects. The new split API may partition either bill again with a
+new preview/version and UUID.
 
 Once the ledger migration is installed, an existing unsplit draft writer must hold
 an explicit DB transaction before the shared guard/model mutation. Previously

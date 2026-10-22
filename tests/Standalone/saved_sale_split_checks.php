@@ -4,6 +4,7 @@
  * Every database is a brand-new SQLite :memory: connection. No network/events.
  */
 require dirname(__DIR__, 2).'/vendor/autoload.php';
+if (!class_exists('Carbon', false)) { class_alias(Carbon\Carbon::class, 'Carbon'); }
 
 use App\Services\Sales\SavedSaleSplitService;
 use App\Services\Sales\SavedSaleWriteGuard;
@@ -12,7 +13,6 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Container\Container;
-use Modules\EIS\Services\Sales\InvoiceNumberGenerator;
 
 final class SplitActor
 {
@@ -51,6 +51,8 @@ function fixture()
     Container::setInstance($container);
     $container->instance('db', $capsule->getDatabaseManager());
     $container->instance('log', new Psr\Log\NullLogger());
+    $container->instance('session', new Illuminate\Session\Store('synthetic', new Illuminate\Session\ArraySessionHandler(120)));
+    $container['config']['constants.invoice_scheme_separator'] = '-';
     if (!class_exists('Log', false)) { class_alias(Illuminate\Support\Facades\Log::class, 'Log'); }
     Illuminate\Support\Facades\Facade::setFacadeApplication($container);
     Illuminate\Support\Facades\Facade::clearResolvedInstances();
@@ -87,10 +89,12 @@ function fixture()
         'purchase_lines' => ['quantity_sold', 'transaction_id', 'product_id', 'variation_id', 'quantity', 'quantity_adjusted', 'quantity_returned', 'mfg_quantity_used'], 'account_transactions' => ['transaction_id', 'transfer_transaction_id'],
         'cash_register_transactions' => ['transaction_id'], 'eis_sales' => ['business_id', 'transaction_id', 'status', 'fiscal_invoice_number', 'request_payload'],
         'eis_failed_transactions' => ['transaction_id'], 'sell_line_warranties' => ['sell_line_id', 'warranty_id'],
-        'business' => ['transaction_edit_days', 'pos_settings', 'enable_rp', 'enable_product_expiry', 'accounting_method'], 'business_locations' => ['business_id', 'default_payment_accounts'], 'users' => ['business_id'],
+        'business' => ['transaction_edit_days', 'pos_settings', 'enable_rp', 'enable_product_expiry', 'accounting_method', 'ref_no_prefixes'],
+        'business_locations' => ['business_id', 'default_payment_accounts', 'invoice_scheme_id'], 'users' => ['business_id'],
         'contacts' => ['business_id', 'type', 'balance', 'deleted_at'], 'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at'],
         'variations' => ['product_id', 'product_variation_id', 'deleted_at'], 'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id'],
         'reference_counts' => ['business_id', 'ref_type', 'ref_count'],
+        'invoice_schemes' => ['business_id', 'is_default', 'scheme_type', 'prefix', 'number_type', 'start_number', 'invoice_count', 'total_digits'],
         'variation_location_details' => ['qty_available', 'product_id', 'product_variation_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
         'eis_settings' => ['business_id', 'tpin'],
         'eis_configurations' => ['business_id'], 'eis_terminal_configurations' => ['configuration_id', 'taxpayer_id', 'terminal_position', 'max_cummulative_amount', 'max_transaction_age'],
@@ -106,6 +110,8 @@ function fixture()
         $t->unique(['business_id', 'operation_id']);
     });
     $db->table('business')->insert(['id' => 1, 'transaction_edit_days' => '30', 'accounting_method' => 'fifo']);
+    $db->table('invoice_schemes')->insert(['business_id' => 1, 'is_default' => 1, 'scheme_type' => 'blank',
+        'prefix' => 'INV-', 'number_type' => 'sequential', 'start_number' => 1, 'invoice_count' => 0, 'total_digits' => 5]);
     $db->table('eis_settings')->insert(['business_id' => 1, 'tpin' => 'TEST']);
     $db->table('eis_configurations')->insert(['id' => 1, 'business_id' => 1]);
     $db->table('eis_terminal_configurations')->insert(['configuration_id' => 1, 'taxpayer_id' => 98765, 'terminal_position' => 4]);
@@ -156,6 +162,12 @@ foreach (['draft', 'final'] as $status) {
     check(snapshot($db) === $before, 'desktop origin preview read-only');
     $request = requestFor($service, $actor);
     $response = $service->split(1, $actor, $request);
+    check($response['bill_b']['invoice_no'] === ($status === 'final' ? 'INV-00001' : date('Y').'/0001'),
+        'normal system number for '.$status.' split');
+    $allocation = json_decode($db->table('saved_sale_split_operations')->where('result_id', $response['result_id'])
+        ->value('allocation_json'), true);
+    check(!array_key_exists('eis_invoice_number', $allocation) && !array_key_exists('invoice_number_rule', $allocation),
+        'split does not generate or reserve an EIS number for '.$status);
     foreach ([1, $response['result_id']] as $id) {
         check($db->table('transactions')->where('id', $id)->value('source') === 'desktop_pos', 'desktop provenance preserved on both bills');
     }
@@ -184,11 +196,8 @@ check($preview['source']['lines'][0]['quantity'] === '4.0000', 'saved quantities
 $request = requestFor($service, $actor, [['id' => 1, 'quantity' => '1.5000'], ['id' => 2, 'quantity' => '2.0000']]);
 $response = $service->split(1, $actor, $request);
 check($response['bill_a']['final_total'] === '30.0000' && $response['bill_b']['final_total'] === '40.0000', 'historic totals partition');
-$numbers = new InvoiceNumberGenerator();
-$parts = explode('-', $response['bill_b']['invoice_no']);
-check($response['bill_a']['invoice_no'] === 'DRAFT-001' && count($parts) === 4, 'new EIS-format invoice identity');
-check(array_map([$numbers, 'base64ToBase10'], $parts) === [98765, 4, $numbers->toJulianDate(now()), 11],
-    'EIS taxpayer, terminal, current Julian day and business/count rule');
+check($response['bill_a']['invoice_no'] === 'DRAFT-001'
+    && $response['bill_b']['invoice_no'] === date('Y').'/0001', 'draft uses normal system transaction number');
 check($db->table('transactions')->where('id', $response['result_id'])->value('transaction_date')
     === $db->table('transactions')->where('id', 1)->value('transaction_date'), 'source sale date preserved');
 check($db->table('transactions')->where('id', $response['result_id'])->value('invoice_token') !== 'original-token', 'fresh token');
@@ -966,35 +975,26 @@ foreach (['eis_settings', 'eis_configurations'] as $missing) {
     [$db, $service, $actor] = fixture();
     $request = requestFor($service, $actor);
     $db->table($missing)->delete();
-    $before = snapshot($db);
-    rejects(fn () => $service->split(1, $actor, $request), 'split_invoice_number_unavailable');
-    check(snapshot($db) === $before, 'missing numbering configuration rolls back entire split '.$missing);
+    $response = $service->split(1, $actor, $request);
+    check($response['bill_b']['invoice_no'] === date('Y').'/0001', 'split needs no EIS configuration '.$missing);
+    check($db->table('eis_sales')->count() === 0, 'split creates no EIS tracking '.$missing);
 }
 
 [$db, $service, $actor] = fixture();
-$numbers = new InvoiceNumberGenerator();
-$candidate = fn ($count) => $numbers->generateInvoiceNumber(1, $count, 4, 98765, false);
-$db->table('eis_sales')->insert(['business_id' => 1, 'transaction_id' => 999, 'status' => 'submitted',
-    'fiscal_invoice_number' => $candidate(1),
-    'request_payload' => json_encode(['invoiceHeader' => ['invoiceNumber' => $candidate(2)]]),
-    'created_at' => now()->subDay()->format('Y-m-d H:i:s')]);
-$db->table('transactions')->insert(['id' => 100, 'business_id' => 1, 'type' => 'purchase', 'invoice_no' => $candidate(3)]);
 $historicDate = now()->subDay()->format('Y-m-d H:i:s');
 $db->table('transactions')->where('id', 1)->update(['transaction_date' => $historicDate]);
 $beforeFiscal = snapshot($db)['eis_sales'];
 $first = $service->split(1, $actor, requestFor($service, $actor, [['id' => 1, 'quantity' => '1.0000']]));
 $second = $service->split(1, $actor, requestFor($service, $actor, [['id' => 1, 'quantity' => '1.0000']]));
-check($first['bill_b']['invoice_no'] === $candidate(4), 'skip existing fiscal, submitted payload and POS invoice identities');
-check($second['bill_b']['invoice_no'] === $candidate(5), 'multiple unpaid splits have distinct EIS-format identities');
+check($first['bill_b']['invoice_no'] === date('Y').'/0001'
+    && $second['bill_b']['invoice_no'] === date('Y').'/0002', 'multiple splits consume only normal transaction numbers');
 foreach ([$first, $second] as $result) {
     check($db->table('transactions')->where('id', $result['result_id'])->value('transaction_date') === $historicDate,
-        'split preserves historic date while numbering uses current Julian day');
+        'split preserves historic sale date');
     $audit = $db->table('saved_sale_split_operations')->where('result_id', $result['result_id'])->first();
-    check(json_decode($audit->allocation_json, true)['invoice_number_rule'] === 'eis', 'audited numbering provenance');
+    check(!isset(json_decode($audit->allocation_json, true)['eis_invoice_number']), 'audit contains no EIS number reservation');
 }
-check(snapshot($db)['eis_sales'] === $beforeFiscal, 'number reservation never mutates fiscal tracking');
-$next = $numbers->withNumberingLock($db, 1, fn () => $numbers->generateAvailableInvoiceNumber($db, 1));
-check($next === $candidate(6), 'ordinary EIS allocation also skips unpaid split reservations');
+check(snapshot($db)['eis_sales'] === $beforeFiscal, 'splitting never mutates fiscal tracking');
 
 [$db, $service, $actor] = fixture();
 $request = requestFor($service, $actor);
@@ -1005,14 +1005,37 @@ catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessag
 check(snapshot($db) === $before, 'numbered header, items and audit all roll back on late failure');
 $db->statement('DROP TRIGGER number_rollback');
 $response = $service->split(1, $actor, $request);
-check($response['bill_b']['invoice_no'] === $candidate(1), 'failed split consumes no invoice identity');
-$second = $service->split(1, $actor, requestFor($service, $actor, [['id' => 1, 'quantity' => '1.0000']]));
-check($numbers->generateAvailableInvoiceNumber($db, 1) === $candidate(3), 'unsubmitted reservations advance daily count');
-foreach ([$response, $second] as $result) {
-    $db->table('eis_sales')->insert(['business_id' => 1, 'transaction_id' => $result['result_id'],
-        'status' => 'pending', 'fiscal_invoice_number' => $result['bill_b']['invoice_no'],
-        'created_at' => now()->format('Y-m-d H:i:s')]);
-}
-check($numbers->generateAvailableInvoiceNumber($db, 1) === $candidate(3), 'tracked split reservations are not counted twice');
+check($response['bill_b']['invoice_no'] === date('Y').'/0001', 'failed split also rolls back system number counter');
+
+[$db, $service, $actor] = fixture();
+$db->table('invoice_schemes')->insert(['id' => 2, 'business_id' => 1, 'is_default' => 0, 'scheme_type' => 'year',
+    'prefix' => 'BR-', 'number_type' => 'sequential', 'start_number' => 50, 'invoice_count' => 7, 'total_digits' => 4]);
+$db->table('business_locations')->where('id', 2)->update(['invoice_scheme_id' => 2]);
+$db->table('transactions')->where('id', 1)->update(['status' => 'final']);
+$request = requestFor($service, $actor);
+$response = $service->split(1, $actor, $request);
+check($response['bill_b']['invoice_no'] === 'BR-'.date('Y').'-0057', 'branch invoice scheme and current counter are respected');
+check($db->table('invoice_schemes')->where('id', 2)->value('invoice_count') === '8',
+    'branch system invoice counter advances once');
+check($db->table('invoice_schemes')->where('id', 1)->value('invoice_count') === '0',
+    'default scheme counter not consumed for branch scheme');
+$before = snapshot($db);
+check($service->split(1, $actor, $request) === $response && snapshot($db) === $before,
+    'idempotent split retry consumes neither system nor EIS number');
+
+[$db, $service, $actor] = fixture();
+$db->table('transactions')->where('id', 1)->update(['status' => 'final']);
+$db->table('invoice_schemes')->delete();
+$request = requestFor($service, $actor); $before = snapshot($db);
+rejects(fn () => $service->split(1, $actor, $request), 'split_invoice_number_unavailable');
+check(snapshot($db) === $before, 'missing system invoice scheme leaves sale and counters unchanged');
+
+[$db, $service, $actor] = fixture();
+$db->table('transactions')->where('id', 1)->update(['status' => 'final']);
+$request = requestFor($service, $actor); $before = snapshot($db);
+$db->statement("CREATE TRIGGER scheme_rollback BEFORE UPDATE ON transaction_sell_lines BEGIN SELECT RAISE(ABORT, 'scheme rollback'); END");
+try { $service->split(1, $actor, $request); throw new RuntimeException('missing scheme rollback'); }
+catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'scheme rollback'), 'final split failure propagated'); }
+check(snapshot($db) === $before, 'late final split failure rolls back invoice scheme counter');
 
 echo "PASS: $checks isolated saved-sale split/overselling/reconciliation checks. No application/kernel/live database boot.\n";

@@ -40,7 +40,7 @@ $db->setTransactionManager(new Illuminate\Database\DatabaseTransactionsManager()
 $db->getPdo()->sqliteCreateFunction('IF', fn ($condition, $yes, $no) => $condition ? $yes : $no, 3);
 $schema = $db->getSchemaBuilder();
 $schema->create('transactions', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('business_id'); $t->integer('contact_id');
+    $t->increments('id'); $t->integer('business_id'); $t->integer('contact_id'); $t->integer('location_id')->nullable();
     $t->string('type'); $t->string('status'); $t->string('payment_status');
     $t->decimal('final_total', 22, 4); $t->string('transaction_date'); $t->timestamps();
 });
@@ -54,7 +54,28 @@ $schema->create('transaction_payments', function (Blueprint $t) {
         'cheque_number', 'bank_account_number', 'paid_on', 'transaction_no', 'payment_ref_no', 'document'] as $column) { $t->string($column)->nullable(); }
     $t->decimal('amount', 22, 4); $t->boolean('is_return')->default(false); $t->timestamps();
 });
+$schema->create('saved_sale_split_operations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->integer('user_id');
+    $t->string('operation_id')->unique(); $t->integer('source_id'); $t->integer('result_id')->nullable();
+    $t->string('payload_hash'); $t->string('expected_version'); $t->text('allocation_json');
+    $t->text('response_json')->nullable(); $t->timestamps();
+});
+$schema->create('business', function (Blueprint $t) {
+    $t->increments('id'); $t->text('custom_labels')->nullable();
+});
+$schema->create('business_locations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->string('name');
+    $t->text('default_payment_accounts')->nullable();
+});
 DB::table('contacts')->insert(['id' => 1, 'business_id' => 7]);
+DB::table('business')->insert(['id' => 7]);
+DB::table('business_locations')->insert([
+    'id' => 2, 'business_id' => 7, 'name' => 'Fixture Location',
+    'default_payment_accounts' => json_encode([
+        'cash' => ['is_enabled' => 1], 'card' => ['is_enabled' => 1],
+        'bank_transfer' => ['is_enabled' => 1],
+    ]),
+]);
 $session = new Illuminate\Session\Store('fixture', new Illuminate\Session\ArraySessionHandler(120));
 $session->put('user.business_id', 7); $session->put('business.id', 7);
 $request = Request::create('https://fixture.invalid/payments'); $request->setLaravelSession($session);
@@ -88,14 +109,28 @@ $events->listen(SaleCompleted::class, function (SaleCompleted $event) use (&$sub
 });
 function saleFixture(string $type = 'sell', string $status = 'final'): Transaction {
     return Transaction::create(['business_id' => 7, 'contact_id' => 1, 'type' => $type, 'status' => $status,
-        'payment_status' => 'due', 'final_total' => 100, 'transaction_date' => '2026-10-14 10:00:00']);
+        'location_id' => 2, 'payment_status' => 'due', 'final_total' => 100, 'transaction_date' => '2026-10-14 10:00:00']);
 }
-function addPayment(Transaction $sale, $amount, string $method = 'cash'): void {
+function postPayment(Transaction $sale, $amount, string $method = 'cash', ?string $operation = null): array {
     global $controller, $session, $container;
-    $request = Request::create('/payments', 'POST', ['transaction_id' => $sale->id, 'amount' => $amount, 'method' => $method, 'paid_on' => '2026-10-14']);
+    $data = ['transaction_id' => $sale->id, 'amount' => $amount, 'method' => $method, 'paid_on' => '2026-10-14'];
+    if ($operation !== null) { $data['saved_split_operation_id'] = $operation; }
+    $request = Request::create('/payments', 'POST', $data);
     $request->setLaravelSession($session); $container->instance('request', $request);
     $controller->store($request);
-    paymentCheck($session->get('status')['success'] === true, 'Payment saved successfully');
+    return $session->get('status');
+}
+function addPayment(Transaction $sale, $amount, string $method = 'cash', ?string $operation = null): void {
+    paymentCheck(postPayment($sale, $amount, $method, $operation)['success'] === true, 'Payment saved successfully');
+}
+function trackSplit(Transaction $sale): void {
+    DB::table('saved_sale_split_operations')->insert([
+        'business_id' => $sale->business_id, 'user_id' => 1,
+        'operation_id' => (string) Illuminate\Support\Str::uuid(),
+        'source_id' => $sale->id, 'result_id' => $sale->id,
+        'payload_hash' => str_repeat('a', 64), 'expected_version' => str_repeat('a', 64),
+        'allocation_json' => json_encode(['kind' => 'split']), 'response_json' => '{}',
+    ]);
 }
 foreach (['cash', 'bank_transfer', 'card'] as $method) {
     $sale = saleFixture(); $before = count($submitted);
@@ -118,6 +153,61 @@ paymentCheck(count($submitted) === $before, 'Nested payment commit defers submis
 DB::rollBack();
 paymentCheck(count($submitted) === $before && $sale->fresh()->payment_status === 'due'
     && TransactionPayment::where('transaction_id', $sale->id)->count() === 0, 'Rollback discards payment and fiscal callback');
+
+foreach (['cash', 'card', 'bank_transfer'] as $method) {
+    $sale = saleFixture(); trackSplit($sale); $before = count($submitted);
+    $firstOperation = (string) Illuminate\Support\Str::uuid();
+    addPayment($sale, 60, $method, $firstOperation);
+    paymentCheck($sale->fresh()->payment_status === 'partial', 'Split sale accepts partial '.$method.' payment');
+
+    $paymentCount = TransactionPayment::where('transaction_id', $sale->id)->count();
+    addPayment($sale, 60, $method, $firstOperation);
+    paymentCheck(TransactionPayment::where('transaction_id', $sale->id)->count() === $paymentCount,
+        'Split payment retry with the same operation does not duplicate payment');
+
+    addPayment($sale, 40, $method, (string) Illuminate\Support\Str::uuid());
+    paymentCheck($sale->fresh()->payment_status === 'paid' && array_slice($submitted, $before) === [$sale->id],
+        'Split sale full settlement submits once for '.$method);
+    paymentCheck(\App\Services\Sales\SavedSaleWriteGuard::fiscal(DB::connection(), $sale->id)->payment_status === 'paid',
+        'Paid split sale passes the guarded fiscal check');
+}
+
+$sale = saleFixture(); trackSplit($sale);
+$operation = (string) Illuminate\Support\Str::uuid();
+addPayment($sale, 25, 'cash', $operation);
+$paymentCount = TransactionPayment::where('transaction_id', $sale->id)->count();
+$collision = postPayment($sale, 26, 'cash', $operation);
+paymentCheck($collision['success'] === false && $sale->fresh()->payment_status === 'partial'
+    && TransactionPayment::where('transaction_id', $sale->id)->count() === $paymentCount,
+    'Split payment operation cannot be replayed with a changed payload');
+
+$sale = saleFixture(); trackSplit($sale);
+$missingOperation = postPayment($sale, 25);
+paymentCheck($missingOperation['success'] === false && $sale->fresh()->payment_status === 'due'
+    && TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Split payment requires the idempotency token supplied by the payment form');
+
+$sale = saleFixture(); trackSplit($sale);
+DB::beginTransaction();
+try {
+    \App\Services\Sales\SavedSaleWriteGuard::splitPayment(
+        DB::connection(), $sale->id, $sale->business_id, 1,
+        (string) Illuminate\Support\Str::uuid(), str_repeat('b', 64),
+        function () use ($sale) {
+            $sale->final_total = 1;
+            $sale->save();
+            return ['success' => true, 'payment_id' => 1];
+        }
+    );
+    DB::commit();
+    throw new RuntimeException('Expected split header mutation to be rejected');
+} catch (\App\Services\Sales\SavedSplitException $e) {
+    DB::rollBack();
+    paymentCheck($e->errorCode === 'split_write_fenced', 'Split payment scope rejects sale repricing');
+}
+paymentCheck((float) $sale->fresh()->final_total === 100.0
+    && TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Rejected split header mutation rolls back completely');
 
 // Edited partial payment becoming paid.
 $sale = saleFixture(); addPayment($sale, 50); $before = count($submitted);
