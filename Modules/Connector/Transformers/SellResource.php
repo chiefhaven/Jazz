@@ -2,6 +2,8 @@
 
 namespace Modules\Connector\Transformers;
 
+use App\BusinessLocation;
+use App\Utils\BusinessUtil;
 use App\Utils\Util;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,6 +18,26 @@ class SellResource extends JsonResource
     public function toArray($request)
     {
         $array = parent::toArray($request);
+
+        if (($array['type'] ?? null) === 'sell' && ($array['status'] ?? null) === 'final'
+            && in_array($array['payment_status'] ?? null, ['due', 'partial'], true)) {
+            $businessId = $array['business_id'];
+            $locationId = $array['location_id'];
+            $key = 'connector.due_invoice_heading.'.$businessId.'.'.$locationId;
+            if (! $request->attributes->has($key)) {
+                $location = BusinessLocation::where('business_id', $businessId)->findOrFail($locationId);
+                $layout = app(BusinessUtil::class)->invoiceLayout($businessId, $location->invoice_layout_id);
+                $heading = null;
+                if ($layout !== null) {
+                    $heading = $layout->invoice_heading;
+                    if (! empty($layout->invoice_heading_not_paid)) {
+                        $heading .= ' '.$layout->invoice_heading_not_paid;
+                    }
+                }
+                $request->attributes->set($key, $heading);
+            }
+            $array['invoice_heading'] = $request->attributes->get($key);
+        }
 
         if (isset($array['eis_sale']) && is_array($array['eis_sale'])) {
             // Expose only the submitted invoice identifier, never the fiscal request payload.
