@@ -298,20 +298,15 @@ class TerminalActivationController extends Controller
      */
     public function fetchLatestConfig(Request $request)
     {
-
         try {
-            $result = $this->activationService->getLatestConfig();
+            $businessId = $request->input('business_id') or abort(400, 'business_id is required');
+            
+            $result = $this->activationService->getLatestConfig($businessId);
 
             Log::info('Fetched latest terminal configuration', [
+                'business_id' => $businessId,
                 'result' => $result
             ]);
-            
-            if($result['processed'] === 0 || $result['failed'] > 0) {
-                return response()->json([
-                    'success' => false,
-                    'msg' => $result['message'] ?? 'Failed to get latest config'
-                ], 400);
-            }
 
             return response()->json($result, $result['success'] ? 200 : 400);
 
@@ -321,8 +316,8 @@ class TerminalActivationController extends Controller
             ]);
 
             return response()->json([
-                'success' => 0,
-                'msg' => 'Failed to get latest config: ' . $e->getMessage()
+                'success' => false,
+                'message' => 'Failed to get latest config: ' . $e->getMessage()
             ], 500);
         }
     }

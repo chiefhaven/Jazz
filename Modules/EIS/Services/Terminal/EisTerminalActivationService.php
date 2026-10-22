@@ -928,16 +928,63 @@ class EisTerminalActivationService
      * @param int|null $toggledBy
      * @return array
      */
-    public function getLatestConfig(): array
+    public function getLatestConfig(int $businessId): array
     {
         try {
+            // Get the EIS settings for this business
+            $setting = EisSetting::where('business_id', $businessId)->first();
             
-            $result = app(\Modules\EIS\Jobs\SyncEISConfigurationJob::class)->dispatchNow();
-
-            return $result;
+            if (!$setting) {
+                return [
+                    'success' => false,
+                    'message' => 'Business not configured for EIS'
+                ];
+            }
+            
+            if (!$setting->jwt_token) {
+                return [
+                    'success' => false,
+                    'message' => 'JWT token not available for this business'
+                ];
+            }
+            
+            // Sync configuration directly for this business via API
+            $result = $this->syncService->sync($businessId, $setting->jwt_token);
+            
+            // Update sync status
+            $setting->update([
+                'last_sync_at' => now(),
+                'sync_status' => 'success',
+                'sync_error' => null,
+                'successful_syncs' => ($setting->successful_syncs ?? 0) + 1,
+                'global_version' => $result->global_version ?? null,
+                'terminal_version' => $result->terminal_version ?? null,
+                'taxpayer_version' => $result->taxpayer_version ?? null,
+            ]);
+            
+            // Create business location if it doesn't exist
+            ConfigurationSyncService::businessLocation($businessId);
+            
+            Log::info('Latest configuration synced successfully', [
+                'business_id' => $businessId,
+                'global_version' => $result->global_version,
+                'terminal_version' => $result->terminal_version,
+                'taxpayer_version' => $result->taxpayer_version
+            ]);
+            
+            return [
+                'success' => true,
+                'message' => 'Latest configuration fetched successfully',
+                'data' => [
+                    'global_version' => $result->global_version,
+                    'terminal_version' => $result->terminal_version,
+                    'taxpayer_version' => $result->taxpayer_version
+                ]
+            ];
 
         } catch (\Throwable $e) {
             Log::error('Failed to sync latest configuration', [
+                'business_id' => $businessId,
                 'error' => $e->getMessage()
             ]);
 
