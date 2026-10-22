@@ -1053,11 +1053,18 @@ try { $service->split(1, $actor, $request); throw new RuntimeException('missing 
 catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'scheme rollback'), 'final split failure propagated'); }
 check(snapshot($db) === $before, 'late final split failure rolls back invoice scheme counter');
 
-function additionsRequest($service, $actor, $id = 1, $quantity = '2.0000')
+function additionsRequest($service, $actor, $id = 1, $quantity = '2.0000', $variationId = 5)
 {
     $preview = $service->additionsPreview($id, $actor);
     return ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
-        'items' => [['variation_id' => 5, 'quantity' => $quantity]]];
+        'items' => [['variation_id' => $variationId, 'quantity' => $quantity]]];
+}
+function addNewProduct($db)
+{
+    $db->table('products')->insert(['id' => 8, 'business_id' => 1, 'type' => 'single', 'unit_id' => 1,
+        'enable_stock' => '0', 'tax' => 6]);
+    $db->table('variations')->insert(['id' => 9, 'product_id' => 8, 'default_sell_price' => '10.0000']);
+    $db->table('product_locations')->insert(['product_id' => 8, 'location_id' => 2]);
 }
 foreach (['draft', 'final'] as $status) {
     foreach ([false, true] as $split) {
@@ -1072,18 +1079,25 @@ foreach (['draft', 'final'] as $status) {
         check($service->additionsPreview($id, $actor)['eligible'], 'unpaid '.$status.' additions eligible, split='.($split ? 'yes' : 'no'));
         check(snapshot($db) === $previewBefore, 'additions preview is read-only');
         $request = additionsRequest($service, $actor, $id);
-        $linesBefore = $db->table('transaction_sell_lines')->where('transaction_id', $id)->orderBy('id')->get()->toJson();
+        $linesBefore = $db->table('transaction_sell_lines')->where('transaction_id', $id)->orderBy('id')
+            ->get()->map(fn ($line) => (array) $line)->all();
         $headerBefore = (array) $db->table('transactions')->where('id', $id)->first();
-        $mapsBefore = $db->table('transaction_sell_lines_purchase_lines')->orderBy('id')->get()->toJson();
+        $mapsBefore = $db->table('transaction_sell_lines_purchase_lines')->orderBy('id')->get();
         $stockBefore = $db->table('variation_location_details')->value('qty_available');
         $response = $service->addItems($id, $actor, $request);
-        check(count($response['added_line_ids']) === 1, 'one fresh sell line appended');
-        $newId = $response['added_line_ids'][0];
+        check($response['added_line_ids'] === [] && count($response['updated_line_ids']) === 1,
+            'same variation increases existing line without creating a duplicate');
+        $newId = $response['updated_line_ids'][0];
         $newLine = $db->table('transaction_sell_lines')->where('id', $newId)->first();
         check($newLine->unit_price === '10.0000' && $newLine->item_tax === '2.0000'
             && $newLine->unit_price_inc_tax === '12.0000', 'new line uses server price and product tax');
-        check($db->table('transaction_sell_lines')->where('transaction_id', $id)->whereNotIn('id', [$newId])->orderBy('id')->get()->toJson() === $linesBefore,
-            'all original saved lines byte-for-byte preserved');
+        check($newId === (int) $linesBefore[0]['id'], 'earliest historical line selected deterministically');
+        check($newLine->quantity === bcadd($linesBefore[0]['quantity'], '2', 4), 'quantity increment persisted');
+        $linesBefore[0]['quantity'] = $newLine->quantity;
+        $linesBefore[0]['updated_at'] = $newLine->updated_at;
+        check($db->table('transaction_sell_lines')->where('transaction_id', $id)->orderBy('id')
+            ->get()->map(fn ($line) => (array) $line)->all() === $linesBefore,
+            'all original line fields preserved except matched quantity and timestamp');
         check(bccomp($response['bill']['final_total'], bcadd($headerBefore['final_total'], '24', 4), 4) === 0,
             'new tax-inclusive amount added exactly once');
         $headerAfter = (array) $db->table('transactions')->where('id', $id)->first();
@@ -1093,7 +1107,7 @@ foreach (['draft', 'final'] as $status) {
         $expectedStock = $status === 'final' ? bcsub($stockBefore, '2', 4) : $stockBefore;
         check(bccomp($db->table('variation_location_details')->value('qty_available'), $expectedStock, 4) === 0,
             'stock decreases only for new quantities on final orders');
-        check($db->table('transaction_sell_lines_purchase_lines')->where('sell_line_id', '!=', $newId)->orderBy('id')->get()->toJson() === $mapsBefore,
+        check($db->table('transaction_sell_lines_purchase_lines')->whereIn('id', $mapsBefore->pluck('id'))->orderBy('id')->get()->toJson() === $mapsBefore->toJson(),
             'existing allocations preserved');
         check($db->table('transaction_payments')->count() === 0 && $db->table('eis_sales')->count() === 0
             && $db->table('eis_failed_transactions')->count() === 0 && $service->scheduled === 0,
@@ -1149,15 +1163,50 @@ foreach (['draft', 'final'] as $status) {
     check(snapshot($db) === $before, 'late additions failure rolls back lines, totals, stock, allocations and audit '.$status);
 }
 
+foreach ([false, true] as $final) {
+    [$db, $service, $actor] = checkoutFixture($final);
+    addNewProduct($db);
+    $db->table('variations')->where('id', 5)->update(['default_sell_price' => '99.0000']);
+    $db->table('tax_rates')->where('id', 6)->update(['amount' => '16.5']);
+    $stockBefore = $db->table('variation_location_details')->value('qty_available');
+    $soldBefore = $db->table('purchase_lines')->where('id', 1)->value('quantity_sold');
+    $request = additionsRequest($service, $actor, 1, '0.1250');
+    $request['items'][] = ['variation_id' => 9, 'quantity' => '2.0000'];
+    $response = $service->addItems(1, $actor, $request);
+    check($response['updated_line_ids'] === [1] && count($response['added_line_ids']) === 1,
+        'mixed request merges existing variation and appends genuinely new variation');
+    $saved = $db->table('transaction_sell_lines')->where('id', 1)->first();
+    check($saved->quantity === '4.1250' && $saved->unit_price === '10.0000' &&
+        $saved->item_tax === '2.0000' && $saved->unit_price_inc_tax === '12.0000',
+        'changed current price/tax cannot reprice existing bill line');
+    $new = $db->table('transaction_sell_lines')->where('id', $response['added_line_ids'][0])->first();
+    check($new->quantity === '2.0000' && $new->unit_price === '10.0000' && $new->item_tax === '1.6500',
+        'genuinely new item still uses current product price/tax');
+    check($response['bill']['final_total'] === '94.8000', 'mixed additions total reconciles at saved and current prices');
+    check(bccomp($db->table('variation_location_details')->value('qty_available'),
+        $final ? bcsub($stockBefore, '0.1250', 4) : $stockBefore, 4) === 0,
+        'mixed additions stock only consumes merged delta on final bills');
+    check(bccomp($db->table('purchase_lines')->where('id', 1)->value('quantity_sold'),
+        $final ? bcadd($soldBefore, '0.1250', 4) : $soldBefore, 4) === 0,
+        'mixed additions purchase consumption only increases by merged delta');
+    $after = snapshot($db);
+    check($service->addItems(1, $actor, $request) === $response && snapshot($db) === $after,
+        'mixed additions retry cannot duplicate new line or merged quantity');
+    if (!$final) {
+        $service->checkout(1, $actor, cashRequest($service, $actor));
+        check(bccomp($db->table('variation_location_details')->value('qty_available'),
+            bcsub($stockBefore, '6.1250', 4), 4) === 0, 'draft checkout consumes full merged quantity exactly once');
+    }
+}
 foreach (['16.5' => '1.6500', '0' => '0.0000', '2.125' => '0.2125'] as $rate => $expectedTax) {
     [$db, $service, $actor] = checkoutFixture(true);
-    $db->table('products')->where('id', 4)->update(['tax' => 6]);
+    addNewProduct($db);
     $db->table('tax_rates')->where('id', 6)->update(['amount' => $rate]);
     if ((string) $rate === '16.5') {
         check(is_float($db->table('tax_rates')->where('id', 6)->value('amount')),
             'fixture reproduces native SQL floating-point tax rate');
     }
-    $response = $service->addItems(1, $actor, additionsRequest($service, $actor, 1, '1.0000'));
+    $response = $service->addItems(1, $actor, additionsRequest($service, $actor, 1, '1.0000', 9));
     $line = $db->table('transaction_sell_lines')->where('id', $response['added_line_ids'][0])->first();
     check($line->item_tax === $expectedTax, 'SQL float tax converted to decimal string, rate='.$rate);
     check($line->unit_price_inc_tax === bcadd('10', $expectedTax, 4), 'converted tax keeps exact gross price');

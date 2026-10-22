@@ -712,6 +712,9 @@ class SavedSaleSplitService
                     'allocation_json' => json_encode(['kind' => 'add_items', 'before' => $g, 'items' => $items], JSON_THROW_ON_ERROR),
                     'created_at' => $now, 'updated_at' => $now]);
                 $newIds = [];
+                $updatedIds = [];
+                $deltaLines = [];
+                $expectedLines = $g['lines'];
                 foreach ($items as $variationId => $quantity) {
                     $variation = $this->db->table('variations')->where('id', $variationId)->whereNull('deleted_at')->lockForUpdate()->first();
                     $product = $variation ? $this->db->table('products')->where('id', $variation->product_id)
@@ -726,6 +729,22 @@ class SavedSaleSplitService
                     if (!$unit || (!$unit->allow_decimal && bccomp($quantity, bcadd($quantity, '0', 0), 4) !== 0)) {
                         $this->fail('invalid_unit_quantity', 'Quantity is invalid for the product base unit.', 422);
                     }
+                    // Graph lines are ordered by ID: retain the earliest saved price/tax
+                    // when legacy bills already contain multiple lines for this variation.
+                    $matched = false;
+                    foreach ($expectedLines as &$savedLine) {
+                        if ((int) $savedLine['variation_id'] !== $variationId) { continue; }
+                        $deltaLines[] = array_replace($savedLine, ['quantity' => $quantity]);
+                        $savedLine['quantity'] = self::decimal(bcadd(self::decimal($savedLine['quantity']), $quantity, 4));
+                        $savedLine['updated_at'] = $now;
+                        $this->db->table('transaction_sell_lines')->where('id', $savedLine['id'])->update([
+                            'quantity' => $savedLine['quantity'], 'updated_at' => $now]);
+                        $updatedIds[] = (int) $savedLine['id'];
+                        $matched = true;
+                        break;
+                    }
+                    unset($savedLine);
+                    if ($matched) { continue; }
                     $price = self::decimal($variation->default_sell_price);
                     $rate = '0.0000';
                     if (!self::zero($product->tax ?? null)) {
@@ -749,31 +768,34 @@ class SavedSaleSplitService
                 }
                 $newLines = $this->db->table('transaction_sell_lines')->whereIn('id', $newIds)->orderBy('id')
                     ->get()->map(fn ($line) => (array) $line)->all();
+                $deltaLines = array_merge($deltaLines, $newLines);
                 if ($h['status'] === 'final') {
                     $settings = empty($business->pos_settings) ? [] : json_decode($business->pos_settings, true, 512, JSON_THROW_ON_ERROR);
                     // Reuse the exact decimal stock adapter; no payment or header model writes enter this scope.
-                    SavedSaleWriteGuard::checkout($this->db, $id, function () use ($g, $newLines, $newIds, $settings, $business, $h) {
-                        $stockGraph = $g; $stockGraph['lines'] = $newLines;
+                    SavedSaleWriteGuard::checkout($this->db, $id, function () use ($g, $deltaLines, $settings, $business, $h) {
+                        $stockGraph = $g; $stockGraph['lines'] = $deltaLines;
                         $this->decreaseSavedStock($stockGraph, $settings);
+                        // Hydrate only the added quantities; never remap the full saved quantity.
                         (new \App\Utils\TransactionUtil())->mapPurchaseSell(['id' => $h['business_id'],
                             'location_id' => $h['location_id'], 'accounting_method' => $business->accounting_method,
-                            'pos_settings' => $settings], \App\TransactionSellLine::whereIn('id', $newIds)->orderBy('id')->get(), 'purchase', false);
+                            'pos_settings' => $settings], \App\TransactionSellLine::hydrate($deltaLines)->sortBy('id'), 'purchase', false);
                     });
                 }
-                $total = $this->total(array_merge($g['lines'], $newLines));
+                $total = $this->total(array_merge($expectedLines, $newLines));
                 $this->db->table('transactions')->where('id', $id)->update([
                     'total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now]);
                 $after = $this->graph($id, $user, $admin);
                 $this->eligible($after);
                 $originalLines = array_values(array_filter($after['lines'], fn ($line) => !in_array($line['id'], $newIds)));
-                $originalMappings = array_values(array_filter($after['mappings'], fn ($map) => !in_array($map['sell_line_id'], $newIds)));
-                if ($originalLines !== $g['lines'] || $after['payments'] !== $g['payments'] ||
+                $mappingIds = array_column($g['mappings'], 'id');
+                $originalMappings = array_values(array_filter($after['mappings'], fn ($map) => in_array($map['id'], $mappingIds)));
+                if ($originalLines !== $expectedLines || $after['payments'] !== $g['payments'] ||
                     $originalMappings !== $g['mappings'] ||
                     $after['header'] !== array_replace($h, ['total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now])) {
                     $this->fail('add_items_invariant_failed', 'Adding items changed existing order data; rolled back.');
                 }
                 $response = ['operation_id' => $operation, 'source_id' => (int) $id,
-                    'bill' => $this->bill($after), 'added_line_ids' => $newIds];
+                    'bill' => $this->bill($after), 'added_line_ids' => $newIds, 'updated_line_ids' => $updatedIds];
                 $this->db->table(self::OPERATIONS)->where('id', $opId)->update([
                     'response_json' => json_encode($response, JSON_THROW_ON_ERROR), 'updated_at' => $now]);
                 return $response;
