@@ -99,12 +99,18 @@ class SavedSaleSplitService
         $this->storage(['variation_location_details']);
     }
 
-    private function actor($user)
+    private function actor($user, bool $editing = false)
     {
         if (!$user || !$user->id || !$user->business_id) {
             $this->fail('split_forbidden', 'A verified business user is required.', 403);
         }
         $admin = $user->hasRole('Admin#'.$user->business_id);
+        if ($editing) {
+            if (!$admin && !$user->can('superadmin') && !$user->can('sell.update')) {
+                $this->fail('split_forbidden', 'Backend sell.update permission is required to edit bill items.', 403);
+            }
+            return $admin;
+        }
         if (!$admin && (!$user->can('sell.create') || !$user->can('sell.update'))) {
             $this->fail('split_forbidden', 'Both sell.create and sell.update are required.', 403);
         }
@@ -657,7 +663,7 @@ class SavedSaleSplitService
 
     public function additionsPreview($id, $user)
     {
-        $admin = $this->actor($user);
+        $admin = $this->actor($user, true);
         $this->storage(['variation_location_details', 'product_locations']);
         return $this->db->transaction(function () use ($id, $user, $admin) {
             $g = $this->graph($id, $user, $admin);
@@ -672,14 +678,24 @@ class SavedSaleSplitService
 
     public function addItems($id, $user, array $input)
     {
-        $admin = $this->actor($user);
+        return $this->writeItems($id, $user, $input, false);
+    }
+
+    public function editItems($id, $user, array $input)
+    {
+        return $this->writeItems($id, $user, $input, true);
+    }
+
+    private function writeItems($id, $user, array $input, bool $editing)
+    {
+        $admin = $this->actor($user, true);
         $this->storage(['variation_location_details', 'product_locations']);
         if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'items']) ||
             !isset($input['operation_id'], $input['expected_version'], $input['items']) ||
             !is_string($input['operation_id']) || !Str::isUuid($input['operation_id']) ||
             !is_string($input['expected_version']) || !preg_match('/^[a-f0-9]{64}$/D', $input['expected_version']) ||
             !is_array($input['items']) || !$input['items'] || count($input['items']) > 100) {
-            $this->fail('invalid_add_items_request', 'Provide UUID operation_id, expected_version and 1-100 new item quantities.', 422);
+            $this->fail('invalid_add_items_request', 'Provide UUID operation_id, expected_version and 1-100 item quantities.', 422);
         }
         $items = [];
         foreach ($input['items'] as $item) {
@@ -687,21 +703,22 @@ class SavedSaleSplitService
                 !isset($item['variation_id'], $item['quantity']) || !is_int($item['variation_id']) ||
                 $item['variation_id'] <= 0 || !is_string($item['quantity']) ||
                 bccomp(self::decimal($item['quantity']), '0', 4) <= 0 || isset($items[$item['variation_id']])) {
-                $this->fail('invalid_add_items_request', 'New items require unique variation IDs and positive decimal-string quantities only.', 422);
+                $this->fail('invalid_add_items_request', 'Items require unique variation IDs and positive decimal-string quantities only.', 422);
             }
             $items[$item['variation_id']] = self::decimal($item['quantity']);
         }
         ksort($items, SORT_NUMERIC);
         $operation = strtolower($input['operation_id']);
-        $hash = hash('sha256', json_encode(['add_items', (string) $id, $input['expected_version'], $items], JSON_THROW_ON_ERROR));
+        $kind = $editing ? 'edit_items' : 'add_items';
+        $hash = hash('sha256', json_encode([$kind, (string) $id, $input['expected_version'], $items], JSON_THROW_ON_ERROR));
         try {
-            return $this->db->transaction(function () use ($id, $user, $admin, $input, $items, $operation, $hash) {
+            return $this->db->transaction(function () use ($id, $user, $admin, $input, $items, $operation, $hash, $editing, $kind) {
                 $g = $this->graph($id, $user, $admin);
                 $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
                     ->where('operation_id', $operation)->lockForUpdate()->first();
                 if ($existing) { return $this->replay($existing, $user, $hash); }
                 if (!hash_equals(self::fingerprint($g), $input['expected_version'])) {
-                    $this->fail('stale_split_version', 'The order changed. Refresh before adding items.');
+                    $this->fail('stale_split_version', 'The order changed. Refresh before saving items.');
                 }
                 $business = $this->additionsEligible($g);
                 $h = $g['header'];
@@ -709,12 +726,73 @@ class SavedSaleSplitService
                 $opId = $this->db->table(self::OPERATIONS)->insertGetId(['business_id' => $user->business_id,
                     'user_id' => $user->id, 'operation_id' => $operation, 'source_id' => $id, 'result_id' => $id,
                     'payload_hash' => $hash, 'expected_version' => $input['expected_version'],
-                    'allocation_json' => json_encode(['kind' => 'add_items', 'before' => $g, 'items' => $items], JSON_THROW_ON_ERROR),
+                    'allocation_json' => json_encode(['kind' => $kind, 'before' => $g, 'items' => $items], JSON_THROW_ON_ERROR),
                     'created_at' => $now, 'updated_at' => $now]);
                 $newIds = [];
                 $updatedIds = [];
                 $deltaLines = [];
-                $expectedLines = $g['lines'];
+                $expectedLines = [];
+                $canonicalIds = [];
+                $mergedIds = [];
+                foreach ($g['lines'] as $line) {
+                    $variationId = (int) $line['variation_id'];
+                    if (!isset($canonicalIds[$variationId])) {
+                        $canonicalIds[$variationId] = count($expectedLines);
+                        $expectedLines[] = $line;
+                        continue;
+                    }
+                    $index = $canonicalIds[$variationId];
+                    $canonical = &$expectedLines[$index];
+                    $canonical['quantity'] = self::decimal(bcadd(self::decimal($canonical['quantity']), self::decimal($line['quantity']), 4));
+                    $canonical['updated_at'] = $now;
+                    $mergedIds[$line['id']] = $canonical['id'];
+                    $this->db->table('transaction_sell_lines_purchase_lines')->where('sell_line_id', $line['id'])
+                        ->update(['sell_line_id' => $canonical['id']]);
+                    $this->db->table('transaction_sell_lines')->where('id', $line['id'])->delete();
+                    $this->db->table('transaction_sell_lines')->where('id', $canonical['id'])->update([
+                        'quantity' => $canonical['quantity'], 'updated_at' => $now]);
+                    $updatedIds[] = (int) $canonical['id'];
+                    unset($canonical);
+                }
+                $expectedMappings = array_map(function ($map) use ($mergedIds) {
+                    if (isset($mergedIds[$map['sell_line_id']])) {
+                        $canonicalId = $mergedIds[$map['sell_line_id']];
+                        $map['sell_line_id'] = is_string($map['sell_line_id']) ? (string) $canonicalId : (int) $canonicalId;
+                    }
+                    return $map;
+                }, $g['mappings']);
+                $returnedLines = [];
+                $removedIds = [];
+                if ($editing) {
+                    foreach ($expectedLines as $index => &$line) {
+                        $variationId = (int) $line['variation_id'];
+                        $desired = $items[$variationId] ?? '0.0000';
+                        $difference = bcsub($desired, self::decimal($line['quantity']), 4);
+                        if (bccomp($difference, '0', 4) > 0) {
+                            $items[$variationId] = $difference;
+                            continue;
+                        }
+                        unset($items[$variationId]);
+                        if (bccomp($difference, '0', 4) === 0) { continue; }
+                        if ($h['status'] === 'final') {
+                            $this->releaseItemMappings($line, bcsub('0', $difference, 4), $expectedMappings);
+                            $returnedLines[] = array_replace($line, ['quantity' => $difference]);
+                        }
+                        if (bccomp($desired, '0', 4) === 0) {
+                            $this->db->table('transaction_sell_lines')->where('id', $line['id'])->delete();
+                            $removedIds[] = (int) $line['id'];
+                            unset($expectedLines[$index]);
+                        } else {
+                            $line['quantity'] = $desired;
+                            $line['updated_at'] = $now;
+                            $this->db->table('transaction_sell_lines')->where('id', $line['id'])->update([
+                                'quantity' => $desired, 'updated_at' => $now]);
+                            $updatedIds[] = (int) $line['id'];
+                        }
+                    }
+                    unset($line);
+                    $expectedLines = array_values($expectedLines);
+                }
                 foreach ($items as $variationId => $quantity) {
                     $variation = $this->db->table('variations')->where('id', $variationId)->whereNull('deleted_at')->lockForUpdate()->first();
                     $product = $variation ? $this->db->table('products')->where('id', $variation->product_id)
@@ -729,8 +807,7 @@ class SavedSaleSplitService
                     if (!$unit || (!$unit->allow_decimal && bccomp($quantity, bcadd($quantity, '0', 0), 4) !== 0)) {
                         $this->fail('invalid_unit_quantity', 'Quantity is invalid for the product base unit.', 422);
                     }
-                    // Graph lines are ordered by ID: retain the earliest saved price/tax
-                    // when legacy bills already contain multiple lines for this variation.
+                    // Retain the earliest saved price/tax for the consolidated variation.
                     $matched = false;
                     foreach ($expectedLines as &$savedLine) {
                         if ((int) $savedLine['variation_id'] !== $variationId) { continue; }
@@ -772,8 +849,8 @@ class SavedSaleSplitService
                 if ($h['status'] === 'final') {
                     $settings = empty($business->pos_settings) ? [] : json_decode($business->pos_settings, true, 512, JSON_THROW_ON_ERROR);
                     // Reuse the exact decimal stock adapter; no payment or header model writes enter this scope.
-                    SavedSaleWriteGuard::checkout($this->db, $id, function () use ($g, $deltaLines, $settings, $business, $h) {
-                        $stockGraph = $g; $stockGraph['lines'] = $deltaLines;
+                    SavedSaleWriteGuard::checkout($this->db, $id, function () use ($g, $deltaLines, $returnedLines, $settings, $business, $h) {
+                        $stockGraph = $g; $stockGraph['lines'] = array_merge($returnedLines, $deltaLines);
                         $this->decreaseSavedStock($stockGraph, $settings);
                         // Hydrate only the added quantities; never remap the full saved quantity.
                         (new \App\Utils\TransactionUtil())->mapPurchaseSell(['id' => $h['business_id'],
@@ -790,12 +867,16 @@ class SavedSaleSplitService
                 $mappingIds = array_column($g['mappings'], 'id');
                 $originalMappings = array_values(array_filter($after['mappings'], fn ($map) => in_array($map['id'], $mappingIds)));
                 if ($originalLines !== $expectedLines || $after['payments'] !== $g['payments'] ||
-                    $originalMappings !== $g['mappings'] ||
+                    $originalMappings !== $expectedMappings ||
+                    count(array_unique(array_column($after['lines'], 'variation_id'))) !== count($after['lines']) ||
                     $after['header'] !== array_replace($h, ['total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now])) {
-                    $this->fail('add_items_invariant_failed', 'Adding items changed existing order data; rolled back.');
+                    $this->fail('add_items_invariant_failed', 'Saving items changed unexpected order data; rolled back.');
                 }
                 $response = ['operation_id' => $operation, 'source_id' => (int) $id,
-                    'bill' => $this->bill($after), 'added_line_ids' => $newIds, 'updated_line_ids' => $updatedIds];
+                    'bill' => $this->bill($after), 'added_line_ids' => $newIds,
+                    'updated_line_ids' => array_values(array_diff(array_unique($updatedIds), $removedIds)),
+                    'merged_line_ids' => array_map('intval', array_keys($mergedIds)),
+                    'removed_line_ids' => $removedIds];
                 $this->db->table(self::OPERATIONS)->where('id', $opId)->update([
                     'response_json' => json_encode($response, JSON_THROW_ON_ERROR), 'updated_at' => $now]);
                 return $response;
@@ -806,6 +887,40 @@ class SavedSaleSplitService
                 if ($row) { return $this->replay($row, $user, $hash); }
             }
             throw $e;
+        }
+    }
+
+    private function releaseItemMappings(array $line, string $quantity, array &$mappings)
+    {
+        if (!$this->db->table('products')->where('id', $line['product_id'])->value('enable_stock')) { return; }
+        $remaining = $quantity;
+        // Release newest allocations first; retained quantities keep their oldest purchase costs.
+        foreach (array_reverse(array_keys($mappings)) as $index) {
+            $map = $mappings[$index];
+            if ($map['sell_line_id'] != $line['id'] || bccomp($remaining, '0', 4) === 0) { continue; }
+            $allocated = self::decimal($map['quantity']);
+            $released = bccomp($remaining, $allocated, 4) < 0 ? $remaining : $allocated;
+            if ((string) $map['purchase_line_id'] !== '0') {
+                $purchase = $this->db->table('purchase_lines')->where('id', $map['purchase_line_id'])->lockForUpdate()->first();
+                if (!$purchase || bccomp(self::decimal($purchase->quantity_sold), $released, 4) < 0) {
+                    $this->fail('unsupported_purchase_mapping', 'Cannot release inconsistent purchase consumption.');
+                }
+                $this->db->table('purchase_lines')->where('id', $purchase->id)->update([
+                    'quantity_sold' => bcsub(self::decimal($purchase->quantity_sold), $released, 4)]);
+            }
+            $remaining = bcsub($remaining, $released, 4);
+            if (bccomp($released, $allocated, 4) === 0) {
+                $this->db->table('transaction_sell_lines_purchase_lines')->where('id', $map['id'])->delete();
+                unset($mappings[$index]);
+            } else {
+                $mappings[$index]['quantity'] = bcsub($allocated, $released, 4);
+                $this->db->table('transaction_sell_lines_purchase_lines')->where('id', $map['id'])
+                    ->update(['quantity' => $mappings[$index]['quantity']]);
+            }
+        }
+        $mappings = array_values($mappings);
+        if (bccomp($remaining, '0', 4) !== 0) {
+            $this->fail('unsupported_purchase_mapping', 'Cannot release the full removed item quantity.');
         }
     }
 

@@ -52,6 +52,13 @@ class SavedSaleSplitController extends Controller
         });
     }
 
+    public function editItems(Request $request, $id)
+    {
+        return $this->splitResponse(function () use ($request, $id) {
+            return (new SavedSaleSplitService(DB::connection()))->editItems($id, $request->user(), $request->all());
+        });
+    }
+
     private function splitResponse(callable $work)
     {
         try {

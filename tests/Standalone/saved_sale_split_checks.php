@@ -505,6 +505,12 @@ foreach ($router->getRoutes() as $route) {
 }
 check(count($additionRoutes) === 2 && in_array('GET', $additionRoutes[0]->methods(), true)
     && $additionRoutes[1]->methods() === ['POST'], 'exact preview/add-items endpoint methods');
+$editRoutes = array_values(array_filter($router->getRoutes()->getRoutes(),
+    fn ($route) => $route->uri() === 'connector/api/sell/{id}/edit-items'));
+check(count($editRoutes) === 1 && $editRoutes[0]->methods() === ['POST'] &&
+    str_ends_with($editRoutes[0]->getActionName(), '@editItems'), 'explicit editor endpoint registered to correct writer');
+check(in_array('auth:api', $editRoutes[0]->middleware(), true) &&
+    in_array('timezone', $editRoutes[0]->middleware(), true), 'editor endpoint retains authentication and timezone');
 
 // FINAL splitting: preserve purchase consumption/stock while distributing each
 // historical mapping, including one selection spanning multiple purchase rows.
@@ -1081,6 +1087,7 @@ foreach (['draft', 'final'] as $status) {
         $request = additionsRequest($service, $actor, $id);
         $linesBefore = $db->table('transaction_sell_lines')->where('transaction_id', $id)->orderBy('id')
             ->get()->map(fn ($line) => (array) $line)->all();
+        $originalQuantity = array_reduce($linesBefore, fn ($sum, $line) => bcadd($sum, $line['quantity'], 4), '0.0000');
         $headerBefore = (array) $db->table('transactions')->where('id', $id)->first();
         $mapsBefore = $db->table('transaction_sell_lines_purchase_lines')->orderBy('id')->get();
         $stockBefore = $db->table('variation_location_details')->value('qty_available');
@@ -1092,14 +1099,14 @@ foreach (['draft', 'final'] as $status) {
         check($newLine->unit_price === '10.0000' && $newLine->item_tax === '2.0000'
             && $newLine->unit_price_inc_tax === '12.0000', 'new line uses server price and product tax');
         check($newId === (int) $linesBefore[0]['id'], 'earliest historical line selected deterministically');
-        check($newLine->quantity === bcadd($linesBefore[0]['quantity'], '2', 4), 'quantity increment persisted');
+        check($newLine->quantity === bcadd($originalQuantity, '2', 4), 'duplicate quantities combined and increment persisted');
         $linesBefore[0]['quantity'] = $newLine->quantity;
         $linesBefore[0]['updated_at'] = $newLine->updated_at;
         check($db->table('transaction_sell_lines')->where('transaction_id', $id)->orderBy('id')
-            ->get()->map(fn ($line) => (array) $line)->all() === $linesBefore,
-            'all original line fields preserved except matched quantity and timestamp');
-        check(bccomp($response['bill']['final_total'], bcadd($headerBefore['final_total'], '24', 4), 4) === 0,
-            'new tax-inclusive amount added exactly once');
+            ->get()->map(fn ($line) => (array) $line)->all() === [$linesBefore[0]],
+            'only earliest saved line retained with combined quantity');
+        check(bccomp($response['bill']['final_total'], bcmul(bcadd($originalQuantity, '2', 4), '12', 4), 4) === 0,
+            'combined total uses earliest saved tax-inclusive price');
         $headerAfter = (array) $db->table('transactions')->where('id', $id)->first();
         check(array_diff_key($headerAfter, array_flip(['total_before_tax', 'final_total', 'updated_at']))
             === array_diff_key($headerBefore, array_flip(['total_before_tax', 'final_total', 'updated_at'])),
@@ -1107,8 +1114,12 @@ foreach (['draft', 'final'] as $status) {
         $expectedStock = $status === 'final' ? bcsub($stockBefore, '2', 4) : $stockBefore;
         check(bccomp($db->table('variation_location_details')->value('qty_available'), $expectedStock, 4) === 0,
             'stock decreases only for new quantities on final orders');
+        $oldLineIds = array_column($linesBefore, 'id');
+        foreach ($mapsBefore as $map) {
+            if (in_array($map->sell_line_id, $oldLineIds)) { $map->sell_line_id = (string) $newLine->id; }
+        }
         check($db->table('transaction_sell_lines_purchase_lines')->whereIn('id', $mapsBefore->pluck('id'))->orderBy('id')->get()->toJson() === $mapsBefore->toJson(),
-            'existing allocations preserved');
+            'existing allocation quantities preserved and reassigned to canonical line');
         check($db->table('transaction_payments')->count() === 0 && $db->table('eis_sales')->count() === 0
             && $db->table('eis_failed_transactions')->count() === 0 && $service->scheduled === 0,
             'additions do not create payments, fiscal identities or submissions');
@@ -1176,13 +1187,13 @@ foreach ([false, true] as $final) {
     check($response['updated_line_ids'] === [1] && count($response['added_line_ids']) === 1,
         'mixed request merges existing variation and appends genuinely new variation');
     $saved = $db->table('transaction_sell_lines')->where('id', 1)->first();
-    check($saved->quantity === '4.1250' && $saved->unit_price === '10.0000' &&
+    check($saved->quantity === '6.1250' && $saved->unit_price === '10.0000' &&
         $saved->item_tax === '2.0000' && $saved->unit_price_inc_tax === '12.0000',
         'changed current price/tax cannot reprice existing bill line');
     $new = $db->table('transaction_sell_lines')->where('id', $response['added_line_ids'][0])->first();
     check($new->quantity === '2.0000' && $new->unit_price === '10.0000' && $new->item_tax === '1.6500',
         'genuinely new item still uses current product price/tax');
-    check($response['bill']['final_total'] === '94.8000', 'mixed additions total reconciles at saved and current prices');
+    check($response['bill']['final_total'] === '96.8000', 'mixed additions total reconciles at earliest saved and current prices');
     check(bccomp($db->table('variation_location_details')->value('qty_available'),
         $final ? bcsub($stockBefore, '0.1250', 4) : $stockBefore, 4) === 0,
         'mixed additions stock only consumes merged delta on final bills');
@@ -1198,6 +1209,44 @@ foreach ([false, true] as $final) {
             bcsub($stockBefore, '6.1250', 4), 4) === 0, 'draft checkout consumes full merged quantity exactly once');
     }
 }
+foreach ([false, true] as $final) {
+    [$db, $service, $actor] = checkoutFixture($final);
+    addNewProduct($db);
+    $stockBefore = $db->table('variation_location_details')->value('qty_available');
+    $soldBefore = $db->table('purchase_lines')->where('id', 1)->value('quantity_sold');
+    $response = $service->addItems(1, $actor, additionsRequest($service, $actor, 1, '1', 9));
+    check($response['merged_line_ids'] === [2], 'unselected historical duplicates consolidated when saving a new product');
+    check($db->table('transaction_sell_lines')->where('transaction_id', 1)->count() === 2 &&
+        $db->table('transaction_sell_lines')->where('id', 1)->value('quantity') === '6.0000',
+        'exactly one line for each variation including untargeted item');
+    check($response['bill']['final_total'] === '84.0000', 'earliest price/tax applied to all historical duplicate quantities');
+    check($db->table('variation_location_details')->value('qty_available') === $stockBefore &&
+        $db->table('purchase_lines')->where('id', 1)->value('quantity_sold') === $soldBefore,
+        'consolidation alone never deducts stock or consumes purchases');
+    $service->addItems(1, $actor, additionsRequest($service, $actor, 1, '0.2500'));
+    $response = $service->addItems(1, $actor, additionsRequest($service, $actor, 1, '0.7500'));
+    check($db->table('transaction_sell_lines')->where('transaction_id', 1)->where('variation_id', 5)->count() === 1 &&
+        $db->table('transaction_sell_lines')->where('id', 1)->value('quantity') === '7.0000',
+        'successive additions keep one line and increment its exact quantity');
+    check($response['bill']['final_total'] === '96.0000', 'successive additions total matches combined quantity');
+}
+foreach (['delete-line', 'move-mapping'] as $failure) {
+    [$db, $service, $actor] = checkoutFixture(true);
+    $request = additionsRequest($service, $actor);
+    $before = snapshot($db);
+    $target = $failure === 'delete-line' ? 'DELETE ON transaction_sell_lines' : 'UPDATE ON transaction_sell_lines_purchase_lines';
+    $db->statement("CREATE TRIGGER merge_fail BEFORE $target BEGIN SELECT RAISE(ABORT, 'merge rollback'); END");
+    try { $service->addItems(1, $actor, $request); throw new RuntimeException('Expected merge rollback'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'merge rollback'), 'merge storage error surfaced'); }
+    check(snapshot($db) === $before, 'merge failure restores duplicate lines, allocations, stock and audit '.$failure);
+}
+[$db, $service, $actor] = checkoutFixture();
+addNewProduct($db);
+$db->table('variations')->where('id', 9)->update(['product_id' => 4]);
+$service->addItems(1, $actor, additionsRequest($service, $actor, 1, '1', 9));
+check($db->table('transaction_sell_lines')->where('transaction_id', 1)->where('product_id', 4)->count() === 2,
+    'different variations of the same product remain distinct items');
+
 foreach (['16.5' => '1.6500', '0' => '0.0000', '2.125' => '0.2125'] as $rate => $expectedTax) {
     [$db, $service, $actor] = checkoutFixture(true);
     addNewProduct($db);
@@ -1217,4 +1266,149 @@ $before = snapshot($db);
 rejects(fn () => $service->addItems(1, $actor, $request), 'invalid_decimal');
 check(snapshot($db) === $before, 'quantity precision remains strictly limited to four places');
 
-echo "PASS: $checks isolated saved-sale split/overselling/reconciliation/additions checks. No application/kernel/live database boot.\n";
+foreach ([false, true] as $final) {
+    foreach ([false, true] as $split) {
+        foreach (['reduce', 'increase', 'replace'] as $action) {
+            [$db, $service, $actor] = checkoutFixture($final);
+            addNewProduct($db);
+            $id = $split ? $service->split(1, $actor, requestFor($service, $actor))['result_id'] : 1;
+            $oldQuantity = $split ? '1.5000' : '6.0000';
+            $desired = $action === 'increase' ? bcadd($oldQuantity, '0.1250', 4) : '0.5000';
+            $request = additionsRequest($service, $actor, $id, $desired);
+            if ($action === 'replace') { $request['items'] = [['variation_id' => 9, 'quantity' => '2.0000']]; }
+            $stockBefore = $db->table('variation_location_details')->value('qty_available');
+            $soldBefore = bcadd($db->table('purchase_lines')->where('id', 1)->value('quantity_sold'),
+                $db->table('purchase_lines')->where('id', 2)->value('quantity_sold'), 4);
+            $headerBefore = (array) $db->table('transactions')->where('id', $id)->first();
+            $response = $service->editItems($id, $actor, $request);
+            $lines = $db->table('transaction_sell_lines')->where('transaction_id', $id)->get();
+            check($lines->count() === 1, 'edited bill has exactly one remaining item '.$action);
+            $line = $lines->first();
+            check((int) $line->variation_id === ($action === 'replace' ? 9 : 5) &&
+                $line->quantity === ($action === 'replace' ? '2.0000' : $desired), 'edit uses absolute final quantities '.$action);
+            check(array_intersect($response['updated_line_ids'], $response['removed_line_ids']) === [],
+                'edit response never reports a removed line as updated');
+            check($response['bill']['final_total'] === ($action === 'replace' ? '24.0000' : bcmul($desired, '12', 4)),
+                'edit totals use saved price/tax or server price for replacement');
+            $delta = bcsub($action === 'replace' ? '0' : $desired, $oldQuantity, 4);
+            check(bccomp($db->table('variation_location_details')->value('qty_available'),
+                $final ? bcsub($stockBefore, $delta, 4) : $stockBefore, 4) === 0, 'edit stock exact delta '.$action);
+            $soldAfter = bcadd($db->table('purchase_lines')->where('id', 1)->value('quantity_sold'),
+                $db->table('purchase_lines')->where('id', 2)->value('quantity_sold'), 4);
+            check($soldAfter === ($final ? bcadd($soldBefore, $delta, 4) : $soldBefore), 'edit purchase consumption exact delta '.$action);
+            $headerAfter = (array) $db->table('transactions')->where('id', $id)->first();
+            check(array_diff_key($headerAfter, array_flip(['total_before_tax', 'final_total', 'updated_at'])) ===
+                array_diff_key($headerBefore, array_flip(['total_before_tax', 'final_total', 'updated_at'])),
+                'edit retains invoice date customer status and metadata');
+            check($db->table('transaction_payments')->count() === 0 && $db->table('eis_sales')->count() === 0 &&
+                $service->scheduled === 0, 'edit creates no payments or fiscal submissions');
+            $after = snapshot($db);
+            check($service->editItems($id, $actor, $request) === $response && snapshot($db) === $after,
+                'edit replay never repeats stock returns or quantity changes');
+            $collision = $request; $collision['items'][0]['quantity'] = '3';
+            rejects(fn () => $service->editItems($id, $actor, $collision), 'operation_collision');
+            rejects(fn () => $service->addItems($id, $actor, $request), 'operation_collision');
+            $stale = $request; $stale['operation_id'] = (string) Illuminate\Support\Str::uuid();
+            rejects(fn () => $service->editItems($id, $actor, $stale), 'stale_split_version');
+            if (!$final) {
+                $service->checkout($id, $actor, cashRequest($service, $actor, $id));
+                check(bccomp($db->table('variation_location_details')->value('qty_available'),
+                    $action === 'replace' ? $stockBefore : bcsub($stockBefore, $desired, 4), 4) === 0,
+                    'edited draft checkout consumes remaining stock quantities only');
+            }
+        }
+    }
+}
+foreach (['empty', 'negative', 'precision', 'float', 'duplicate', 'price', 'paid', 'partial', 'payment', 'fiscal', 'permission', 'unit', 'stock'] as $case) {
+    [$db, $service, $actor] = checkoutFixture(true);
+    $request = additionsRequest($service, $actor, 1, '1');
+    $code = 'invalid_add_items_request';
+    switch ($case) {
+        case 'empty': $request['items'] = []; break;
+        case 'negative': $request['items'][0]['quantity'] = '-1'; break;
+        case 'precision': $request['items'][0]['quantity'] = '1.00001'; $code = 'invalid_decimal'; break;
+        case 'float': $request['items'][0]['quantity'] = 1.5; break;
+        case 'duplicate': $request['items'][] = $request['items'][0]; break;
+        case 'price': $request['items'][0]['unit_price'] = '0'; break;
+        case 'paid': case 'partial':
+            $db->table('transactions')->where('id', 1)->update(['payment_status' => $case]); $code = 'sale_not_completely_unpaid'; break;
+        case 'payment': $db->table('transaction_payments')->insert(['transaction_id' => 1, 'amount' => '0']); $code = 'sale_not_completely_unpaid'; break;
+        case 'fiscal': $db->table('eis_sales')->insert(['transaction_id' => 1, 'status' => 'pending']); $code = 'unsupported_sale_graph'; break;
+        case 'permission': $actor->permissions = ['sell.create', 'location.2']; $code = 'split_forbidden'; break;
+        case 'unit': $db->table('units')->update(['allow_decimal' => 0]); $request['items'][0]['quantity'] = '0.5'; $code = 'invalid_unit_quantity'; break;
+        case 'stock': $request['items'][0]['quantity'] = '99999'; $code = 'checkout_stock_unavailable'; break;
+    }
+    if (in_array($case, ['paid', 'partial', 'payment', 'fiscal', 'unit'], true)) {
+        $request['expected_version'] = $service->additionsPreview(1, $actor)['expected_version'];
+    }
+    $before = snapshot($db);
+    rejects(fn () => $service->editItems(1, $actor, $request), $code);
+    check(snapshot($db) === $before, 'invalid edit rolls back every write '.$case);
+}
+foreach (['purchase_lines', 'transaction_sell_lines_purchase_lines', 'variation_location_details', 'transactions', 'saved_sale_split_operations'] as $table) {
+    [$db, $service, $actor] = checkoutFixture(true);
+    $request = additionsRequest($service, $actor, 1, '0.5000'); $before = snapshot($db);
+    $db->statement("CREATE TRIGGER edit_fail BEFORE UPDATE ON $table BEGIN SELECT RAISE(ABORT, 'edit rollback'); END");
+    try { $service->editItems(1, $actor, $request); throw new RuntimeException('Expected edit rollback'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'edit rollback'), 'edit write failure surfaced'); }
+    check(snapshot($db) === $before, 'failed edit restores lines, consumption, stock and audit '.$table);
+}
+
+foreach ([false, true] as $mixed) {
+    [$db, $service, $actor] = sentinelFixture($mixed);
+    $soldBefore = snapshot($db)['purchase_lines'];
+    $response = $service->editItems(1, $actor, additionsRequest($service, $actor, 1, '1.0000'));
+    check($db->table('variation_location_details')->value('qty_available') === '-1.0000',
+        'edit reduces overselling stock debt by removed quantity');
+    check(allocationLedger($db) === ($mixed ? [1 => '1.0000'] : [0 => '1.0000']),
+        'edit releases newest sentinel debt while preserving oldest allocation');
+    check(snapshot($db)['purchase_lines'] === $soldBefore, 'sentinel reductions do not alter real purchase counters');
+    check($response['bill']['final_total'] === '12.0000', 'overselling edit totals reconcile');
+}
+[$db, $service, $actor] = checkoutFixture(true);
+$service->editItems(1, $actor, additionsRequest($service, $actor, 1, '2.5000'));
+check($db->table('purchase_lines')->where('id', 1)->value('quantity_sold') === '10.0000' &&
+    $db->table('purchase_lines')->where('id', 2)->value('quantity_sold') === '16.5000',
+    'reductions release newest purchase allocations before oldest purchase costs');
+check(allocationLedger($db) === [1 => '1.0000', 2 => '1.5000'], 'partial retained mapping exact after reduction');
+
+foreach (['update-only', 'create-only', 'payment-only', 'none', 'admin', 'superadmin'] as $role) {
+    [$db, $service, $actor] = checkoutFixture(true);
+    $actor->admin = $role === 'admin';
+    $actor->permissions = array_merge(['location.2'], match ($role) {
+        'update-only' => ['sell.update'], 'create-only' => ['sell.create'],
+        'payment-only' => ['edit_pos_payment'], 'superadmin' => ['superadmin'], default => [],
+    });
+    $before = snapshot($db);
+    $allowed = in_array($role, ['update-only', 'admin', 'superadmin'], true);
+    if (!$allowed) {
+        rejects(fn () => $service->additionsPreview(1, $actor), 'split_forbidden');
+        $request = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => str_repeat('a', 64),
+            'items' => [['variation_id' => 5, 'quantity' => '1']]];
+        rejects(fn () => $service->editItems(1, $actor, $request), 'split_forbidden');
+        rejects(fn () => $service->addItems(1, $actor, $request), 'split_forbidden');
+        check(snapshot($db) === $before, 'backend edit authorization denies all writes '.$role);
+        continue;
+    }
+    $request = additionsRequest($service, $actor, 1, '1');
+    check(snapshot($db) === $before, 'backend-authorized preview remains read-only '.$role);
+    $service->editItems(1, $actor, $request);
+    check($db->table('transaction_sell_lines')->where('id', 1)->value('quantity') === '1.0000',
+        'backend edit role does not need sale creation permission '.$role);
+    if ($role === 'update-only') {
+        rejects(fn () => $service->preview(1, $actor), 'split_forbidden');
+        $after = snapshot($db);
+        $actor->permissions = ['location.2'];
+        rejects(fn () => $service->editItems(1, $actor, $request), 'split_forbidden');
+        check(snapshot($db) === $after, 'backend revocation blocks retry even with previously valid operation UUID');
+    }
+}
+[$db, $service, $actor] = checkoutFixture();
+$actor->permissions = ['sell.update', 'location.2'];
+$request = additionsRequest($service, $actor, 1, '1');
+$actor->permissions = ['sell.create', 'location.2'];
+$before = snapshot($db);
+rejects(fn () => $service->editItems(1, $actor, $request), 'split_forbidden');
+check(snapshot($db) === $before, 'backend revocation between preview and save blocks edit');
+
+echo "PASS: $checks isolated saved-sale split/overselling/reconciliation/additions/editing checks. No application/kernel/live database boot.\n";

@@ -52,6 +52,7 @@ Route::middleware('auth:api', 'timezone')->prefix('connector/api')->group(functi
     Route::post('sell/{id}/checkout', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'checkout']);
     Route::get('sell/{id}/add-items-preview', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'additionsPreview']);
     Route::post('sell/{id}/add-items', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'addItems']);
+    Route::post('sell/{id}/edit-items', [Modules\Connector\Http\Controllers\Api\SavedSaleSplitController::class, 'editItems']);
 
     Route::resource('sell', Modules\Connector\Http\Controllers\Api\SellController::class)->only('index', 'store', 'show', 'update', 'destroy');
 
