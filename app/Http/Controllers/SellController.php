@@ -932,25 +932,65 @@ class SellController extends Controller
 
             DB::beginTransaction();
 
+            // Verify split bill can be written and register this as a split-aware checkout
             \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $request->transaction_id);
-            $original_transaction = Transaction::where('business_id', $business_id)
-                                    ->where('id', $request->transaction_id)
-                                    ->lockForUpdate()
-                                    ->with(['sell_lines' => function($q) {
-                                        $q->whereNull('parent_sell_line_id');
-                                    }])
-                                    ->firstOrFail();
+            $split_result = \App\Services\Sales\SavedSaleWriteGuard::checkout(DB::connection(), $request->transaction_id, function () use (
+                $request, $business_id, $user_id
+            ) {
+                return $this->performSplitBillOperation($request, $business_id, $user_id);
+            });
+            
+            DB::commit();
 
-            // Check if EIS already submitted
-            if (!empty($original_transaction->eisSale) && $original_transaction->eisSale->status == 'submitted') {
-                throw new \Exception(__('lang_v1.cannot_split_after_eis_submission'));
-            }
+            DB::afterCommit(function () use ($split_result) {
+                if ($split_result['split_transaction']->type == 'sell' && $split_result['split_transaction']->status == 'final') {
+                    event(new SaleCompleted($split_result['split_transaction']));
+                }
+            });
 
-            // Get all line IDs that will be affected
-            $all_line_ids = $original_transaction->sell_lines->pluck('id')->toArray();
-            $selected_ids = [];
-            $selected_lines_data = [];
-            $split_items = [];
+            $output = [
+                'success' => true,
+                'msg' => __('lang_v1.split_bill_success'),
+                'new_transaction_id' => $split_result['split_transaction']->id
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
+
+            $output = [
+                'success' => false,
+                'msg' => $e->getMessage()
+            ];
+        }
+
+        return $output;
+    }
+
+    /**
+     * Perform the actual split bill operation
+     * This is called within a split-aware checkout context
+     */
+    private function performSplitBillOperation($request, $business_id, $user_id)
+    {
+        $original_transaction = Transaction::where('business_id', $business_id)
+                                ->where('id', $request->transaction_id)
+                                ->lockForUpdate()
+                                ->with(['sell_lines' => function($q) {
+                                    $q->whereNull('parent_sell_line_id');
+                                }])
+                                ->firstOrFail();
+
+        // Check if EIS already submitted
+        if (!empty($original_transaction->eisSale) && $original_transaction->eisSale->status == 'submitted') {
+            throw new \Exception(__('lang_v1.cannot_split_after_eis_submission'));
+        }
+
+        // Get all line IDs that will be affected
+        $all_line_ids = $original_transaction->sell_lines->pluck('id')->toArray();
+        $selected_ids = [];
+        $selected_lines_data = [];
+        $split_items = [];
 
             foreach ($request->sell_lines as $line_data) {
                 if (is_array($line_data)) {
@@ -1219,32 +1259,12 @@ class SellController extends Controller
                 $this->copyEisData($original_transaction, $split_transaction, $split_items);
             }
 
-            DB::commit();
-
-            DB::afterCommit(function () use ($split_transaction) {
-                if ($split_transaction->type == 'sell' && $split_transaction->status == 'final') {
-                    event(new SaleCompleted($split_transaction));
-                }
-            });
-
-            $output = [
-                'success' => true,
-                'msg' => __('lang_v1.split_bill_success'),
-                'new_transaction_id' => $split_transaction->id
-            ];
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
-
-            $output = [
-                'success' => false,
-                'msg' => $e->getMessage()
+            // Return split result for the calling method to use
+            return [
+                'split_transaction' => $split_transaction,
+                'original_transaction' => $original_transaction
             ];
         }
-
-        return $output;
-    }
 
     /**
      * Adjust stock for split transaction
