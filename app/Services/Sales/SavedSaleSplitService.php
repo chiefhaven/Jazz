@@ -5,6 +5,8 @@ namespace App\Services\Sales;
 use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
+use Modules\EIS\Exceptions\EisSaleException;
+use Modules\EIS\Services\Sales\InvoiceNumberGenerator;
 
 /** Locked historical partitions. Checkout is a distinct, restricted cash contract;
  * no client-supplied product/header data ever reaches the legacy update path.
@@ -471,8 +473,10 @@ class SavedSaleSplitService
         $this->storage();
         [$operation, $quantities] = $this->request($input);
         $hash = hash('sha256', json_encode([(string) $id, $input['expected_version'], $quantities], JSON_THROW_ON_ERROR));
+        $numbers = new InvoiceNumberGenerator();
         try {
-            return $this->db->transaction(function () use ($id, $user, $admin, $input, $operation, $quantities, $hash) {
+            return $numbers->withNumberingLock($this->db, (int) $user->business_id,
+                fn () => $this->db->transaction(function () use ($id, $user, $admin, $input, $operation, $quantities, $hash, $numbers) {
                 $g = $this->graph($id, $user, $admin); // Lock header first, deterministic graph order.
                 $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
                     ->where('operation_id', $operation)->lockForUpdate()->first();
@@ -515,13 +519,11 @@ class SavedSaleSplitService
                 $opId = $this->db->table(self::OPERATIONS)->insertGetId(['business_id' => $user->business_id,
                     'user_id' => $user->id, 'operation_id' => $operation, 'source_id' => $id,
                     'payload_hash' => $hash, 'expected_version' => $input['expected_version'],
-                    'allocation_json' => json_encode(['before' => $g, 'bill_b_quantities' => $quantities], JSON_THROW_ON_ERROR),
+                    'allocation_json' => json_encode(['before' => $g, 'bill_b_quantities' => $quantities,
+                        'invoice_number_rule' => 'eis'], JSON_THROW_ON_ERROR),
                     'created_at' => $now, 'updated_at' => $now]);
                 $header = array_intersect_key($g['header'], array_flip(self::HEADER_COPY));
-                // No numbering counter touched. UUID namespace and DB existence check.
-                do {
-                    $invoice = 'SPLIT-'.Str::uuid();
-                } while ($this->db->table('transactions')->where('invoice_no', $invoice)->exists());
+                $invoice = $numbers->generateAvailableInvoiceNumber($this->db, (int) $user->business_id);
                 $header = array_merge($header, ['invoice_no' => $invoice, 'invoice_token' => (string) Str::uuid(),
                     'total_before_tax' => $totalB, 'final_total' => $totalB, 'tax_amount' => '0.0000',
                     'essentials_duration' => '0.0000', 'essentials_amount_per_unit_duration' => '0.0000',
@@ -556,7 +558,9 @@ class SavedSaleSplitService
                 $this->db->table(self::OPERATIONS)->where('id', $opId)->update(['result_id' => $newId,
                     'response_json' => json_encode($response, JSON_THROW_ON_ERROR), 'updated_at' => $now]);
                 return $response;
-            });
+            }));
+        } catch (EisSaleException $e) {
+            $this->fail('split_invoice_number_unavailable', $e->getMessage(), 503);
         } catch (QueryException $e) {
             // Simultaneous same UUID on different source headers: unique-key loser
             // rolls back completely, then reads the winner on a fresh transaction.

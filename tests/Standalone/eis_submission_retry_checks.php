@@ -154,6 +154,55 @@ checkRetry($submitted->eis_invoice_number === 'GENERATED-1' && $transaction->fre
 $count = count($client->payloads);
 $service->submit($transaction, $settings);
 checkRetry(count($client->payloads) === $count, 'Submitted sale never sent again');
+
+$schema->create('saved_sale_split_operations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->integer('source_id');
+    $t->integer('result_id')->nullable(); $t->text('allocation_json'); $t->text('response_json');
+});
+function splitSubmissionFixture(string $number, bool $eisRule = true): Transaction {
+    $sale = submissionFixture();
+    DB::table('transactions')->where('id', $sale->id)->update(['invoice_no' => $number]);
+    $sale->refresh();
+    DB::table('saved_sale_split_operations')->insert([
+        ['business_id' => 7, 'source_id' => 9999, 'result_id' => $sale->id,
+            'allocation_json' => json_encode($eisRule ? ['invoice_number_rule' => 'eis'] : []),
+            'response_json' => json_encode(['bill_b' => ['invoice_no' => $number]])],
+        ['business_id' => 7, 'source_id' => $sale->id, 'result_id' => null,
+            'allocation_json' => '{"kind":"checkout"}', 'response_json' => '{"paid":true}'],
+    ]);
+    return $sale;
+}
+$client->response = ['success' => false, 'error' => 'Fixture offline'];
+$numbers = new InvoiceNumberGenerator();
+$splitNumber = 'YHN-E-'.$numbers->base10ToBase64($numbers->toJulianDate(now())).'-BH';
+$split = splitSubmissionFixture($splitNumber);
+$generatedBefore = $service->generated;
+failSubmission($service, $split, $settings);
+checkRetry(end($client->payloads)['invoiceHeader']['invoiceNumber'] === $splitNumber
+    && $service->generated === $generatedBefore, 'First paid split submission reuses its audited number without regeneration');
+failSubmission($service, $split, $settings);
+checkRetry(end($client->payloads)['invoiceHeader']['invoiceNumber'] === $splitNumber
+    && $service->generated === $generatedBefore, 'Split retry retains the same number');
+checkRetry(end($client->payloads)['invoiceSummary']['offlineSignature'] === 'fixture-signature',
+    'Split retry follows normal signed retry rules');
+$client->response = ['success' => true, 'data' => ['statusCode' => 1,
+    'data' => ['validationURL' => 'https://eis.invalid/validate?vc=SPLIT-RECEIPT']]];
+$submittedSplit = $service->submit($split, $settings);
+checkRetry($submittedSplit->eis_invoice_number === $splitNumber
+    && $submittedSplit->receipt_number === 'SPLIT-RECEIPT', 'Submitted split keeps invoice identity separate from fiscal receipt');
+
+$client->response = ['success' => false, 'error' => 'Fixture offline'];
+$legacy = splitSubmissionFixture('SPLIT-legacy-uuid', false);
+failSubmission($service, $legacy, $settings);
+checkRetry($service->generated === $generatedBefore + 1
+    && end($client->payloads)['invoiceHeader']['invoiceNumber'] !== 'SPLIT-legacy-uuid',
+    'Older split bills still generate their first EIS number on payment');
+$tampered = splitSubmissionFixture($splitNumber.'B');
+DB::table('transactions')->where('id', $tampered->id)->update(['invoice_no' => 'tampered']);
+$count = count($client->payloads);
+failSubmission($service, $tampered, $settings);
+checkRetry(!EisSale::where('transaction_id', $tampered->id)->exists() && count($client->payloads) === $count,
+    'Mismatched split audit fails before tracking or any EIS request');
 // A transport failure must return to persisted tracking, not silently replay
 // the unsigned first payload in an internal HTTP retry.
 $container['config']['eis.base_url'] = 'https://eis.invalid';
