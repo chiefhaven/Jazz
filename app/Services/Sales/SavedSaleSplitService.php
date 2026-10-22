@@ -120,7 +120,7 @@ class SavedSaleSplitService
         }
         $h = (array) $header;
         if (!$admin && (string) $h['created_by'] !== (string) $user->id) {
-            $this->fail('split_forbidden', 'Only the creator may split this sale.', 403);
+            $this->fail('split_forbidden', 'Only the creator or a business admin may modify this saved sale.', 403);
         }
         if (!$this->db->table('users')->where('id', $h['created_by'])->where('business_id', $user->business_id)->exists()) {
             $this->fail('split_forbidden', 'Sale creator does not belong to this tenant.', 403);
@@ -642,6 +642,149 @@ class SavedSaleSplitService
         });
     }
 
+    private function additionsEligible(array $g)
+    {
+        $this->eligible($g);
+        $business = $this->db->table('business')->where('id', $g['header']['business_id'])->lockForUpdate()->first();
+        if (!empty($business->enable_product_expiry) || !empty($business->enable_rp) ||
+            !in_array($business->accounting_method ?? 'fifo', ['fifo', 'lifo'], true) ||
+            !self::zero($g['header']['selling_price_group_id'] ?? null) ||
+            !self::zero($g['header']['customer_group_id'] ?? null)) {
+            $this->fail('add_items_unsupported', 'Expiry, rewards and special pricing require the backend POS editor.');
+        }
+        return $business;
+    }
+
+    public function additionsPreview($id, $user)
+    {
+        $admin = $this->actor($user);
+        $this->storage(['variation_location_details', 'product_locations']);
+        return $this->db->transaction(function () use ($id, $user, $admin) {
+            $g = $this->graph($id, $user, $admin);
+            $reason = null;
+            try { $this->additionsEligible($g); }
+            catch (SavedSplitException $e) { $reason = ['code' => $e->errorCode, 'message' => $e->getMessage()]; }
+            return ['eligible' => $reason === null, 'reason' => $reason,
+                'location_id' => (int) $g['header']['location_id'],
+                'expected_version' => self::fingerprint($g), 'source' => $this->bill($g)];
+        });
+    }
+
+    public function addItems($id, $user, array $input)
+    {
+        $admin = $this->actor($user);
+        $this->storage(['variation_location_details', 'product_locations']);
+        if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'items']) ||
+            !isset($input['operation_id'], $input['expected_version'], $input['items']) ||
+            !is_string($input['operation_id']) || !Str::isUuid($input['operation_id']) ||
+            !is_string($input['expected_version']) || !preg_match('/^[a-f0-9]{64}$/D', $input['expected_version']) ||
+            !is_array($input['items']) || !$input['items'] || count($input['items']) > 100) {
+            $this->fail('invalid_add_items_request', 'Provide UUID operation_id, expected_version and 1-100 new item quantities.', 422);
+        }
+        $items = [];
+        foreach ($input['items'] as $item) {
+            if (!is_array($item) || array_diff(array_keys($item), ['variation_id', 'quantity']) ||
+                !isset($item['variation_id'], $item['quantity']) || !is_int($item['variation_id']) ||
+                $item['variation_id'] <= 0 || !is_string($item['quantity']) ||
+                bccomp(self::decimal($item['quantity']), '0', 4) <= 0 || isset($items[$item['variation_id']])) {
+                $this->fail('invalid_add_items_request', 'New items require unique variation IDs and positive decimal-string quantities only.', 422);
+            }
+            $items[$item['variation_id']] = self::decimal($item['quantity']);
+        }
+        ksort($items, SORT_NUMERIC);
+        $operation = strtolower($input['operation_id']);
+        $hash = hash('sha256', json_encode(['add_items', (string) $id, $input['expected_version'], $items], JSON_THROW_ON_ERROR));
+        try {
+            return $this->db->transaction(function () use ($id, $user, $admin, $input, $items, $operation, $hash) {
+                $g = $this->graph($id, $user, $admin);
+                $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
+                    ->where('operation_id', $operation)->lockForUpdate()->first();
+                if ($existing) { return $this->replay($existing, $user, $hash); }
+                if (!hash_equals(self::fingerprint($g), $input['expected_version'])) {
+                    $this->fail('stale_split_version', 'The order changed. Refresh before adding items.');
+                }
+                $business = $this->additionsEligible($g);
+                $h = $g['header'];
+                $now = date('Y-m-d H:i:s');
+                $opId = $this->db->table(self::OPERATIONS)->insertGetId(['business_id' => $user->business_id,
+                    'user_id' => $user->id, 'operation_id' => $operation, 'source_id' => $id, 'result_id' => $id,
+                    'payload_hash' => $hash, 'expected_version' => $input['expected_version'],
+                    'allocation_json' => json_encode(['kind' => 'add_items', 'before' => $g, 'items' => $items], JSON_THROW_ON_ERROR),
+                    'created_at' => $now, 'updated_at' => $now]);
+                $newIds = [];
+                foreach ($items as $variationId => $quantity) {
+                    $variation = $this->db->table('variations')->where('id', $variationId)->whereNull('deleted_at')->lockForUpdate()->first();
+                    $product = $variation ? $this->db->table('products')->where('id', $variation->product_id)
+                        ->where('business_id', $h['business_id'])->whereNull('deleted_at')->lockForUpdate()->first() : null;
+                    if (!$product || !in_array($product->type, ['single', 'variable'], true) ||
+                        !empty($product->not_for_selling) || !empty($product->is_inactive) ||
+                        !$this->db->table('product_locations')->where('product_id', $product->id)
+                            ->where('location_id', $h['location_id'])->exists()) {
+                        $this->fail('invalid_add_product', 'A selected product is unavailable at this order location.', 422);
+                    }
+                    $unit = $this->db->table('units')->where('id', $product->unit_id)->where('business_id', $h['business_id'])->first();
+                    if (!$unit || (!$unit->allow_decimal && bccomp($quantity, bcadd($quantity, '0', 0), 4) !== 0)) {
+                        $this->fail('invalid_unit_quantity', 'Quantity is invalid for the product base unit.', 422);
+                    }
+                    $price = self::decimal($variation->default_sell_price);
+                    $rate = '0.0000';
+                    if (!self::zero($product->tax ?? null)) {
+                        $tax = $this->db->table('tax_rates')->where('id', $product->tax)->where('business_id', $h['business_id'])->first();
+                        if (!$tax || !empty($tax->is_tax_group)) {
+                            $this->fail('invalid_add_product', 'A supported product tax rate is required.', 422);
+                        }
+                        $rate = self::decimal($tax->amount);
+                    }
+                    if (bccomp($price, '0', 4) < 0 || bccomp($rate, '0', 4) < 0) {
+                        $this->fail('invalid_add_product', 'Product price and tax must be nonnegative.', 422);
+                    }
+                    $taxAmount = self::round4(bcdiv(bcmul($price, $rate, 8), '100', 8));
+                    $newIds[] = $this->db->table('transaction_sell_lines')->insertGetId([
+                        'transaction_id' => $id, 'product_id' => $product->id, 'variation_id' => $variationId,
+                        'quantity' => $quantity, 'unit_price_before_discount' => $price, 'unit_price' => $price,
+                        'item_tax' => $taxAmount, 'unit_price_inc_tax' => bcadd($price, $taxAmount, 4),
+                        'tax_id' => $product->tax ?? null, 'children_type' => '', 'created_at' => $now, 'updated_at' => $now]);
+                }
+                $newLines = $this->db->table('transaction_sell_lines')->whereIn('id', $newIds)->orderBy('id')
+                    ->get()->map(fn ($line) => (array) $line)->all();
+                if ($h['status'] === 'final') {
+                    $settings = empty($business->pos_settings) ? [] : json_decode($business->pos_settings, true, 512, JSON_THROW_ON_ERROR);
+                    // Reuse the exact decimal stock adapter; no payment or header model writes enter this scope.
+                    SavedSaleWriteGuard::checkout($this->db, $id, function () use ($g, $newLines, $newIds, $settings, $business, $h) {
+                        $stockGraph = $g; $stockGraph['lines'] = $newLines;
+                        $this->decreaseSavedStock($stockGraph, $settings);
+                        (new \App\Utils\TransactionUtil())->mapPurchaseSell(['id' => $h['business_id'],
+                            'location_id' => $h['location_id'], 'accounting_method' => $business->accounting_method,
+                            'pos_settings' => $settings], \App\TransactionSellLine::whereIn('id', $newIds)->orderBy('id')->get(), 'purchase', false);
+                    });
+                }
+                $total = $this->total(array_merge($g['lines'], $newLines));
+                $this->db->table('transactions')->where('id', $id)->update([
+                    'total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now]);
+                $after = $this->graph($id, $user, $admin);
+                $this->eligible($after);
+                $originalLines = array_values(array_filter($after['lines'], fn ($line) => !in_array($line['id'], $newIds)));
+                $originalMappings = array_values(array_filter($after['mappings'], fn ($map) => !in_array($map['sell_line_id'], $newIds)));
+                if ($originalLines !== $g['lines'] || $after['payments'] !== $g['payments'] ||
+                    $originalMappings !== $g['mappings'] ||
+                    $after['header'] !== array_replace($h, ['total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now])) {
+                    $this->fail('add_items_invariant_failed', 'Adding items changed existing order data; rolled back.');
+                }
+                $response = ['operation_id' => $operation, 'source_id' => (int) $id,
+                    'bill' => $this->bill($after), 'added_line_ids' => $newIds];
+                $this->db->table(self::OPERATIONS)->where('id', $opId)->update([
+                    'response_json' => json_encode($response, JSON_THROW_ON_ERROR), 'updated_at' => $now]);
+                return $response;
+            });
+        } catch (QueryException $e) {
+            if (in_array((string) $e->getCode(), ['23000', '23505'], true)) {
+                $row = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)->where('operation_id', $operation)->first();
+                if ($row) { return $this->replay($row, $user, $hash); }
+            }
+            throw $e;
+        }
+    }
+
     /** The only allowed checkout is one exact cash payment. No repricing,
      * replacement lines, change, partial payments, account override or store().
      */
@@ -716,38 +859,8 @@ class SavedSaleSplitService
             $this->fail('checkout_fiscal_limits', $limit['message']); // Unlike legacy store, fail closed on check failure.
         }
         $util = new \App\Utils\TransactionUtil();
-        $productUtil = new \App\Utils\ProductUtil();
         if ($h['status'] === 'draft') {
-            // Lock all stock rows deterministically before decreasing any of them.
-            // mapPurchaseSell takes current locks on available purchase rows.
-            $quantities = [];
-            foreach ($g['lines'] as $line) {
-                if ($this->db->table('products')->where('id', $line['product_id'])->value('enable_stock')) {
-                    $key = $line['variation_id'];
-                    if (!isset($quantities[$key])) { $quantities[$key] = [$line['product_id'], '0.0000']; }
-                    $quantities[$key][1] = bcadd($quantities[$key][1], $line['quantity'], 4);
-                }
-            }
-            ksort($quantities, SORT_NUMERIC);
-            foreach ($quantities as $variation => [$product, $quantity]) {
-                $stock = $this->db->table('variation_location_details')->where('product_id', $product)
-                    ->where('variation_id', $variation)->where('location_id', $h['location_id'])->orderBy('id')->lockForUpdate()->get();
-                if ($stock->count() > 1 || (empty($settings['allow_overselling']) &&
-                    ($stock->count() !== 1 || bccomp(self::decimal($stock[0]->qty_available), $quantity, 4) < 0))) {
-                    $this->fail('checkout_stock_unavailable', 'Insufficient or ambiguous saved product stock at the sale location.');
-                }
-            }
-            foreach ($quantities as $variation => [$product, $quantity]) {
-                $beforeValue = $this->db->table('variation_location_details')->where('product_id', $product)
-                    ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available');
-                $before = $beforeValue === null ? '0.0000' : self::decimal($beforeValue);
-                $productUtil->decreaseProductQuantity($product, $variation, $h['location_id'], $quantity, 0, $h['id']);
-                $after = self::decimal($this->db->table('variation_location_details')->where('product_id', $product)
-                    ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available'));
-                if (bccomp($after, bcsub($before, $quantity, 4), 4) !== 0) {
-                    $this->fail('checkout_invariant_failed', 'Stock utility did not decrease the exact saved quantity; rolled back.');
-                }
-            }
+            $this->decreaseSavedStock($g, $settings);
         }
         $this->db->table('transactions')->where('id', $h['id'])->update(['status' => 'final', 'is_suspend' => 0, 'updated_at' => date('Y-m-d H:i:s')]);
         $transaction = \App\Transaction::findOrFail($h['id']);
@@ -759,6 +872,42 @@ class SavedSaleSplitService
         // Exact payment was validated in decimal arithmetic. Do not invoke the
         // legacy float status calculation / arbitrary module hooks here.
         $this->db->table('transactions')->where('id', $h['id'])->update(['payment_status' => 'paid']);
+    }
+
+    private function decreaseSavedStock(array $g, array $settings)
+    {
+        $h = $g['header'];
+        $productUtil = new \App\Utils\ProductUtil();
+        // Lock all stock rows deterministically before decreasing any of them.
+        // mapPurchaseSell takes current locks on available purchase rows.
+        $quantities = [];
+        foreach ($g['lines'] as $line) {
+            if ($this->db->table('products')->where('id', $line['product_id'])->value('enable_stock')) {
+                $key = $line['variation_id'];
+                if (!isset($quantities[$key])) { $quantities[$key] = [$line['product_id'], '0.0000']; }
+                $quantities[$key][1] = bcadd($quantities[$key][1], $line['quantity'], 4);
+            }
+        }
+        ksort($quantities, SORT_NUMERIC);
+        foreach ($quantities as $variation => [$product, $quantity]) {
+            $stock = $this->db->table('variation_location_details')->where('product_id', $product)
+                ->where('variation_id', $variation)->where('location_id', $h['location_id'])->orderBy('id')->lockForUpdate()->get();
+            if ($stock->count() > 1 || (empty($settings['allow_overselling']) &&
+                ($stock->count() !== 1 || bccomp(self::decimal($stock[0]->qty_available), $quantity, 4) < 0))) {
+                $this->fail('checkout_stock_unavailable', 'Insufficient or ambiguous saved product stock at the sale location.');
+            }
+        }
+        foreach ($quantities as $variation => [$product, $quantity]) {
+            $beforeValue = $this->db->table('variation_location_details')->where('product_id', $product)
+                ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available');
+            $before = $beforeValue === null ? '0.0000' : self::decimal($beforeValue);
+            $productUtil->decreaseProductQuantity($product, $variation, $h['location_id'], $quantity, 0, $h['id']);
+            $after = self::decimal($this->db->table('variation_location_details')->where('product_id', $product)
+                ->where('variation_id', $variation)->where('location_id', $h['location_id'])->value('qty_available'));
+            if (bccomp($after, bcsub($before, $quantity, 4), 4) !== 0) {
+                $this->fail('checkout_invariant_failed', 'Stock utility did not decrease the exact saved quantity; rolled back.');
+            }
+        }
     }
 
     protected function scheduleFiscal($id)

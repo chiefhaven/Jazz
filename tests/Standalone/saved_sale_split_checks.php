@@ -91,8 +91,11 @@ function fixture()
         'eis_failed_transactions' => ['transaction_id'], 'sell_line_warranties' => ['sell_line_id', 'warranty_id'],
         'business' => ['transaction_edit_days', 'pos_settings', 'enable_rp', 'enable_product_expiry', 'accounting_method', 'ref_no_prefixes'],
         'business_locations' => ['business_id', 'default_payment_accounts', 'invoice_scheme_id'], 'users' => ['business_id'],
-        'contacts' => ['business_id', 'type', 'balance', 'deleted_at'], 'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at'],
-        'variations' => ['product_id', 'product_variation_id', 'deleted_at'], 'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id'],
+        'contacts' => ['business_id', 'type', 'balance', 'deleted_at'],
+        'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at', 'tax', 'not_for_selling', 'is_inactive'],
+        'product_locations' => ['product_id', 'location_id'],
+        'variations' => ['product_id', 'product_variation_id', 'deleted_at', 'default_sell_price'],
+        'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id', 'amount', 'is_tax_group'],
         'reference_counts' => ['business_id', 'ref_type', 'ref_count'],
         'invoice_schemes' => ['business_id', 'is_default', 'scheme_type', 'prefix', 'number_type', 'start_number', 'invoice_count', 'total_digits'],
         'variation_location_details' => ['qty_available', 'product_id', 'product_variation_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
@@ -120,8 +123,9 @@ function fixture()
     $db->table('contacts')->insert(['id' => 3, 'business_id' => 1, 'type' => 'customer']);
     $db->table('units')->insert(['id' => 1, 'business_id' => 1, 'allow_decimal' => 1]);
     $db->table('products')->insert(['id' => 4, 'business_id' => 1, 'type' => 'single', 'unit_id' => 1, 'enable_stock' => '0']);
-    $db->table('variations')->insert(['id' => 5, 'product_id' => 4]);
-    $db->table('tax_rates')->insert(['id' => 6, 'business_id' => 1]);
+    $db->table('variations')->insert(['id' => 5, 'product_id' => 4, 'default_sell_price' => '10.0000']);
+    $db->table('product_locations')->insert(['product_id' => 4, 'location_id' => 2]);
+    $db->table('tax_rates')->insert(['id' => 6, 'business_id' => 1, 'amount' => '20.0000']);
     $db->table('purchase_lines')->insert(['id' => 1, 'quantity_sold' => '123.4567']);
     $db->table('variation_location_details')->insert(['id' => 1, 'qty_available' => '987.6543']);
     $db->table('transactions')->insert(['id' => 1, 'business_id' => 1, 'location_id' => 2, 'type' => 'sell',
@@ -490,6 +494,16 @@ foreach ($router->getRoutes() as $route) {
 }
 check(count($splitRoutes) === 2 && in_array('GET', $splitRoutes[0]->methods(), true)
     && $splitRoutes[1]->methods() === ['POST'], 'exact preview/split endpoint methods');
+$additionRoutes = [];
+foreach ($router->getRoutes() as $route) {
+    if (in_array($route->uri(), ['connector/api/sell/{id}/add-items-preview', 'connector/api/sell/{id}/add-items'], true)) {
+        $additionRoutes[] = $route;
+        check(in_array('auth:api', $route->middleware(), true) && in_array('timezone', $route->middleware(), true),
+            'add-items routes retain authentication and business timezone');
+    }
+}
+check(count($additionRoutes) === 2 && in_array('GET', $additionRoutes[0]->methods(), true)
+    && $additionRoutes[1]->methods() === ['POST'], 'exact preview/add-items endpoint methods');
 
 // FINAL splitting: preserve purchase consumption/stock while distributing each
 // historical mapping, including one selection spanning multiple purchase rows.
@@ -1038,4 +1052,100 @@ try { $service->split(1, $actor, $request); throw new RuntimeException('missing 
 catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'scheme rollback'), 'final split failure propagated'); }
 check(snapshot($db) === $before, 'late final split failure rolls back invoice scheme counter');
 
-echo "PASS: $checks isolated saved-sale split/overselling/reconciliation checks. No application/kernel/live database boot.\n";
+function additionsRequest($service, $actor, $id = 1, $quantity = '2.0000')
+{
+    $preview = $service->additionsPreview($id, $actor);
+    return ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+        'items' => [['variation_id' => 5, 'quantity' => $quantity]]];
+}
+foreach (['draft', 'final'] as $status) {
+    foreach ([false, true] as $split) {
+        [$db, $service, $actor] = checkoutFixture($status === 'final');
+        $db->table('products')->where('id', 4)->update(['tax' => 6]);
+        $id = 1;
+        if ($split) {
+            $result = $service->split(1, $actor, requestFor($service, $actor));
+            $id = $result['result_id'];
+        }
+        $previewBefore = snapshot($db);
+        check($service->additionsPreview($id, $actor)['eligible'], 'unpaid '.$status.' additions eligible, split='.($split ? 'yes' : 'no'));
+        check(snapshot($db) === $previewBefore, 'additions preview is read-only');
+        $request = additionsRequest($service, $actor, $id);
+        $linesBefore = $db->table('transaction_sell_lines')->where('transaction_id', $id)->orderBy('id')->get()->toJson();
+        $headerBefore = (array) $db->table('transactions')->where('id', $id)->first();
+        $mapsBefore = $db->table('transaction_sell_lines_purchase_lines')->orderBy('id')->get()->toJson();
+        $stockBefore = $db->table('variation_location_details')->value('qty_available');
+        $response = $service->addItems($id, $actor, $request);
+        check(count($response['added_line_ids']) === 1, 'one fresh sell line appended');
+        $newId = $response['added_line_ids'][0];
+        $newLine = $db->table('transaction_sell_lines')->where('id', $newId)->first();
+        check($newLine->unit_price === '10.0000' && $newLine->item_tax === '2.0000'
+            && $newLine->unit_price_inc_tax === '12.0000', 'new line uses server price and product tax');
+        check($db->table('transaction_sell_lines')->where('transaction_id', $id)->whereNotIn('id', [$newId])->orderBy('id')->get()->toJson() === $linesBefore,
+            'all original saved lines byte-for-byte preserved');
+        check(bccomp($response['bill']['final_total'], bcadd($headerBefore['final_total'], '24', 4), 4) === 0,
+            'new tax-inclusive amount added exactly once');
+        $headerAfter = (array) $db->table('transactions')->where('id', $id)->first();
+        check(array_diff_key($headerAfter, array_flip(['total_before_tax', 'final_total', 'updated_at']))
+            === array_diff_key($headerBefore, array_flip(['total_before_tax', 'final_total', 'updated_at'])),
+            'original number, date, customer, statuses and all other metadata preserved');
+        $expectedStock = $status === 'final' ? bcsub($stockBefore, '2', 4) : $stockBefore;
+        check(bccomp($db->table('variation_location_details')->value('qty_available'), $expectedStock, 4) === 0,
+            'stock decreases only for new quantities on final orders');
+        check($db->table('transaction_sell_lines_purchase_lines')->where('sell_line_id', '!=', $newId)->orderBy('id')->get()->toJson() === $mapsBefore,
+            'existing allocations preserved');
+        check($db->table('transaction_payments')->count() === 0 && $db->table('eis_sales')->count() === 0
+            && $db->table('eis_failed_transactions')->count() === 0 && $service->scheduled === 0,
+            'additions do not create payments, fiscal identities or submissions');
+        $after = snapshot($db);
+        check($service->addItems($id, $actor, $request) === $response && snapshot($db) === $after,
+            'idempotent additions retry cannot duplicate stock or lines');
+        $concurrent = $request; $concurrent['operation_id'] = (string) Illuminate\Support\Str::uuid();
+        rejects(fn () => $service->addItems($id, $actor, $concurrent), 'stale_split_version');
+        check(snapshot($db) === $after, 'another writer with the old preview cannot append twice');
+        $changed = $request; $changed['items'][0]['quantity'] = '3';
+        rejects(fn () => $service->addItems($id, $actor, $changed), 'operation_collision');
+    }
+}
+
+foreach (['paid', 'partial', 'payment', 'fiscal', 'foreign-product', 'location', 'fractional', 'price', 'stale', 'permission', 'stock'] as $case) {
+    [$db, $service, $actor] = checkoutFixture(true);
+    $request = additionsRequest($service, $actor);
+    $code = 'stale_split_version';
+    switch ($case) {
+        case 'paid': case 'partial':
+            $db->table('transactions')->where('id', 1)->update(['payment_status' => $case]); break;
+        case 'payment': $db->table('transaction_payments')->insert(['transaction_id' => 1, 'amount' => '0']); break;
+        case 'fiscal': $db->table('eis_sales')->insert(['transaction_id' => 1, 'status' => 'pending']); break;
+        case 'foreign-product': $db->table('products')->where('id', 4)->update(['business_id' => 2]);
+            $code = 'unsupported_sale_graph'; break;
+        case 'location': $db->table('product_locations')->delete(); $code = 'invalid_add_product'; break;
+        case 'fractional': $db->table('units')->update(['allow_decimal' => 0]);
+            $request['items'][0]['quantity'] = '0.5'; $code = 'invalid_unit_quantity'; break;
+        case 'price': $request['items'][0]['unit_price'] = '0'; $code = 'invalid_add_items_request'; break;
+        case 'stale': $db->table('transaction_sell_lines')->where('id', 1)->update(['sell_line_note' => 'changed']); break;
+        case 'permission': $actor->permissions = ['sell.create', 'location.2']; $code = 'split_forbidden'; break;
+        case 'stock': $db->table('variation_location_details')->update(['qty_available' => '0']); $code = 'checkout_stock_unavailable'; break;
+    }
+    $before = snapshot($db);
+    rejects(fn () => $service->addItems(1, $actor, $request), $code);
+    check(snapshot($db) === $before, 'rejected additions leave entire database unchanged '.$case);
+    if (in_array($case, ['paid', 'partial', 'payment', 'fiscal'], true)) {
+        $preview = $service->additionsPreview(1, $actor);
+        check(!$preview['eligible'], 'fresh additions preview explicitly denies '.$case);
+        $request['expected_version'] = $preview['expected_version'];
+        rejects(fn () => $service->addItems(1, $actor, $request),
+            $case === 'fiscal' ? 'unsupported_sale_graph' : 'sale_not_completely_unpaid');
+        check(snapshot($db) === $before, 'fresh version cannot bypass unpaid/fiscal eligibility '.$case);
+    }
+}
+foreach (['draft', 'final'] as $status) {
+    [$db, $service, $actor] = checkoutFixture($status === 'final');
+    $request = additionsRequest($service, $actor); $before = snapshot($db);
+    $db->statement("CREATE TRIGGER additions_fail BEFORE UPDATE ON saved_sale_split_operations BEGIN SELECT RAISE(ABORT, 'additions rollback'); END");
+    try { $service->addItems(1, $actor, $request); throw new RuntimeException('Expected additions rollback'); }
+    catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'additions rollback'), 'late additions failure surfaced'); }
+    check(snapshot($db) === $before, 'late additions failure rolls back lines, totals, stock, allocations and audit '.$status);
+}
+
+echo "PASS: $checks isolated saved-sale split/overselling/reconciliation/additions checks. No application/kernel/live database boot.\n";

@@ -38,6 +38,20 @@ class SavedSaleSplitController extends Controller
         });
     }
 
+    public function additionsPreview(Request $request, $id)
+    {
+        return $this->splitResponse(function () use ($request, $id) {
+            return (new SavedSaleSplitService(DB::connection()))->additionsPreview($id, $request->user());
+        });
+    }
+
+    public function addItems(Request $request, $id)
+    {
+        return $this->splitResponse(function () use ($request, $id) {
+            return (new SavedSaleSplitService(DB::connection()))->addItems($id, $request->user(), $request->all());
+        });
+    }
+
     private function splitResponse(callable $work)
     {
         try {
