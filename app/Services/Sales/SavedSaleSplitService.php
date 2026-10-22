@@ -729,11 +729,13 @@ class SavedSaleSplitService
                     $price = self::decimal($variation->default_sell_price);
                     $rate = '0.0000';
                     if (!self::zero($product->tax ?? null)) {
-                        $tax = $this->db->table('tax_rates')->where('id', $product->tax)->where('business_id', $h['business_id'])->first();
+                        $tax = $this->db->table('tax_rates')->where('id', $product->tax)->where('business_id', $h['business_id'])
+                            ->select('tax_rates.*')
+                            ->selectRaw('CAST(CAST(amount AS DECIMAL(22,4)) AS CHAR) AS decimal_amount')->first();
                         if (!$tax || !empty($tax->is_tax_group)) {
                             $this->fail('invalid_add_product', 'A supported product tax rate is required.', 422);
                         }
-                        $rate = self::decimal($tax->amount);
+                        $rate = self::decimal($tax->decimal_amount);
                     }
                     if (bccomp($price, '0', 4) < 0 || bccomp($rate, '0', 4) < 0) {
                         $this->fail('invalid_add_product', 'Product price and tax must be nonnegative.', 422);

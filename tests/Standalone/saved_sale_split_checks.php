@@ -95,7 +95,7 @@ function fixture()
         'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at', 'tax', 'not_for_selling', 'is_inactive'],
         'product_locations' => ['product_id', 'location_id'],
         'variations' => ['product_id', 'product_variation_id', 'deleted_at', 'default_sell_price'],
-        'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id', 'amount', 'is_tax_group'],
+        'units' => ['business_id', 'allow_decimal'], 'tax_rates' => ['business_id', 'is_tax_group'],
         'reference_counts' => ['business_id', 'ref_type', 'ref_count'],
         'invoice_schemes' => ['business_id', 'is_default', 'scheme_type', 'prefix', 'number_type', 'start_number', 'invoice_count', 'total_digits'],
         'variation_location_details' => ['qty_available', 'product_id', 'product_variation_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
@@ -104,6 +104,7 @@ function fixture()
         'eis_offline_limits' => ['terminal_configuration_id', 'max_cumulative_amount', 'max_transaction_age_hours']] as $table => $columns) {
         $schema->create($table, function (Blueprint $t) use ($columns) {
             $t->increments('id'); foreach (array_unique(array_merge($columns, ['created_at', 'updated_at'])) as $c) { $t->text($c)->nullable(); }
+            if ($t->getTable() === 'tax_rates') { $t->float('amount')->nullable(); }
         });
     }
     $schema->create('saved_sale_split_operations', function (Blueprint $t) {
@@ -1147,5 +1148,24 @@ foreach (['draft', 'final'] as $status) {
     catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'additions rollback'), 'late additions failure surfaced'); }
     check(snapshot($db) === $before, 'late additions failure rolls back lines, totals, stock, allocations and audit '.$status);
 }
+
+foreach (['16.5' => '1.6500', '0' => '0.0000', '2.125' => '0.2125'] as $rate => $expectedTax) {
+    [$db, $service, $actor] = checkoutFixture(true);
+    $db->table('products')->where('id', 4)->update(['tax' => 6]);
+    $db->table('tax_rates')->where('id', 6)->update(['amount' => $rate]);
+    if ((string) $rate === '16.5') {
+        check(is_float($db->table('tax_rates')->where('id', 6)->value('amount')),
+            'fixture reproduces native SQL floating-point tax rate');
+    }
+    $response = $service->addItems(1, $actor, additionsRequest($service, $actor, 1, '1.0000'));
+    $line = $db->table('transaction_sell_lines')->where('id', $response['added_line_ids'][0])->first();
+    check($line->item_tax === $expectedTax, 'SQL float tax converted to decimal string, rate='.$rate);
+    check($line->unit_price_inc_tax === bcadd('10', $expectedTax, 4), 'converted tax keeps exact gross price');
+}
+[$db, $service, $actor] = checkoutFixture(true);
+$request = additionsRequest($service, $actor, 1, '1.00001');
+$before = snapshot($db);
+rejects(fn () => $service->addItems(1, $actor, $request), 'invalid_decimal');
+check(snapshot($db) === $before, 'quantity precision remains strictly limited to four places');
 
 echo "PASS: $checks isolated saved-sale split/overselling/reconciliation/additions checks. No application/kernel/live database boot.\n";
