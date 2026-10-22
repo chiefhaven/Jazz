@@ -14,7 +14,7 @@
 <!-- Main content -->
 <section class="content">
     @component('components.widget', ['class' => 'box-solid'])
-        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ContactController::class, 'contactMap']), 'method' => 'get']))->open() !!}
+        {!! Form::open(['url' => action([\App\Http\Controllers\ContactController::class, 'contactMap']), 'method' => 'get']) !!}
             <div class="col-md-6">
                 <div class="form-group">
                     <label for="contacts">@lang('lang_v1.select_contacts')</label>
@@ -26,7 +26,7 @@
             <div class="col-md-6">
                 <button type="submit" class="btn btn-primary">@lang('messages.submit')</button>
             </div>
-        {!! html()->form()->close() !!}
+        {!! Form::close() !!}
     @endcomponent
     @component('components.widget', ['class' => 'box-solid'])
         <script async defer src="https://maps.googleapis.com/maps/api/js?key={{$api_key}}"></script>

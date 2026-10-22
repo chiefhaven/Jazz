@@ -19,18 +19,18 @@
 
 	@include('layouts.partials.error')
 
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\PurchaseOrderController::class, 'store']), 'method' => 'post', 'id' => 'add_purchase_form', 'files' => true ]))->open() !!}
+	{!! Form::open(['url' => action([\App\Http\Controllers\PurchaseOrderController::class, 'store']), 'method' => 'post', 'id' => 'add_purchase_form', 'files' => true ]) !!}
 	@component('components.widget', ['class' => 'box-solid'])
 		<input type="hidden" id="is_purchase_order">
 		<div class="row">
 			<div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
 				<div class="form-group">
-					{!! html()->label(__('purchase.supplier') . ':*', 'supplier_id')->attributes([]) !!}
+					{!! Form::label('supplier_id', __('purchase.supplier') . ':*') !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-user"></i>
 						</span>
-						{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'id' => 'supplier_id'])); !!}
+						{!! Form::select('contact_id', [], null, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'id' => 'supplier_id']); !!}
 						<span class="input-group-btn">
 							<button type="button" class="btn btn-default bg-white btn-flat add_new_supplier" data-name=""><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
 						</span>
@@ -43,30 +43,30 @@
 			</div>
 			<div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
 				<div class="form-group">
-					{!! html()->label(__('purchase.ref_no').':', 'ref_no')->attributes([]) !!}
-					{!! html()->text('ref_no', null)->attributes(['class' => 'form-control']); !!}
+					{!! Form::label('ref_no', __('purchase.ref_no').':') !!}
+					{!! Form::text('ref_no', null, ['class' => 'form-control']); !!}
 				</div>
 			</div>
 			<div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.order_date') . ':*', 'transaction_date')->attributes([]) !!}
+					{!! Form::label('transaction_date', __('lang_v1.order_date') . ':*') !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-calendar"></i>
 						</span>
-						{!! html()->text('transaction_date', @format_datetime('now'))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
+						{!! Form::text('transaction_date', @format_datetime('now'), ['class' => 'form-control', 'readonly', 'required']); !!}
 					</div>
 				</div>
 			</div>
 
 			<div class="@if(!empty($default_purchase_status)) col-sm-4 @else col-sm-3 @endif">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.delivery_date') . ':', 'delivery_date')->attributes([]) !!}
+					{!! Form::label('delivery_date', __('lang_v1.delivery_date') . ':') !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-calendar"></i>
 						</span>
-						{!! html()->text('delivery_date', null)->attributes(['class' => 'form-control']); !!}
+						{!! Form::text('delivery_date', null, ['class' => 'form-control']); !!}
 					</div>
 				</div>
 			</div>
@@ -83,22 +83,22 @@
 			@endif
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('purchase.business_location').':*', 'location_id')->attributes([]) !!}
+					{!! Form::label('location_id', __('purchase.business_location').':*') !!}
 					@show_tooltip(__('tooltip.purchase_location'))
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, $default_location, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])); !!}
+					{!! Form::select('location_id', $business_locations, $default_location, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'], $bl_attributes); !!}
 				</div>
 			</div>
 
 			<!-- Currency Exchange Rate -->
 			<div class="col-sm-3 @if(!$currency_details->purchase_in_diff_currency) hide @endif">
 				<div class="form-group">
-					{!! html()->label(__('purchase.p_exchange_rate') . ':*', 'exchange_rate')->attributes([]) !!}
+					{!! Form::label('exchange_rate', __('purchase.p_exchange_rate') . ':*') !!}
 					@show_tooltip(__('tooltip.currency_exchange_factor'))
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-info"></i>
 						</span>
-						{!! html()->input('number', 'exchange_rate', $currency_details->p_exchange_rate)->attributes(['class' => 'form-control', 'required', 'step' => 0.001]); !!}
+						{!! Form::number('exchange_rate', $currency_details->p_exchange_rate, ['class' => 'form-control', 'required', 'step' => 0.001]); !!}
 					</div>
 					<span class="help-block text-danger">
 						@lang('purchase.diff_purchase_currency_help', ['currency' => $currency_details->name])
@@ -109,20 +109,23 @@
 			<div class="col-md-3">
 		          <div class="form-group">
 		            <div class="multi-input">
-		              {!! html()->label(__('contact.pay_term') . ':', 'pay_term_number')->attributes([]) !!} @show_tooltip(__('tooltip.pay_term'))
+		              {!! Form::label('pay_term_number', __('contact.pay_term') . ':') !!} @show_tooltip(__('tooltip.pay_term'))
 		              <br/>
-		              {!! html()->input('number', 'pay_term_number', null)->attributes(['class' => 'form-control width-40 pull-left', 'placeholder' => __('contact.pay_term')]); !!}
+		              {!! Form::number('pay_term_number', null, ['class' => 'form-control width-40 pull-left', 'placeholder' => __('contact.pay_term')]); !!}
 
-		              {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('pay_term_type', ['months' => __('lang_v1.months'), 
-		              		'days' => __('lang_v1.days')], null, ['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'id' => 'pay_term_type'])); !!}
+		              {!! Form::select('pay_term_type', 
+		              	['months' => __('lang_v1.months'), 
+		              		'days' => __('lang_v1.days')], 
+		              		null, 
+		              	['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'id' => 'pay_term_type']); !!}
 		            </div>
 		        </div>
 		    </div>
 
 			<div class="col-sm-3">
                 <div class="form-group">
-                    {!! html()->label(__('purchase.attach_document') . ':', 'document')->attributes([]) !!}
-                    {!! html()->file('document')->attributes(['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+                    {!! Form::label('document', __('purchase.attach_document') . ':') !!}
+                    {!! Form::file('document', ['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
                     <p class="help-block">
                     	@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
                     	@includeIf('components.document_help_text')
@@ -134,8 +137,8 @@
 		<div class="row">
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.purchase_requisition').':', 'purchase_requisition_ids')->attributes([]) !!}
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('purchase_requisition_ids[]', [], null, ['class' => 'form-control select2', 'multiple', 'id' => 'purchase_requisition_ids'])); !!}
+					{!! Form::label('purchase_requisition_ids', __('lang_v1.purchase_requisition').':') !!}
+					{!! Form::select('purchase_requisition_ids[]', [], null, ['class' => 'form-control select2', 'multiple', 'id' => 'purchase_requisition_ids']); !!}
 				</div>
 			</div>
 		</div>
@@ -150,7 +153,7 @@
 						<span class="input-group-addon">
 							<i class="fa fa-search"></i>
 						</span>
-						{!! html()->text('search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'disabled' => $search_disable]); !!}
+						{!! Form::text('search_product', null, ['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'disabled' => $search_disable]); !!}
 					</div>
 				</div>
 			</div>
@@ -228,38 +231,38 @@
 	<div class="row">
 		<div class="col-md-4">
 			<div class="form-group">
-	            {!! html()->label(__('sale.shipping_details'), 'shipping_details')->attributes([]) !!}
-	            {!! html()->textarea('shipping_details', null)->attributes(['class' => 'form-control','placeholder' => __('sale.shipping_details') ,'rows' => '3', 'cols'=>'30']); !!}
+	            {!! Form::label('shipping_details', __('sale.shipping_details')) !!}
+	            {!! Form::textarea('shipping_details',null, ['class' => 'form-control','placeholder' => __('sale.shipping_details') ,'rows' => '3', 'cols'=>'30']); !!}
 	        </div>
 		</div>
 		<div class="col-md-4">
 			<div class="form-group">
-	            {!! html()->label(__('lang_v1.shipping_address'), 'shipping_address')->attributes([]) !!}
-	            {!! html()->textarea('shipping_address', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.shipping_address') ,'rows' => '3', 'cols'=>'30']); !!}
+	            {!! Form::label('shipping_address', __('lang_v1.shipping_address')) !!}
+	            {!! Form::textarea('shipping_address',null, ['class' => 'form-control','placeholder' => __('lang_v1.shipping_address') ,'rows' => '3', 'cols'=>'30']); !!}
 	        </div>
 		</div>
 		<div class="col-md-4">
 			<div class="form-group">
-				{!!html()->label(__('sale.shipping_charges'), 'shipping_charges')->attributes([])!!}
+				{!!Form::label('shipping_charges', __('sale.shipping_charges'))!!}
 				<div class="input-group">
 				<span class="input-group-addon">
 				<i class="fa fa-info"></i>
 				</span>
-				{!!html()->text('shipping_charges', @num_format(0.00))->attributes(['class'=>'form-control input_number','placeholder'=> __('sale.shipping_charges')]);!!}
+				{!!Form::text('shipping_charges',@num_format(0.00),['class'=>'form-control input_number','placeholder'=> __('sale.shipping_charges')]);!!}
 				</div>
 			</div>
 		</div>
 		<div class="clearfix"></div>
 		<div class="col-md-4">
 			<div class="form-group">
-	            {!! html()->label(__('lang_v1.shipping_status'), 'shipping_status')->attributes([]) !!}
-	            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('shipping_status', $shipping_statuses, null, ['class' => 'form-control','placeholder' => __('messages.please_select')])); !!}
+	            {!! Form::label('shipping_status', __('lang_v1.shipping_status')) !!}
+	            {!! Form::select('shipping_status',$shipping_statuses, null, ['class' => 'form-control','placeholder' => __('messages.please_select')]); !!}
 	        </div>
 		</div>
 		<div class="col-md-4">
 	        <div class="form-group">
-	            {!! html()->label(__('lang_v1.delivered_to') . ':', 'delivered_to')->attributes([]) !!}
-	            {!! html()->text('delivered_to', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.delivered_to')]); !!}
+	            {!! Form::label('delivered_to', __('lang_v1.delivered_to') . ':' ) !!}
+	            {!! Form::text('delivered_to', null, ['class' => 'form-control','placeholder' => __('lang_v1.delivered_to')]); !!}
 	        </div>
 	    </div>
 	    @php
@@ -295,8 +298,8 @@
 
         	<div class="col-md-4">
 		        <div class="form-group">
-		            {!! html()->label($label_1, 'shipping_custom_field_1')->attributes([]) !!}
-		            {!! html()->text('shipping_custom_field_1', null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_1, 'required' => $is_shipping_custom_field_1_required]); !!}
+		            {!! Form::label('shipping_custom_field_1', $label_1 ) !!}
+		            {!! Form::text('shipping_custom_field_1', null, ['class' => 'form-control','placeholder' => $shipping_custom_label_1, 'required' => $is_shipping_custom_field_1_required]); !!}
 		        </div>
 		    </div>
         @endif
@@ -310,8 +313,8 @@
 
         	<div class="col-md-4">
 		        <div class="form-group">
-		            {!! html()->label($label_2, 'shipping_custom_field_2')->attributes([]) !!}
-		            {!! html()->text('shipping_custom_field_2', null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_2, 'required' => $is_shipping_custom_field_2_required]); !!}
+		            {!! Form::label('shipping_custom_field_2', $label_2 ) !!}
+		            {!! Form::text('shipping_custom_field_2', null, ['class' => 'form-control','placeholder' => $shipping_custom_label_2, 'required' => $is_shipping_custom_field_2_required]); !!}
 		        </div>
 		    </div>
         @endif
@@ -325,8 +328,8 @@
 
         	<div class="col-md-4">
 		        <div class="form-group">
-		            {!! html()->label($label_3, 'shipping_custom_field_3')->attributes([]) !!}
-		            {!! html()->text('shipping_custom_field_3', null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_3, 'required' => $is_shipping_custom_field_3_required]); !!}
+		            {!! Form::label('shipping_custom_field_3', $label_3 ) !!}
+		            {!! Form::text('shipping_custom_field_3', null, ['class' => 'form-control','placeholder' => $shipping_custom_label_3, 'required' => $is_shipping_custom_field_3_required]); !!}
 		        </div>
 		    </div>
         @endif
@@ -340,8 +343,8 @@
 
         	<div class="col-md-4">
 		        <div class="form-group">
-		            {!! html()->label($label_4, 'shipping_custom_field_4')->attributes([]) !!}
-		            {!! html()->text('shipping_custom_field_4', null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_4, 'required' => $is_shipping_custom_field_4_required]); !!}
+		            {!! Form::label('shipping_custom_field_4', $label_4 ) !!}
+		            {!! Form::text('shipping_custom_field_4', null, ['class' => 'form-control','placeholder' => $shipping_custom_label_4, 'required' => $is_shipping_custom_field_4_required]); !!}
 		        </div>
 		    </div>
         @endif
@@ -355,15 +358,15 @@
 
         	<div class="col-md-4">
 		        <div class="form-group">
-		            {!! html()->label($label_5, 'shipping_custom_field_5')->attributes([]) !!}
-		            {!! html()->text('shipping_custom_field_5', null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_5, 'required' => $is_shipping_custom_field_5_required]); !!}
+		            {!! Form::label('shipping_custom_field_5', $label_5 ) !!}
+		            {!! Form::text('shipping_custom_field_5', null, ['class' => 'form-control','placeholder' => $shipping_custom_label_5, 'required' => $is_shipping_custom_field_5_required]); !!}
 		        </div>
 		    </div>
         @endif
         <div class="col-md-4">
             <div class="form-group">
-                {!! html()->label(__('lang_v1.shipping_documents') . ':', 'shipping_documents')->attributes([]) !!}
-                {!! html()->file('shipping_documents[]')->attributes(['id' => 'shipping_documents', 'multiple', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+                {!! Form::label('shipping_documents', __('lang_v1.shipping_documents') . ':') !!}
+                {!! Form::file('shipping_documents[]', ['id' => 'shipping_documents', 'multiple', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
                 <p class="help-block">
                 	@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
                 	@includeIf('components.document_help_text')
@@ -386,34 +389,34 @@
 					<tbody>
 						<tr>
 							<td>
-								{!! html()->text('additional_expense_key_1', null)->attributes(['class' => 'form-control']); !!}
+								{!! Form::text('additional_expense_key_1', null, ['class' => 'form-control']); !!}
 							</td>
 							<td>
-								{!! html()->text('additional_expense_value_1', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_1']); !!}
-							</td>
-						</tr>
-						<tr>
-							<td>
-								{!! html()->text('additional_expense_key_2', null)->attributes(['class' => 'form-control']); !!}
-							</td>
-							<td>
-								{!! html()->text('additional_expense_value_2', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_2']); !!}
+								{!! Form::text('additional_expense_value_1', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_1']); !!}
 							</td>
 						</tr>
 						<tr>
 							<td>
-								{!! html()->text('additional_expense_key_3', null)->attributes(['class' => 'form-control']); !!}
+								{!! Form::text('additional_expense_key_2', null, ['class' => 'form-control']); !!}
 							</td>
 							<td>
-								{!! html()->text('additional_expense_value_3', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_3']); !!}
+								{!! Form::text('additional_expense_value_2', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_2']); !!}
 							</td>
 						</tr>
 						<tr>
 							<td>
-								{!! html()->text('additional_expense_key_4', null)->attributes(['class' => 'form-control']); !!}
+								{!! Form::text('additional_expense_key_3', null, ['class' => 'form-control']); !!}
 							</td>
 							<td>
-								{!! html()->text('additional_expense_value_4', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_4']); !!}
+								{!! Form::text('additional_expense_value_3', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_3']); !!}
+							</td>
+						</tr>
+						<tr>
+							<td>
+								{!! Form::text('additional_expense_key_4', null, ['class' => 'form-control']); !!}
+							</td>
+							<td>
+								{!! Form::text('additional_expense_value_4', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_4']); !!}
 							</td>
 						</tr>
 					</tbody>
@@ -422,7 +425,7 @@
 		</div>
 	<div class="row">
 		<div class="col-md-4 col-md-offset-8">
-	    {!! html()->hidden('final_total', 0)->attributes(['id' => 'grand_total_hidden']); !!}
+	    {!! Form::hidden('final_total', 0 , ['id' => 'grand_total_hidden']); !!}
 		<b>@lang('lang_v1.order_total'): </b><span id="grand_total" class="display_currency" data-currency_symbol='true'>0</span>
 		</div>
 	</div>
@@ -435,14 +438,14 @@
 				<tr class="hide">
 					<td class="col-md-3">
 						<div class="form-group">
-							{!! html()->label(__( 'purchase.discount_type' ) . ':', 'discount_type')->attributes([]) !!}
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], '', ['class' => 'form-control select2'])); !!}
+							{!! Form::label('discount_type', __( 'purchase.discount_type' ) . ':') !!}
+							{!! Form::select('discount_type', [ '' => __('lang_v1.none'), 'fixed' => __( 'lang_v1.fixed' ), 'percentage' => __( 'lang_v1.percentage' )], '', ['class' => 'form-control select2']); !!}
 						</div>
 					</td>
 					<td class="col-md-3">
 						<div class="form-group">
-						{!! html()->label(__( 'purchase.discount_amount' ) . ':', 'discount_amount')->attributes([]) !!}
-						{!! html()->text('discount_amount', 0)->attributes(['class' => 'form-control input_number', 'required']); !!}
+						{!! Form::label('discount_amount', __( 'purchase.discount_amount' ) . ':') !!}
+						{!! Form::text('discount_amount', 0, ['class' => 'form-control input_number', 'required']); !!}
 						</div>
 					</td>
 					<td class="col-md-3">
@@ -456,14 +459,14 @@
 				<tr class="hide">
 					<td>
 						<div class="form-group">
-						{!! html()->label(__('purchase.purchase_tax') . ':', 'tax_id')->attributes([]) !!}
+						{!! Form::label('tax_id', __('purchase.purchase_tax') . ':') !!}
 						<select name="tax_id" id="tax_id" class="form-control select2" placeholder="'Please Select'">
 							<option value="" data-tax_amount="0" data-tax_type="fixed" selected>@lang('lang_v1.none')</option>
 							@foreach($taxes as $tax)
 								<option value="{{ $tax->id }}" data-tax_amount="{{ $tax->amount }}" data-tax_type="{{ $tax->calculation_type }}">{{ $tax->name }}</option>
 							@endforeach
 						</select>
-						{!! html()->hidden('tax_amount', 0)->attributes(['id' => 'tax_amount']); !!}
+						{!! Form::hidden('tax_amount', 0, ['id' => 'tax_amount']); !!}
 						</div>
 					</td>
 					<td>&nbsp;</td>
@@ -476,8 +479,8 @@
 				<tr>
 					<td colspan="4">
 						<div class="form-group">
-							{!! html()->label(__('purchase.additional_notes'), 'additional_notes')->attributes([]) !!}
-							{!! html()->textarea('additional_notes', null)->attributes(['class' => 'form-control', 'rows' => 3]); !!}
+							{!! Form::label('additional_notes',__('purchase.additional_notes')) !!}
+							{!! Form::textarea('additional_notes', null, ['class' => 'form-control', 'rows' => 3]); !!}
 						</div>
 					</td>
 				</tr>
@@ -492,7 +495,7 @@
 			</div>
 		</div>
 
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 </section>
 <!-- quick product modal -->
 <div class="modal fade quick_add_product_modal" tabindex="-1" role="dialog" aria-labelledby="modalTitle"></div>

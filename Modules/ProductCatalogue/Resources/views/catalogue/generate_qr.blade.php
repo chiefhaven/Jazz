@@ -11,25 +11,25 @@
         <div class="col-md-7">
     	@component('components.widget', ['class' => 'box-solid'])
             <div class="form-group">
-                {!! html()->label(__('purchase.business_location').':', 'location_id')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select')])); !!}
+                {!! Form::label('location_id', __('purchase.business_location').':') !!}
+                {!! Form::select('location_id', $business_locations, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select')]); !!}
             </div>
             <div class="form-group">
-                {!! html()->label(__('productcatalogue::lang.qr_code_color').':', 'color')->attributes([]) !!}
-                {!! html()->text('color', '#000000')->attributes(['class' => 'form-control']); !!}
+                {!! Form::label('color', __('productcatalogue::lang.qr_code_color').':') !!}
+                {!! Form::text('color', '#000000', ['class' => 'form-control']); !!}
             </div>
             <div class="form-group">
-                {!! html()->label(__('productcatalogue::lang.title').':', 'title')->attributes([]) !!}
-                {!! html()->text('title', $business->name)->attributes(['class' => 'form-control']); !!}
+                {!! Form::label('title', __('productcatalogue::lang.title').':') !!}
+                {!! Form::text('title', $business->name, ['class' => 'form-control']); !!}
             </div>
             <div class="form-group">
-                {!! html()->label(__('productcatalogue::lang.subtitle').':', 'subtitle')->attributes([]) !!}
-                {!! html()->text('subtitle', __('productcatalogue::lang.product_catalogue'))->attributes(['class' => 'form-control']); !!}
+                {!! Form::label('subtitle', __('productcatalogue::lang.subtitle').':') !!}
+                {!! Form::text('subtitle', __('productcatalogue::lang.product_catalogue'), ['class' => 'form-control']); !!}
             </div>
             <div class="form-group">
                 <div class="checkbox">
                     <label>
-                        {!! html()->checkbox('add_logo', true, 1)->attributes(['id' => 'show_logo', 'class' => 'input-icheck']); !!} @lang('productcatalogue::lang.show_business_logo_on_qrcode')
+                        {!! Form::checkbox('add_logo', 1, true, ['id' => 'show_logo', 'class' => 'input-icheck']); !!} @lang('productcatalogue::lang.show_business_logo_on_qrcode')
                     </label>
                 </div>
             </div>

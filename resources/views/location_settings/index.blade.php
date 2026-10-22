@@ -33,29 +33,29 @@
                     <br>
                     <div class="row">
                         <div class="col-md-12">
-                            {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => route('location.settings_update', [$location->id]), 'method' => 'post', 'id' => 'bl_receipt_setting_form']))->open() !!}
+                            {!! Form::open(['url' => route('location.settings_update', [$location->id]), 'method' => 'post', 'id' => 'bl_receipt_setting_form']) !!}
 
                         <div class="col-sm-4">
                             <div class="form-group">
-                                {!! html()->label(__('receipt.print_receipt_on_invoice') . ':', 'print_receipt_on_invoice')->attributes([]) !!}
+                                {!! Form::label('print_receipt_on_invoice', __('receipt.print_receipt_on_invoice') . ':') !!}
                                 @show_tooltip(__('tooltip.print_receipt_on_invoice'))
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-file-alt"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('print_receipt_on_invoice', $printReceiptOnInvoice, $location->print_receipt_on_invoice, ['class' => 'form-control select2', 'required'])); !!}
+                                    {!! Form::select('print_receipt_on_invoice', $printReceiptOnInvoice, $location->print_receipt_on_invoice, ['class' => 'form-control select2', 'required']); !!}
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-sm-4">
                             <div class="form-group">
-                                {!! html()->label(__('receipt.receipt_printer_type') . ':*', 'receipt_printer_type')->attributes([]) !!} @show_tooltip(__('tooltip.receipt_printer_type'))
+                                {!! Form::label('receipt_printer_type', __('receipt.receipt_printer_type') . ':*') !!} @show_tooltip(__('tooltip.receipt_printer_type'))
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-print"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('receipt_printer_type', $receiptPrinterType, $location->receipt_printer_type, ['class' => 'form-control select2', 'required'])); !!}
+                                    {!! Form::select('receipt_printer_type', $receiptPrinterType, $location->receipt_printer_type, ['class' => 'form-control select2', 'required']); !!}
                                 </div>
                                 @if(config('app.env') == 'demo')
                                     <span class="help-block">Only Browser based option is enabled in demo.</span>
@@ -67,12 +67,12 @@
                         <div class="col-sm-4" 
                             id="location_printer_div">
                             <div class="form-group">
-                                {!! html()->label(__('printer.receipt_printers') . ':*', 'printer_id')->attributes([]) !!}
+                                {!! Form::label('printer_id', __('printer.receipt_printers') . ':*') !!}
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-share-alt"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('printer_id', $printers, $location->printer_id, ['class' => 'form-control select2', 'required'])); !!}
+                                    {!! Form::select('printer_id', $printers, $location->printer_id, ['class' => 'form-control select2', 'required']); !!}
                                 </div>
                             </div>
                         </div>
@@ -81,24 +81,24 @@
 
                         <div class="col-sm-4">
                             <div class="form-group">
-                                {!! html()->label(__('invoice.invoice_layout') . ':*', 'invoice_layout_id')->attributes([]) !!} @show_tooltip(__('tooltip.invoice_layout'))
+                                {!! Form::label('invoice_layout_id', __('invoice.invoice_layout') . ':*') !!} @show_tooltip(__('tooltip.invoice_layout'))
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-info"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('invoice_layout_id', $invoice_layouts, $location->invoice_layout_id, ['class' => 'form-control select2', 'required'])); !!}
+                                    {!! Form::select('invoice_layout_id', $invoice_layouts, $location->invoice_layout_id, ['class' => 'form-control select2', 'required']); !!}
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-sm-4">
                             <div class="form-group">
-                                {!! html()->label(__('invoice.invoice_scheme') . ':*', 'invoice_scheme_id')->attributes([]) !!} @show_tooltip(__('tooltip.invoice_scheme'))
+                                {!! Form::label('invoice_scheme_id', __('invoice.invoice_scheme') . ':*') !!} @show_tooltip(__('tooltip.invoice_scheme'))
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-info"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('invoice_scheme_id', $invoice_schemes, $location->invoice_scheme_id, ['class' => 'form-control select2', 'required'])); !!}
+                                    {!! Form::select('invoice_scheme_id', $invoice_schemes, $location->invoice_scheme_id, ['class' => 'form-control select2', 'required']); !!}
                                 </div>
                             </div>
                         </div>
@@ -111,7 +111,7 @@
                                 <button class="tw-dw-btn tw-dw-btn-primary tw-text-white pull-right" type="submit">@lang('messages.update')</button>
                             </div>
                         </div>
-                        {!! html()->form()->close() !!}
+                        {!! Form::close() !!}
                         </div>
                     </div>
                 </div>

@@ -8,23 +8,23 @@
 		<div class="row">
 			<div class="col-md-4">
 				<div class="form-group">
-					{!! html()->label(__('manufacturing::lang.ingredient_group').':', 'ingredient_group' . $ig_index)->attributes([]) !!}
+					{!! Form::label('ingredient_group' . $ig_index, __('manufacturing::lang.ingredient_group').':') !!}
 
-					{!! html()->text('ingredient_groups[' . $ig_index . ']', !empty($ig_name) ? $ig_name : null)->attributes(['class' => 'form-control ingredient_group', 'id' => 'ingredient_group' . $ig_index, 'placeholder' => __('manufacturing::lang.ingredient_group'), 'data-ig_index' => $ig_index , 'required']); !!}
+					{!! Form::text('ingredient_groups[' . $ig_index . ']', !empty($ig_name) ? $ig_name : null, ['class' => 'form-control ingredient_group', 'id' => 'ingredient_group' . $ig_index, 'placeholder' => __('manufacturing::lang.ingredient_group'), 'data-ig_index' => $ig_index , 'required']); !!}
 				</div>
 			</div>
 			<div class="col-md-4">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.description').':', 'ingredient_group_description' . $ig_index)->attributes([]) !!}
+					{!! Form::label('ingredient_group_description' . $ig_index, __('lang_v1.description').':') !!}
 
-					{!! html()->textarea('ingredient_group_description[' . $ig_index . ']', !empty($ig_description) ? $ig_description : null)->attributes(['class' => 'form-control', 'id' => 'ingredient_group_description' . $ig_index, 'placeholder' => __('lang_v1.description'), 'rows' => 2]); !!}
+					{!! Form::textarea('ingredient_group_description[' . $ig_index . ']', !empty($ig_description) ? $ig_description : null, ['class' => 'form-control', 'id' => 'ingredient_group_description' . $ig_index, 'placeholder' => __('lang_v1.description'), 'rows' => 2]); !!}
 				</div>
 			</div>
 			<div class="col-md-4">
 				<div class="form-group">
-					{!! html()->label(__('manufacturing::lang.select_ingredient').':', 'search_product_' . $ig_index)->attributes([]) !!}
+					{!! Form::label('search_product_' . $ig_index, __('manufacturing::lang.select_ingredient').':') !!}
 
-					{!! html()->text('search_product', null)->attributes(['class' => 'form-control search_product', 'placeholder' => __('manufacturing::lang.select_ingredient'), 'id' => 'search_product_' . $ig_index]); !!}
+					{!! Form::text('search_product', null, ['class' => 'form-control search_product', 'placeholder' => __('manufacturing::lang.select_ingredient'), 'id' => 'search_product_' . $ig_index]); !!}
 				</div>
 			</div>
 		</div>

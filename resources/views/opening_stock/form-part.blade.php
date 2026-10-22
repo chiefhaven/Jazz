@@ -66,12 +66,12 @@
 		{{ $product->name }} @if( $product->type == 'variable' ) (<b>{{ $variation->product_variation->name }}</b> : {{ $variation->name }}) @endif
 
 		@if(!empty($purchase_line_id))
-			{!! html()->hidden('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][purchase_line_id]', $purchase_line_id)->attributes([]); !!}
+			{!! Form::hidden('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][purchase_line_id]', $purchase_line_id); !!}
 		@endif
 	</td>
 	<td>
 		<div class="input-group">
-		  {!! html()->text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][quantity]', @format_quantity($qty))->attributes(['class' => 'form-control input-sm input_number purchase_quantity input_quantity', 'required']); !!}
+		  {!! Form::text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][quantity]', @format_quantity($qty) , ['class' => 'form-control input-sm input_number purchase_quantity input_quantity', 'required']); !!}
 		  <span class="input-group-addon">
 		    {{ $product->unit->short_name }}
 		  </span>
@@ -80,22 +80,22 @@
 			<br>
             <span>
             @lang('lang_v1.quantity_in_second_unit', ['unit' => $product->second_unit->short_name])*:</span><br>
-            {!! html()->text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][secondary_unit_quantity]', @format_quantity($var['secondary_unit_quantity']))->attributes(['class' => 'form-control input-sm input_number input_quantity', 'required']); !!}
+            {!! Form::text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][secondary_unit_quantity]', @format_quantity($var['secondary_unit_quantity']) , ['class' => 'form-control input-sm input_number input_quantity', 'required']); !!}
 		@endif
 	</td>
 <td>
-	{!! html()->text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][purchase_price]', @num_format($purcahse_price))->attributes(['class' => 'form-control input-sm input_number unit_price', 'required']); !!}
+	{!! Form::text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][purchase_price]', @num_format($purcahse_price) , ['class' => 'form-control input-sm input_number unit_price', 'required']); !!}
 </td>
 
 @if($enable_expiry == 1 && $product->enable_stock == 1)
 	<td>
-		{!! html()->text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][exp_date]', !empty($var['exp_date']) ? @format_date($var['exp_date']) : null)->attributes(['class' => 'form-control input-sm os_exp_date', 'readonly']); !!}
+		{!! Form::text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][exp_date]', !empty($var['exp_date']) ? @format_date($var['exp_date']) : null , ['class' => 'form-control input-sm os_exp_date', 'readonly']); !!}
 	</td>
 @endif
 
 @if($enable_lot == 1)
 	<td>
-		{!! html()->text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][lot_number]', $lot_number)->attributes(['class' => 'form-control input-sm']); !!}
+		{!! Form::text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][lot_number]', $lot_number , ['class' => 'form-control input-sm']); !!}
 	</td>
 @endif
 	<td>
@@ -103,11 +103,11 @@
 	</td>
 	<td>
 		<div class="input-group date">
-		{!! html()->text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][transaction_date]', $transaction_date)->attributes(['class' => 'form-control input-sm os_date', 'readonly']); !!}
+		{!! Form::text('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][transaction_date]', $transaction_date , ['class' => 'form-control input-sm os_date', 'readonly']); !!}
 		</div>
 	</td>
 	<td>
-		{!! html()->textarea('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][purchase_line_note]', $purchase_line_note)->attributes(['class' => 'form-control input-sm', 'rows' => 3 ]); !!}
+		{!! Form::textarea('stocks[' . $key . '][' . $variation->id . '][' . $sub_key . '][purchase_line_note]', $purchase_line_note , ['class' => 'form-control input-sm', 'rows' => 3 ]); !!}
 	</td>
 	<td>
 		@if($loop->index == 0)

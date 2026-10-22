@@ -177,7 +177,13 @@
 
             @if (empty($transaction->location_id))
                 @if (count($business_locations) > 1)
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('select_location_id', $business_locations, $default_location->id ?? null, ['class' => 'form-control input-sm', 'id' => 'select_location_id', 'required', 'autofocus'])) !!}
+                    {!! Form::select(
+                        'select_location_id',
+                        $business_locations,
+                        $default_location->id ?? null,
+                        ['class' => 'form-control input-sm', 'id' => 'select_location_id', 'required', 'autofocus'],
+                        $bl_attributes,
+                    ) !!}
                 @else
                     <span class="ph__location-name">{{ $default_location->name }}</span>
                 @endif

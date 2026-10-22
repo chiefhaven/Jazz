@@ -10,7 +10,7 @@
         @endif
 
         @if (!empty($payment_line['id']))
-            {!! html()->hidden("payment[$row_index][payment_id]", $payment_line['id'])->attributes([]) !!}
+            {!! Form::hidden("payment[$row_index][payment_id]", $payment_line['id']) !!}
         @endif
 
         @php

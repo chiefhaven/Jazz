@@ -305,22 +305,14 @@ class SellController extends ApiController
         }
 
         if (! $user->can('direct_sell.view')) {
-            $canViewOwnSells = $user->hasAnyPermission(['view_own_sell_only', 'access_own_shipping']);
-            $canViewCommissionSells = $user->hasAnyPermission(['view_commission_agent_sell', 'access_commission_agent_shipping']);
-
-            $query->where(function ($q) use ($user, $canViewOwnSells, $canViewCommissionSells) {
-                if ($canViewOwnSells) {
+            $query->where(function ($q) use ($user) {
+                if ($user->hasAnyPermission(['view_own_sell_only', 'access_own_shipping'])) {
                     $q->where('transactions.created_by', $user->id);
                 }
 
                 //if user is commission agent display only assigned sells
-                if ($canViewCommissionSells) {
+                if ($user->hasAnyPermission(['view_commission_agent_sell', 'access_commission_agent_shipping'])) {
                     $q->orWhere('transactions.commission_agent', $user->id);
-                }
-
-                if (! $canViewOwnSells && ! $canViewCommissionSells) {
-                    // Generic sales-view access defaults to the authenticated user's sales.
-                    $q->where('transactions.created_by', $user->id);
                 }
             });
         }

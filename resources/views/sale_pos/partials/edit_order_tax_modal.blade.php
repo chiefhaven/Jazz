@@ -10,12 +10,12 @@
 				<div class="row">
 					<div class="col-md-6">
 				        <div class="form-group">
-				            {!! html()->label(__('sale.order_tax') . ':*', 'order_tax_modal')->attributes([]) !!}
+				            {!! Form::label('order_tax_modal', __('sale.order_tax') . ':*' ) !!}
 				            <div class="input-group">
 				                <span class="input-group-addon">
 				                    <i class="fa fa-info"></i>
 				                </span>
-				                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('order_tax_modal', $taxes['tax_rates'], $selected_tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control'])); !!}
+				                {!! Form::select('order_tax_modal', $taxes['tax_rates'], $selected_tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control'], $taxes['attributes']); !!}
 				            </div>
 				        </div>
 				    </div>

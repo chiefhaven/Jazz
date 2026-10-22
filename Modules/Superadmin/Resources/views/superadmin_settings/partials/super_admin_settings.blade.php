@@ -2,36 +2,36 @@
     <div class="row">
     	<div class="col-xs-4">
             <div class="form-group">
-                {!! html()->label(__('business.business_name') . ':', 'invoice_business_name')->attributes([]) !!}
+                {!! Form::label('invoice_business_name', __('business.business_name') . ':') !!}
                 <div class="input-group">
                     <span class="input-group-addon">
                         <i class="fa fa-suitcase"></i>
                     </span>
-                {!! html()->text('invoice_business_name', $settings["invoice_business_name"])->attributes(['class' => 'form-control','placeholder' => __('business.business_name'), 'required']); !!}
+                {!! Form::text('invoice_business_name', $settings["invoice_business_name"], ['class' => 'form-control','placeholder' => __('business.business_name'), 'required']); !!}
             </div>
             </div>
         </div>
 
         <div class="col-xs-4">
             <div class="form-group">
-                {!! html()->label(__('business.email'). ':', 'email')->attributes([])!!}
+                {!! Form::label('email', __('business.email'). ':')!!}
                 <div class="input-group">
                     <span class="input-group-addon">
                     <i class="fa fa-envelope"></i>
                     </span>
-                {!! html()->email('email', $settings["email"])->attributes(['class'=>'form-control', 'placeholder'=> __('business.email')])!!}
+                {!! Form::email('email',$settings["email"], ['class'=>'form-control', 'placeholder'=> __('business.email')])!!}
                 </div>
             </div>
         </div>
 
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('business.currency') . ':', 'app_currency_id')->attributes([]) !!}
+                 {!! Form::label('app_currency_id', __('business.currency') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fas fa-money-bill-alt"></i>
                 </span>
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('app_currency_id', $currencies, $settings["app_currency_id"], ['class' => 'form-control select2','placeholder' => __('business.currency_placeholder'), 'required'])); !!}
+                {!! Form::select('app_currency_id', $currencies, $settings["app_currency_id"], ['class' => 'form-control select2','placeholder' => __('business.currency_placeholder'), 'required']); !!}
             </div>
             </div>
         </div>
@@ -39,70 +39,70 @@
         <div class="clearfix"></div>
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('business.landmark') . ':', 'invoice_business_landmark')->attributes([]) !!}
+                 {!! Form::label('invoice_business_landmark', __('business.landmark') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-map-marker"></i>
                 </span>
-                {!! html()->text('invoice_business_landmark', $settings["invoice_business_landmark"])->attributes(['class' => 'form-control','placeholder' => __('business.landmark'),'required']); !!}
+                {!! Form::text('invoice_business_landmark', $settings["invoice_business_landmark"], ['class' => 'form-control','placeholder' => __('business.landmark'),'required']); !!}
             </div>
             </div>
         </div> 
         
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('business.zip_code') . ':', 'invoice_business_zip')->attributes([]) !!}
+                 {!! Form::label('invoice_business_zip', __('business.zip_code') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-map-marker"></i>
                 </span>
-                {!! html()->text('invoice_business_zip', $settings["invoice_business_zip"])->attributes(['class' => 'form-control','placeholder' => __('business.zip_code'), 'required']); !!}
+                {!! Form::text('invoice_business_zip',$settings["invoice_business_zip"], ['class' => 'form-control','placeholder' => __('business.zip_code'), 'required']); !!}
             </div>
             </div>
         </div>
 
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('business.state') . ':', 'invoice_business_state')->attributes([]) !!}
+                 {!! Form::label('invoice_business_state', __('business.state') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-map-marker"></i>
                 </span>
-                {!! html()->text('invoice_business_state', $settings["invoice_business_state"])->attributes(['class' => 'form-control','placeholder' => __('business.state'), 'required']); !!}
+                {!! Form::text('invoice_business_state', $settings["invoice_business_state"], ['class' => 'form-control','placeholder' => __('business.state'), 'required']); !!}
             </div>
             </div>
         </div>
 
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('business.city') . ':', 'invoice_business_city')->attributes([]) !!}
+                 {!! Form::label('invoice_business_city', __('business.city') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-map-marker"></i>
                 </span>
-                {!! html()->text('invoice_business_city', $settings["invoice_business_city"])->attributes(['class' => 'form-control','placeholder' => __('business.city'),'required']); !!}
+                {!! Form::text('invoice_business_city',$settings["invoice_business_city"], ['class' => 'form-control','placeholder' => __('business.city'),'required']); !!}
             </div>
             </div>
         </div>
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('business.country') . ':', 'invoice_business_country')->attributes([]) !!}
+                 {!! Form::label('invoice_business_country', __('business.country') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-globe"></i>
                 </span>
-                {!! html()->text('invoice_business_country', $settings["invoice_business_country"])->attributes(['class' => 'form-control','placeholder' => __('business.country'), 'required']); !!}
+                {!! Form::text('invoice_business_country', $settings["invoice_business_country"], ['class' => 'form-control','placeholder' => __('business.country'), 'required']); !!}
             </div>
             </div>
         </div>
         <div class="col-xs-4">
             <div class="form-group">
-                 {!! html()->label(__('superadmin::lang.package_expiry_alert_days') . ':', 'package_expiry_alert_days')->attributes([]) !!}
+                 {!! Form::label('package_expiry_alert_days', __('superadmin::lang.package_expiry_alert_days') . ':') !!}
                 <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-exclamation-triangle"></i>
                 </span>
-                {!! html()->input('number', 'package_expiry_alert_days', $settings["package_expiry_alert_days"])->attributes(['class' => 'form-control','placeholder' => __('superadmin::lang.package_expiry_alert_days'), 'required']); !!}
+                {!! Form::number('package_expiry_alert_days', $settings["package_expiry_alert_days"], ['class' => 'form-control','placeholder' => __('superadmin::lang.package_expiry_alert_days'), 'required']); !!}
             </div>
             </div>
         </div>
@@ -112,7 +112,8 @@
         <div class="col-xs-4">
             <div class="form-group">
                 <label>
-                    {!! html()->checkbox('enable_business_based_username', (int)$settings["enable_business_based_username"], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'superadmin::lang.enable_business_based_username' ) }}
+                    {!! Form::checkbox('enable_business_based_username', 1, (int)$settings["enable_business_based_username"] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'superadmin::lang.enable_business_based_username' ) }}
                 </label>
                 <p class="help-block">@lang('superadmin::lang.business_based_username_help')</p>
             </div>

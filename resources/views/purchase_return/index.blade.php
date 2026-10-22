@@ -14,18 +14,18 @@
         @component('components.filters', ['title' => __('report.filters')])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('purchase.business_location') . ':', 'purchase_list_filter_location_id')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('purchase_list_filter_location_id', $business_locations, null, [
+                    {!! Form::label('purchase_list_filter_location_id', __('purchase.business_location') . ':') !!}
+                    {!! Form::select('purchase_list_filter_location_id', $business_locations, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ])) !!}
+                    ]) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('report.date_range') . ':', 'purchase_list_filter_date_range')->attributes([]) !!}
-                    {!! html()->text('purchase_list_filter_date_range', null)->attributes([
+                    {!! Form::label('purchase_list_filter_date_range', __('report.date_range') . ':') !!}
+                    {!! Form::text('purchase_list_filter_date_range', null, [
                         'placeholder' => __('lang_v1.select_a_date_range'),
                         'class' => 'form-control',
                         'readonly',

@@ -102,9 +102,9 @@
 
                 <div class="col-md-12">
                     <div class="form-group">
-                        {!! html()->label(__('messages.date') . ':*', 'date')->attributes([]) !!}
+                        {!! Form::label('date', __('messages.date') . ':*') !!}
                         <div class="input-group date" id='od_datetimepicker'>
-                            {!! html()->text('date', null)->attributes([
+                            {!! Form::text('date', null, [
                                 'class' => 'form-control datepicker',
                                 'required',
                                 'placeholder' => __('messages.date'),
@@ -173,8 +173,8 @@
                 </div>
 
                 {{-- <div class="form-group">
-                    {!! html()->label(__('purchase.attach_document') . ':', 'document')->attributes([]) !!}
-                    {!! html()->file('document')->attributes(['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]) !!}
+                    {!! Form::label('document', __('purchase.attach_document') . ':') !!}
+                    {!! Form::file('document', ['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]) !!}
                     <p class="help-block">
                         @lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
                         @includeIf('accounting::components.document_help_text')

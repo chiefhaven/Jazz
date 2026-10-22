@@ -3,7 +3,7 @@
     <div class="modal-dialog" role="document">
 	  <div class="modal-content">
 
-	    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\AttendanceController::class, 'clockInClockOut']), 'method' => 'post', 'id' => 'clock_in_clock_out_form' ]))->open() !!}
+	    {!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\AttendanceController::class, 'clockInClockOut']), 'method' => 'post', 'id' => 'clock_in_clock_out_form' ]) !!}
 	    <div class="modal-header">
 	      	<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 	      	<h4 class="modal-title"><span id="clock_in_text">@lang( 'essentials::lang.clock_in' )</span>
@@ -16,12 +16,12 @@
 		      		<strong>@lang( 'essentials::lang.ip_address' ): {{$ip_address}}</strong>
 		      	</div>
 		      	<div class="form-group col-md-12 clock_in_note @if(!empty($clock_in)) hide @endif">
-		        	{!! html()->label(__( 'essentials::lang.clock_in_note' ) . ':', 'clock_in_note')->attributes([]) !!}
-		        	{!! html()->textarea('clock_in_note', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.clock_in_note'), 'rows' => 3 ]); !!}
+		        	{!! Form::label('clock_in_note', __( 'essentials::lang.clock_in_note' ) . ':') !!}
+		        	{!! Form::textarea('clock_in_note', null, ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.clock_in_note'), 'rows' => 3 ]); !!}
 		      	</div>
 		      	<div class="form-group col-md-12 clock_out_note @if(empty($clock_in)) hide @endif">
-		        	{!! html()->label(__( 'essentials::lang.clock_out_note' ) . ':', 'clock_out_note')->attributes([]) !!}
-		        	{!! html()->textarea('clock_out_note', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.clock_out_note'), 'rows' => 3 ]); !!}
+		        	{!! Form::label('clock_out_note', __( 'essentials::lang.clock_out_note' ) . ':') !!}
+		        	{!! Form::textarea('clock_out_note', null, ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.clock_out_note'), 'rows' => 3 ]); !!}
 		      	</div>
 		      	<input type="hidden" name="clock_in_out_location" id="clock_in_out_location" value="">
 	    	</div>
@@ -47,7 +47,7 @@
 	      <button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
 	    </div>
 
-	    {!! html()->form()->close() !!}
+	    {!! Form::close() !!}
 
 	  </div><!-- /.modal-content -->
 	</div><!-- /.modal-dialog -->

@@ -28,14 +28,14 @@
     <div class="row">
         <div class="col-sm-12">
             @component('components.widget', ['class' => 'box-primary'])
-                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ImportOpeningStockController::class, 'store']), 'method' => 'post', 'enctype' => 'multipart/form-data' ]))->open() !!}
+                {!! Form::open(['url' => action([\App\Http\Controllers\ImportOpeningStockController::class, 'store']), 'method' => 'post', 'enctype' => 'multipart/form-data' ]) !!}
                     <div class="row">
                         <div class="col-sm-6">
                         <div class="col-sm-8">
                             <div class="form-group">
-                                {!! html()->label(__( 'product.file_to_import' ) . ':', 'name')->attributes([]) !!}
+                                {!! Form::label('name', __( 'product.file_to_import' ) . ':') !!}
                                 @show_tooltip(__('lang_v1.tooltip_import_opening_stock'))
-                                {!! html()->file('products_csv')->attributes(['accept'=> '.xls', 'required' => 'required']); !!}
+                                {!! Form::file('products_csv', ['accept'=> '.xls', 'required' => 'required']); !!}
                               </div>
                         </div>
                         <div class="col-sm-4">
@@ -45,7 +45,7 @@
                         </div>
                     </div>
 
-                {!! html()->form()->close() !!}
+                {!! Form::close() !!}
                 <br><br>
                 <div class="row">
                     <div class="col-sm-4">

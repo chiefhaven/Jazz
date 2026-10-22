@@ -217,7 +217,7 @@
 	<div class="modal fade" id="add_folder_modal" tabindex="-1" role="dialog">
 		<div class="modal-dialog" role="document">
   			<div class="modal-content">
-    			{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['action' => '\Modules\Spreadsheet\Http\Controllers\SpreadsheetController@addFolder', 'method' => 'post' ]))->open() !!}
+    			{!! Form::open(['action' => '\Modules\Spreadsheet\Http\Controllers\SpreadsheetController@addFolder', 'method' => 'post' ]) !!}
 					<div class="modal-header">
 						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 						<h4 class="modal-title">@lang('spreadsheet::lang.add_folder')</h4>
@@ -226,8 +226,8 @@
 					<div class="modal-body">
 						<div class="form-group">
 							<input type="hidden" id="folder_id" name="folder_id">
-							{!! html()->label(__('lang_v1.name') . ':*', 'folder_name')->attributes([]) !!}
-							{!! html()->text('name', null)->attributes(['class' => 'form-control', 'required', 'id' => 'folder_name']); !!}
+							{!! Form::label('folder_name', __('lang_v1.name') . ':*') !!}
+							{!! Form::text('name', null, ['class' => 'form-control', 'required', 'id' => 'folder_name']); !!}
 						</div>
 					</div>
 					<div class="modal-footer">
@@ -235,7 +235,7 @@
 						<button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
 					</div>
 
-				{!! html()->form()->close() !!}
+				{!! Form::close() !!}
 
 			</div><!-- /.modal-content -->
 		</div><!-- /.modal-dialog -->
@@ -244,8 +244,8 @@
 	<div class="modal fade" id="move_to_folder_modal" tabindex="-1" role="dialog">
 		<div class="modal-dialog" role="document">
   			<div class="modal-content">
-    			{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['action' => '\Modules\Spreadsheet\Http\Controllers\SpreadsheetController@moveToFolder',
-					 'method' => 'post' ]))->open() !!}
+    			{!! Form::open(['action' => '\Modules\Spreadsheet\Http\Controllers\SpreadsheetController@moveToFolder',
+					 'method' => 'post' ]) !!}
 					<div class="modal-header">
 						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 						<h4 class="modal-title">@lang('spreadsheet::lang.move_to')</h4>
@@ -254,9 +254,10 @@
 					<div class="modal-body">
 						<input type="hidden" id="spreadsheet_id" name="spreadsheet_id">
 						<div class="form-group">
-							{!! html()->label(__('spreadsheet::lang.folder') . ':*', 'move_to_folder')->attributes([]) !!}
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('move_to_folder', $folders->pluck('name', 'id'), null, ['class' => 'form-control', 'required', 'id' => 'move_to_folder', 
-								'style' => 'width: 100%;', 'placeholder' => __('messages.please_select')])); !!}
+							{!! Form::label('move_to_folder', __('spreadsheet::lang.folder') . ':*') !!}
+							{!! Form::select('move_to_folder', $folders->pluck('name', 'id'), null, 
+								['class' => 'form-control', 'required', 'id' => 'move_to_folder', 
+								'style' => 'width: 100%;', 'placeholder' => __('messages.please_select')]); !!}
 						</div>
 					</div>
 					<div class="modal-footer">
@@ -264,7 +265,7 @@
 						<button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
 					</div>
 
-				{!! html()->form()->close() !!}
+				{!! Form::close() !!}
 
 			</div><!-- /.modal-content -->
 		</div><!-- /.modal-dialog -->

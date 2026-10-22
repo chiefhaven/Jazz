@@ -47,7 +47,6 @@ Route::prefix('v1')->group(function () {
             ->name('eis.terminal.toggle');
 
         Route::post('get-latest-config', [TerminalActivationController::class, 'fetchLatestConfig'])
-            ->middleware('web')
             ->name('eis.terminal.get-latest-config');
         
         // Get Terminal Status

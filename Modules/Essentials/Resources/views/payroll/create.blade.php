@@ -25,10 +25,10 @@
 
 <!-- Main content -->
 <section class="content">
-{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => $action_url, 'method' => 'post', 'id' => 'add_payroll_form' ]))->open() !!}
-    {!! html()->hidden('transaction_date', $transaction_date)->attributes([]); !!}
+{!! Form::open(['url' => $action_url, 'method' => 'post', 'id' => 'add_payroll_form' ]) !!}
+    {!! Form::hidden('transaction_date', $transaction_date); !!}
     @if($action == 'edit')
-        {!! html()->hidden('payroll_group_id', $payroll_group->id)->attributes([]); !!}
+        {!! Form::hidden('payroll_group_id', $payroll_group->id); !!}
     @endif
     <div class="row">
         <div class="col-md-12">
@@ -43,21 +43,21 @@
                                 <b>@lang('business.location')</b> :
                                 @if(!empty($location))
                                     {{$location->name}}
-                                    {!! html()->hidden('location_id', $location->id)->attributes([]); !!}
+                                    {!! Form::hidden('location_id', $location->id); !!}
                                 @else
                                     {{__('report.all_locations')}}
-                                    {!! html()->hidden('location_id', '')->attributes([]); !!}
+                                    {!! Form::hidden('location_id', ''); !!}
                                 @endif
                             </small>
                         </div>
                         <div class="col-md-4">
-                            {!! html()->label(__( 'essentials::lang.payroll_group_name' ) . ':*', 'payroll_group_name')->attributes([]) !!}
-                            {!! html()->text('payroll_group_name', !empty($payroll_group) ? $payroll_group->name : strip_tags($group_name))->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.payroll_group_name' ), 'required']); !!}
+                            {!! Form::label('payroll_group_name', __( 'essentials::lang.payroll_group_name' ) . ':*') !!}
+                            {!! Form::text('payroll_group_name', !empty($payroll_group) ? $payroll_group->name : strip_tags($group_name), ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.payroll_group_name' ), 'required']); !!}
                         </div>
                         <div class="col-md-4">
-                            {!! html()->label(__( 'sale.status' ) . ':*', 'payroll_group_status')->attributes([]) !!}
+                            {!! Form::label('payroll_group_status', __( 'sale.status' ) . ':*') !!}
                             @show_tooltip(__('essentials::lang.group_status_tooltip'))
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('payroll_group_status', ['draft' => __('sale.draft'), 'final' => __('sale.final')], !empty($payroll_group) ? $payroll_group->status : null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'placeholder' => __( 'messages.please_select' )])); !!}
+                            {!! Form::select('payroll_group_status', ['draft' => __('sale.draft'), 'final' => __('sale.final')], !empty($payroll_group) ? $payroll_group->status : null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'placeholder' => __( 'messages.please_select' )]); !!}
                             <p class="help-block text-muted">@lang('essentials::lang.payroll_cant_be_deleted_if_final')</p>
                         </div>
                     </div><br><br>
@@ -103,7 +103,7 @@
                             <tr data-id="{{$employee}}">
                                 <input type="hidden" name="payrolls[{{$employee}}][expense_for]" value="{{$employee}}">
                                 @if($action == 'edit')
-                                    {!! html()->hidden('payrolls['.$employee.'][transaction_id]', $payroll['transaction_id'])->attributes([]); !!}
+                                    {!! Form::hidden('payrolls['.$employee.'][transaction_id]', $payroll['transaction_id']); !!}
                                 @endif
                                 <td>
                                     {{$payroll['name']}}
@@ -124,21 +124,21 @@
                                     {{$payroll['total_days_worked']}} @lang('lang_v1.days')
                                 </td>
                                 <td>
-                                    {!! html()->label(__( 'essentials::lang.total_work_duration' ) . ':*', 'essentials_duration_'.$employee)->attributes([]) !!}
-                                    {!! html()->text('payrolls['.$employee.'][essentials_duration]', $total_work_duration)->attributes(['class' => 'form-control input_number essentials_duration', 'placeholder' => __( 'essentials::lang.total_work_duration' ), 'required', 'data-id' => $employee, 'id' => 'essentials_duration_'.$employee]); !!}
+                                    {!! Form::label('essentials_duration_'.$employee, __( 'essentials::lang.total_work_duration' ) . ':*') !!}
+                                    {!! Form::text('payrolls['.$employee.'][essentials_duration]', $total_work_duration, ['class' => 'form-control input_number essentials_duration', 'placeholder' => __( 'essentials::lang.total_work_duration' ), 'required', 'data-id' => $employee, 'id' => 'essentials_duration_'.$employee]); !!}
                                     <br>
 
-                                    {!! html()->label(__( 'essentials::lang.duration_unit' ) . ':', 'essentials_duration_unit_'.$employee)->attributes([]) !!}
-                                    {!! html()->text('payrolls['.$employee.'][essentials_duration_unit]', $duration_unit)->attributes(['class' => 'form-control', 'placeholder' => __( 'essentials::lang.duration_unit' ), 'data-id' => $employee, 'id' => 'essentials_duration_unit_'.$employee]); !!}
+                                    {!! Form::label('essentials_duration_unit_'.$employee, __( 'essentials::lang.duration_unit' ) . ':') !!}
+                                    {!! Form::text('payrolls['.$employee.'][essentials_duration_unit]', $duration_unit, ['class' => 'form-control', 'placeholder' => __( 'essentials::lang.duration_unit' ), 'data-id' => $employee, 'id' => 'essentials_duration_unit_'.$employee]); !!}
 
                                     <br>
                                     
-                                    {!! html()->label(__( 'essentials::lang.amount_per_unit_duartion' ) . ':*', 'essentials_amount_per_unit_duration_'.$employee)->attributes([]) !!}
-                                    {!! html()->text('payrolls['.$employee.'][essentials_amount_per_unit_duration]', $amount_per_unit_duration)->attributes(['class' => 'form-control input_number essentials_amount_per_unit_duration', 'placeholder' => __( 'essentials::lang.amount_per_unit_duartion' ), 'required', 'data-id' => $employee, 'id' => 'essentials_amount_per_unit_duration_'.$employee]); !!}
+                                    {!! Form::label('essentials_amount_per_unit_duration_'.$employee, __( 'essentials::lang.amount_per_unit_duartion' ) . ':*') !!}
+                                    {!! Form::text('payrolls['.$employee.'][essentials_amount_per_unit_duration]', $amount_per_unit_duration, ['class' => 'form-control input_number essentials_amount_per_unit_duration', 'placeholder' => __( 'essentials::lang.amount_per_unit_duartion' ), 'required', 'data-id' => $employee, 'id' => 'essentials_amount_per_unit_duration_'.$employee]); !!}
                                         
                                     <br>
-                                    {!! html()->label(__( 'sale.total' ) . ':', 'total_'.$employee)->attributes([]) !!}
-                                    {!! html()->text('payrolls['.$employee.'][total]', $total)->attributes(['class' => 'form-control input_number total', 'placeholder' => __( 'sale.total' ), 'data-id' => $employee, 'id' => 'total_'.$employee]); !!}
+                                    {!! Form::label('total_'.$employee, __( 'sale.total' ) . ':') !!}
+                                    {!! Form::text('payrolls['.$employee.'][total]', $total, ['class' => 'form-control input_number total', 'placeholder' => __( 'sale.total' ), 'data-id' => $employee, 'id' => 'total_'.$employee]); !!}
                                 </td>
                                 <td>
                                     @component('components.widget')
@@ -225,14 +225,14 @@
                                         <span id="gross_amount_text_{{$employee}}">0</span>
                                     </strong>
                                     <br>
-                                    {!! html()->hidden('payrolls['.$employee.'][final_total]', 0)->attributes(['id' => 'gross_amount_'.$employee, 'class' => 'gross_amount']); !!}
+                                    {!! Form::hidden('payrolls['.$employee.'][final_total]', 0, ['id' => 'gross_amount_'.$employee, 'class' => 'gross_amount']); !!}
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="5">
                                     <div class="form-group">
-                                        {!! html()->label(__( 'brand.note' ) . ':', 'note_'.$employee)->attributes([]) !!}
-                                        {!! html()->textarea('payrolls['.$employee.'][staff_note]', $payroll['staff_note'] ?? null)->attributes(['class' => 'form-control', 'placeholder' => __( 'sale.total' ), 'id' => 'note_'.$employee, 'rows' => 3]); !!}
+                                        {!! Form::label('note_'.$employee, __( 'brand.note' ) . ':') !!}
+                                        {!! Form::textarea('payrolls['.$employee.'][staff_note]', $payroll['staff_note'] ?? null, ['class' => 'form-control', 'placeholder' => __( 'sale.total' ), 'id' => 'note_'.$employee, 'rows' => 3]); !!}
                                     </div>
                                 </td>
                             </tr>
@@ -244,18 +244,19 @@
     </div>
     <div class="row">
         <div class="col-md-12">
-            {!! html()->hidden('total_gross_amount', 0)->attributes(['id' => 'total_gross_amount']); !!}
+            {!! Form::hidden('total_gross_amount', 0, ['id' => 'total_gross_amount']); !!}
             <button type="submit" class="btn btn-primary pull-right m-8" id="submit_user_button">
                 {{$submit_btn_text}}
             </button>
             <div class="form-group pull-right m-8 mt-15">
                 <label>
-                    {!! html()->checkbox('notify_employee', 0, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'essentials::lang.notify_employee' ) }}
+                    {!! Form::checkbox('notify_employee', 1, 0 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'essentials::lang.notify_employee' ) }}
                 </label>
             </div>
         </div>
     </div>
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 @stop
 @section('javascript')
 @includeIf('essentials::payroll.form_script')

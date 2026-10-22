@@ -10,8 +10,8 @@
 
 <!-- Main content -->
 <section class="content">
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\PurchaseReturnController::class, 'store']), 'method' => 'post', 'id' => 'purchase_return_form' ]))->open() !!}
-	{!! html()->hidden('transaction_id', $purchase->id)->attributes([]); !!}
+	{!! Form::open(['url' => action([\App\Http\Controllers\PurchaseReturnController::class, 'store']), 'method' => 'post', 'id' => 'purchase_return_form' ]) !!}
+	{!! Form::hidden('transaction_id', $purchase->id); !!}
 
 	@component('components.widget', ['class' => 'box-primary', 'title' => __('lang_v1.parent_purchase')])
 		<div class="row">
@@ -30,8 +30,8 @@
 		<div class="row">
 			<div class="col-sm-4">
 				<div class="form-group">
-					{!! html()->label(__('purchase.ref_no').':', 'ref_no')->attributes([]) !!}
-					{!! html()->text('ref_no', !empty($purchase->return_parent->ref_no) ? $purchase->return_parent->ref_no : null)->attributes(['class' => 'form-control']); !!}
+					{!! Form::label('ref_no', __('purchase.ref_no').':') !!}
+					{!! Form::text('ref_no', !empty($purchase->return_parent->ref_no) ? $purchase->return_parent->ref_no : null, ['class' => 'form-control']); !!}
 				</div>
 			</div>
 			<div class="clearfix"></div>
@@ -121,9 +121,9 @@
 						$tax_percent = $purchase->tax->amount;
 					}
 				@endphp
-				{!! html()->hidden('tax_id', $purchase->tax_id)->attributes([]); !!}
-				{!! html()->hidden('tax_amount', 0)->attributes(['id' => 'tax_amount']); !!}
-				{!! html()->hidden('tax_percent', $tax_percent)->attributes(['id' => 'tax_percent']); !!}
+				{!! Form::hidden('tax_id', $purchase->tax_id); !!}
+				{!! Form::hidden('tax_amount', 0, ['id' => 'tax_amount']); !!}
+				{!! Form::hidden('tax_percent', $tax_percent, ['id' => 'tax_percent']); !!}
 			</div>
 		</div>
 		<div class="row">
@@ -140,7 +140,7 @@
 		</div>
 	@endcomponent
 
-	{!! html()->form()->close() !!}
+	{!! Form::close() !!}
 
 </section>
 @stop

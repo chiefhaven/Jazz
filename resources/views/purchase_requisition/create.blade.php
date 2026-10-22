@@ -10,20 +10,20 @@
 
 <!-- Main content -->
 <section class="content">
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\PurchaseRequisitionController::class, 'store']), 'method' => 'post', 'id' => 'add_purchase_requisition_form' ]))->open() !!}
+	{!! Form::open(['url' => action([\App\Http\Controllers\PurchaseRequisitionController::class, 'store']), 'method' => 'post', 'id' => 'add_purchase_requisition_form' ]) !!}
 	@component('components.widget', ['class' => 'box-solid'])
 		<div class="row">
 			<div class="col-sm-4">
           		<div class="form-group">
-            		{!! html()->label(__('product.brand') . ':', 'brand_id')->attributes([]) !!}
-              		{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('brand_id[]', $brands, null, ['class' => 'form-control select2', 'multiple', 'id' => 'brand_id'])); !!}
+            		{!! Form::label('brand_id', __('product.brand') . ':') !!}
+              		{!! Form::select('brand_id[]', $brands, null, ['class' => 'form-control select2', 'multiple', 'id' => 'brand_id']); !!}
            
           		</div>
         	</div>
         	<div class="col-sm-4 @if(!session('business.enable_category')) hide @endif">
           		<div class="form-group">
-            		{!! html()->label(__('product.category') . ':', 'category_id')->attributes([]) !!}
-              		{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('category_id[]', $categories, null, ['class' => 'form-control select2', 'multiple', 'id' => 'category_id'])); !!}
+            		{!! Form::label('category_id', __('product.category') . ':') !!}
+              		{!! Form::select('category_id[]', $categories, null, ['class' => 'form-control select2', 'multiple', 'id' => 'category_id']); !!}
           		</div>
         	</div>
 			@if(count($business_locations) == 1)
@@ -38,8 +38,8 @@
 			@endif
 			<div class="col-sm-4">
 				<div class="form-group">
-					{!! html()->label(__('purchase.business_location').':', 'location_id')->attributes([]) !!}
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, $default_location, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')])); !!}
+					{!! Form::label('location_id', __('purchase.business_location').':') !!}
+					{!! Form::select('location_id', $business_locations, $default_location, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
 				</div>
 			</div>
 		</div>
@@ -55,19 +55,19 @@
 		<div class="row">
 			<div class="col-sm-4">
 				<div class="form-group">
-					{!! html()->label(__('purchase.ref_no').':', 'ref_no')->attributes([]) !!}
+					{!! Form::label('ref_no', __('purchase.ref_no').':') !!}
 					@show_tooltip(__('lang_v1.leave_empty_to_autogenerate'))
-					{!! html()->text('ref_no', null)->attributes(['class' => 'form-control']); !!}
+					{!! Form::text('ref_no', null, ['class' => 'form-control']); !!}
 				</div>
 			</div>
 			<div class="col-sm-4">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.required_by_date') . ':', 'delivery_date')->attributes([]) !!}
+					{!! Form::label('delivery_date', __('lang_v1.required_by_date') . ':') !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-calendar"></i>
 						</span>
-						{!! html()->text('delivery_date', null)->attributes(['class' => 'form-control', 'readonly']); !!}
+						{!! Form::text('delivery_date', null, ['class' => 'form-control', 'readonly']); !!}
 					</div>
 				</div>
 			</div>
@@ -99,7 +99,7 @@
 		</div>
 	</div>
 
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 </section>
 @endsection
 

@@ -57,13 +57,7 @@ class DesktopTokenIssuer
                 // Recheck client, tenant, unique password and permissions at the
                 // grant boundary, but NEVER let a global username lookup choose
                 // the token subject. Concurrent username reassignment fails closed.
-                $user = $this->login->resolve(
-                    $this->body['client_id'],
-                    $this->body['client_secret'],
-                    $password,
-                    $this->access,
-                    $this->body['username'] ?? null
-                );
+                $user = $this->login->resolve($this->body['client_id'], $this->body['client_secret'], $password, $this->access);
                 if (! $user || (string) $user->getKey() !== $this->id || $user->username !== $this->username) {
                     return null;
                 }

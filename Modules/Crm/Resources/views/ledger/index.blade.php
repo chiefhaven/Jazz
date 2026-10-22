@@ -28,8 +28,8 @@
 		    <div class="col-md-12">
 		        <div class="col-md-3">
 		            <div class="form-group">
-		                {!! html()->label(__('report.date_range') . ':', 'ledger_date_range')->attributes([]) !!}
-		                {!! html()->text('ledger_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+		                {!! Form::label('ledger_date_range', __('report.date_range') . ':') !!}
+		                {!! Form::text('ledger_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
 		            </div>
 		        </div>
 		        <div class="col-md-9 text-right">

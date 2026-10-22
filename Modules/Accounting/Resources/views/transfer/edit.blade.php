@@ -1,8 +1,8 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action('\Modules\Accounting\Http\Controllers\TransferController@update', 
-        $mapping_transaction->id), 'method' => 'put', 'id' => 'transfer_form' ]))->open() !!}
+    {!! Form::open(['url' => action('\Modules\Accounting\Http\Controllers\TransferController@update', 
+        $mapping_transaction->id), 'method' => 'put', 'id' => 'transfer_form' ]) !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -11,32 +11,32 @@
 
     <div class="modal-body">
         <div class="form-group">
-            {!! html()->label(__('purchase.ref_no').':', 'ref_no')->attributes([]) !!}
+            {!! Form::label('ref_no', __('purchase.ref_no').':') !!}
             @show_tooltip(__('lang_v1.leave_empty_to_autogenerate'))
-            {!! html()->text('ref_no', $mapping_transaction->ref_no)->attributes(['class' => 'form-control']); !!}
+            {!! Form::text('ref_no', $mapping_transaction->ref_no, ['class' => 'form-control']); !!}
         </div>
         <div class="form-group">
-            {!! html()->label(__( 'lang_v1.transfer_from' ) .":*", 'from_account')->attributes([]) !!}
-            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('from_account', [], $debit_tansaction->accounting_account_id, ['class' => 'form-control', 'required', 
-                'placeholder' => __('messages.please_select') ])); !!}
-        </div>
-
-        <div class="form-group">
-            {!! html()->label(__( 'account.transfer_to' ) .":*", 'to_account')->attributes([]) !!}
-            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('to_account', [], $credit_tansaction->accounting_account_id, ['class' => 'form-control', 'required', 
-                'placeholder' => __('messages.please_select') ])); !!}
+            {!! Form::label('from_account', __( 'lang_v1.transfer_from' ) .":*") !!}
+            {!! Form::select('from_account', [], $debit_tansaction->accounting_account_id, ['class' => 'form-control', 'required', 
+                'placeholder' => __('messages.please_select') ]); !!}
         </div>
 
         <div class="form-group">
-            {!! html()->label(__( 'sale.amount' ) .":*", 'amount')->attributes([]) !!}
-            {!! html()->text('amount', @num_format($debit_tansaction->amount))->attributes(['class' => 'form-control input_number', 
+            {!! Form::label('to_account', __( 'account.transfer_to' ) .":*") !!}
+            {!! Form::select('to_account', [], $credit_tansaction->accounting_account_id, ['class' => 'form-control', 'required', 
+                'placeholder' => __('messages.please_select') ]); !!}
+        </div>
+
+        <div class="form-group">
+            {!! Form::label('amount', __( 'sale.amount' ) .":*") !!}
+            {!! Form::text('amount', @num_format($debit_tansaction->amount), ['class' => 'form-control input_number', 
                 'required','placeholder' => __( 'sale.amount' ) ]); !!}
         </div>
 
         <div class="form-group">
-            {!! html()->label(__( 'messages.date' ) .":*", 'operation_date')->attributes([]) !!}
+            {!! Form::label('operation_date', __( 'messages.date' ) .":*") !!}
             <div class="input-group">
-                {!! html()->text('operation_date', @format_datetime($mapping_transaction->operation_date))->attributes(['class' => 'form-control', 
+                {!! Form::text('operation_date', @format_datetime($mapping_transaction->operation_date), ['class' => 'form-control', 
                     'required','placeholder' => __( 'messages.date' ), 'id' => 'operation_date' ]); !!}
                 <span class="input-group-addon">
                 <span class="glyphicon glyphicon-calendar"></span>
@@ -45,8 +45,8 @@
         </div>
 
         <div class="form-group">
-            {!! html()->label(__( 'brand.note' ), 'note')->attributes([]) !!}
-            {!! html()->textarea('note', $mapping_transaction->note)->attributes(['class' => 'form-control', 
+            {!! Form::label('note', __( 'brand.note' )) !!}
+            {!! Form::textarea('note', $mapping_transaction->note, ['class' => 'form-control', 
                 'placeholder' => __( 'brand.note' ), 'rows' => 4]); !!}
         </div>
     </div>
@@ -56,7 +56,7 @@
       <button type="button" class="btn btn-default" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! html()->form()->close() !!}
+    {!! Form::close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

@@ -298,32 +298,11 @@ class TerminalActivationController extends Controller
      */
     public function fetchLatestConfig(Request $request)
     {
+
         try {
-            $validated = $request->validate([
-                'business_id' => 'required|integer|exists:eis_settings,business_id',
-            ]);
-
-            $user = Auth::user();
-            if (! $user) {
-                return response()->json([
-                    'success' => false,
-                    'msg' => 'Authentication is required to fetch configuration.',
-                ], 401);
-            }
-
-            if (! $user->can('superadmin')
-                && ((int) $user->business_id !== (int) $validated['business_id']
-                    || ! $user->can('business_settings.access'))) {
-                return response()->json([
-                    'success' => false,
-                    'msg' => 'You are not authorized to sync configuration for this business.',
-                ], 403);
-            }
-
-            $result = $this->activationService->getLatestConfig((int) $validated['business_id']);
+            $result = $this->activationService->getLatestConfig();
 
             Log::info('Fetched latest terminal configuration', [
-                'business_id' => $validated['business_id'],
                 'result' => $result
             ]);
             
@@ -336,12 +315,6 @@ class TerminalActivationController extends Controller
 
             return response()->json($result, $result['success'] ? 200 : 400);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'msg' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
         } catch (\Exception $e) {
             Log::error('Terminal get latest config error', [
                 'error' => $e->getMessage()
@@ -726,7 +699,7 @@ class TerminalActivationController extends Controller
             }
 
             $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                ->with('offlineLimit')
+                ->with(['terminalSite', 'offlineLimit'])
                 ->first();
 
             if (!$terminal) {
@@ -734,28 +707,6 @@ class TerminalActivationController extends Controller
                     'success' => false,
                     'message' => 'Terminal configuration not found'
                 ], 404);
-            }
-
-            $siteData = data_get(
-                $configuration->decodedRawResponse(),
-                'data.terminalConfiguration.terminalSite',
-                []
-            );
-            $siteIds = array_filter([
-                data_get($siteData, 'siteId'),
-                \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->value('branch_id'),
-            ], function ($siteId) {
-                return filled($siteId);
-            });
-            $businessLocation = null;
-            foreach (array_unique($siteIds) as $siteId) {
-                $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
-                    ->where('eis_site_id', $siteId)
-                    ->first();
-
-                if ($businessLocation) {
-                    break;
-                }
             }
 
             return response()->json([
@@ -782,9 +733,9 @@ class TerminalActivationController extends Controller
                         'has_credentials' => $terminal->hasCredentials(),
                         'last_synced_at' => $terminal->last_synced_at
                     ],
-                    'site' => $businessLocation ? [
-                        'site_id' => $businessLocation->eis_site_id,
-                        'site_name' => $businessLocation->name
+                    'site' => $terminal->terminalSite ? [
+                        'site_id' => $terminal->terminalSite->site_id,
+                        'site_name' => $terminal->terminalSite->site_name
                     ] : null,
                     'offline_limit' => $terminal->offlineLimit ? [
                         'max_transaction_age_hours' => $terminal->offlineLimit->max_transaction_age_hours,

@@ -22,8 +22,8 @@
             @component('components.filters', ['title' => __('report.filters')])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('aiassistance::lang.tool') . ':', 'tool_type')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('tool_type', $tools, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
+                    {!! Form::label('tool_type', __('aiassistance::lang.tool') . ':') !!}
+                    {!! Form::select('tool_type', $tools, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
                 </div>
             </div>
 

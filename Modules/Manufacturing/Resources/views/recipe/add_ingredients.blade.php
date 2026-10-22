@@ -10,7 +10,7 @@
 
 <!-- Main content -->
 <section class="content">
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Manufacturing\Http\Controllers\RecipeController::class, 'store']), 'method' => 'post', 'id' => 'recipe_form' ]))->open() !!}
+	{!! Form::open(['url' => action([\Modules\Manufacturing\Http\Controllers\RecipeController::class, 'store']), 'method' => 'post', 'id' => 'recipe_form' ]) !!}
 	<div id="box_group">
 	<div class="box box-solid">
 		<div class="box-header"> 
@@ -23,11 +23,11 @@
 				</div>
 				<div class="col-md-10 col-md-offset-1">
 					<div class="form-group">
-						{!! html()->label(__('manufacturing::lang.select_ingredient').':', 'search_product')->attributes([]) !!}
+						{!! Form::label('search_product', __('manufacturing::lang.select_ingredient').':') !!}
 
-						{!! html()->text('search_product', null)->attributes(['class' => 'form-control', 'id' => 'search_product', 'placeholder' => __('manufacturing::lang.select_ingredient'), 'autofocus' => true ]); !!}
+						{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product', 'placeholder' => __('manufacturing::lang.select_ingredient'), 'autofocus' => true ]); !!}
 
-						{!! html()->hidden('variation_id', $variation->id)->attributes([]); !!}
+						{!! Form::hidden('variation_id', $variation->id); !!}
 					</div>
 				</div>
 			</div>
@@ -108,9 +108,9 @@
 				</div>
 				<div class="col-md-3">
 					<div class="form-group">
-						{!! html()->label(__('manufacturing::lang.wastage').':', 'waste_percent')->attributes([]) !!} @show_tooltip(__('manufacturing::lang.wastage_tooltip'))
+						{!! Form::label('waste_percent', __('manufacturing::lang.wastage').':') !!} @show_tooltip(__('manufacturing::lang.wastage_tooltip'))
 						<div class="input-group">
-							{!! html()->text('waste_percent', !empty($recipe->waste_percent) ? @num_format($recipe->waste_percent) : 0)->attributes(['class' => 'form-control input_number', 'placeholder' => __('manufacturing::lang.wastage') ]); !!}
+							{!! Form::text('waste_percent',!empty($recipe->waste_percent) ? @num_format($recipe->waste_percent) : 0, ['class' => 'form-control input_number', 'placeholder' => __('manufacturing::lang.wastage') ]); !!}
 							<span class="input-group-addon">
 								<i class="fa fa-percent"></i>
 							</span>
@@ -119,9 +119,9 @@
 				</div>
 				<div class="col-md-3">
 					<div class="form-group">
-						{!! html()->label(__('manufacturing::lang.total_output_quantity').':', 'total_quantity')->attributes([]) !!}
+						{!! Form::label('total_quantity', __('manufacturing::lang.total_output_quantity').':') !!}
 						<div class="@if(!is_array($unit_html)) input-group @else input_inline @endif">
-							{!! html()->text('total_quantity', !empty($recipe->total_quantity) ? @format_quantity($recipe->total_quantity) : 1)->attributes(['class' => 'form-control input_number', 'placeholder' => __('manufacturing::lang.total_output_quantity') ]); !!}
+							{!! Form::text('total_quantity',!empty($recipe->total_quantity) ? @format_quantity($recipe->total_quantity) : 1, ['class' => 'form-control input_number', 'placeholder' => __('manufacturing::lang.total_output_quantity') ]); !!}
 							<span class="@if(!is_array($unit_html)) input-group-addon @endif">
 								@if(is_array($unit_html))
 									<select name="sub_unit_id" class="form-control" id="sub_unit_id">
@@ -144,11 +144,11 @@
 				</div>
 				<div class="col-md-3">
 					<div class="form-group">
-						{!! html()->label(__('manufacturing::lang.production_cost').':', 'extra_cost')->attributes([]) !!} @show_tooltip(__('manufacturing::lang.production_cost_tooltip'))
+						{!! Form::label('extra_cost', __('manufacturing::lang.production_cost').':') !!} @show_tooltip(__('manufacturing::lang.production_cost_tooltip'))
 						<div class="input_inline">
-							{!! html()->text('extra_cost', !empty($recipe->extra_cost) ? @num_format($recipe->extra_cost) : 0)->attributes(['class' => 'form-control input_number', 'placeholder' => __('manufacturing::lang.extra_cost') ]); !!}
+							{!! Form::text('extra_cost',!empty($recipe->extra_cost) ? @num_format($recipe->extra_cost) : 0, ['class' => 'form-control input_number', 'placeholder' => __('manufacturing::lang.extra_cost') ]); !!}
 							<span>
-								{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('production_cost_type', ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage'), 'per_unit' => __('manufacturing::lang.per_unit')], !empty($recipe->production_cost_type) ? $recipe->production_cost_type : 'fixed', ['class' => 'form-control', 'id' => 'production_cost_type'])); !!}	
+								{!! Form::select('production_cost_type',['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage'), 'per_unit' => __('manufacturing::lang.per_unit')], !empty($recipe->production_cost_type) ? $recipe->production_cost_type : 'fixed', ['class' => 'form-control', 'id' => 'production_cost_type']); !!}	
 							</span>
 						</div>
 						<p><strong>
@@ -159,7 +159,7 @@
 				</div>
 				<div class="col-md-3">
 					<div class="form-group">
-						{!! html()->label(__('sale.total').':', 'total')->attributes([]) !!}
+						{!! Form::label('total', __('sale.total').':') !!}
 						<div class="input-group">
 							@php
 								$final_price = $ingredient_total;
@@ -168,7 +168,7 @@
 								}
 
 							@endphp
-							{!! html()->text('total', @num_format($final_price))->attributes(['id' => 'total', 'class' => "form-control", 'readonly']); !!}
+							{!! Form::text('total', @num_format($final_price), ['id' => 'total', 'class' => "form-control", 'readonly']); !!}
 							<span class="input-group-addon">
 								{{$currency_details->symbol}}
 							</span>
@@ -179,9 +179,9 @@
 			<div class="row">
 				<div class="col-md-12">
 					<div class="form-group">
-						{!! html()->label(__('manufacturing::lang.recipe_instructions').':', 'instructions')->attributes([]) !!}
+						{!! Form::label('instructions', __('manufacturing::lang.recipe_instructions').':') !!}
 
-						{!! html()->textarea('instructions', !empty($recipe) ? $recipe->instructions : null)->attributes(['class' => 'form-control', 'placeholder' => __('manufacturing::lang.recipe_instructions') ]); !!}
+						{!! Form::textarea('instructions',!empty($recipe) ? $recipe->instructions : null, ['class' => 'form-control', 'placeholder' => __('manufacturing::lang.recipe_instructions') ]); !!}
 					</div>
 				</div>
 			</div>
@@ -193,7 +193,7 @@
 			</div>
 		</div>
 	</div>
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 </section>
 @stop
 @section('javascript')

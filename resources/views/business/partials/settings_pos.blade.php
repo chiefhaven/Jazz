@@ -15,37 +15,38 @@
                 <tr>
                     <td>{!! __('sale.express_finalize') !!}:</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][express_checkout]', !empty($shortcuts["pos"]["express_checkout"]) ? $shortcuts["pos"]["express_checkout"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][express_checkout]', 
+                        !empty($shortcuts["pos"]["express_checkout"]) ? $shortcuts["pos"]["express_checkout"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('sale.finalize'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][pay_n_ckeckout]', !empty($shortcuts["pos"]["pay_n_ckeckout"]) ? $shortcuts["pos"]["pay_n_ckeckout"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][pay_n_ckeckout]', !empty($shortcuts["pos"]["pay_n_ckeckout"]) ? $shortcuts["pos"]["pay_n_ckeckout"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('sale.draft'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][draft]', !empty($shortcuts["pos"]["draft"]) ? $shortcuts["pos"]["draft"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][draft]', !empty($shortcuts["pos"]["draft"]) ? $shortcuts["pos"]["draft"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('messages.cancel'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][cancel]', !empty($shortcuts["pos"]["cancel"]) ? $shortcuts["pos"]["cancel"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][cancel]', !empty($shortcuts["pos"]["cancel"]) ? $shortcuts["pos"]["cancel"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('lang_v1.recent_product_quantity'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][recent_product_quantity]', !empty($shortcuts["pos"]["recent_product_quantity"]) ? $shortcuts["pos"]["recent_product_quantity"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][recent_product_quantity]', !empty($shortcuts["pos"]["recent_product_quantity"]) ? $shortcuts["pos"]["recent_product_quantity"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('lang_v1.weighing_scale'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][weighing_scale]', !empty($shortcuts["pos"]["weighing_scale"]) ? $shortcuts["pos"]["weighing_scale"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][weighing_scale]', !empty($shortcuts["pos"]["weighing_scale"]) ? $shortcuts["pos"]["weighing_scale"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
             </table>
@@ -59,31 +60,31 @@
                 <tr>
                     <td>@lang('sale.edit_discount'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][edit_discount]', !empty($shortcuts["pos"]["edit_discount"]) ? $shortcuts["pos"]["edit_discount"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][edit_discount]', !empty($shortcuts["pos"]["edit_discount"]) ? $shortcuts["pos"]["edit_discount"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('sale.edit_order_tax'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][edit_order_tax]', !empty($shortcuts["pos"]["edit_order_tax"]) ? $shortcuts["pos"]["edit_order_tax"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][edit_order_tax]', !empty($shortcuts["pos"]["edit_order_tax"]) ? $shortcuts["pos"]["edit_order_tax"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('sale.add_payment_row'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][add_payment_row]', !empty($shortcuts["pos"]["add_payment_row"]) ? $shortcuts["pos"]["add_payment_row"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][add_payment_row]', !empty($shortcuts["pos"]["add_payment_row"]) ? $shortcuts["pos"]["add_payment_row"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('sale.finalize_payment'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][finalize_payment]', !empty($shortcuts["pos"]["finalize_payment"]) ? $shortcuts["pos"]["finalize_payment"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][finalize_payment]', !empty($shortcuts["pos"]["finalize_payment"]) ? $shortcuts["pos"]["finalize_payment"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
                 <tr>
                     <td>@lang('lang_v1.add_new_product'):</td>
                     <td>
-                        {!! html()->text('shortcuts[pos][add_new_product]', !empty($shortcuts["pos"]["add_new_product"]) ? $shortcuts["pos"]["add_new_product"] : null)->attributes(['class' => 'form-control']); !!}
+                        {!! Form::text('shortcuts[pos][add_new_product]', !empty($shortcuts["pos"]["add_new_product"]) ? $shortcuts["pos"]["add_new_product"] : null, ['class' => 'form-control']); !!}
                     </td>
                 </tr>
             </table>
@@ -100,7 +101,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_pay_checkout]', $pos_settings['disable_pay_checkout'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_pay_checkout' ) }}
+                    {!! Form::checkbox('pos_settings[disable_pay_checkout]', 1,  
+                        $pos_settings['disable_pay_checkout'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_pay_checkout' ) }}
                   </label>
                 </div>
             </div>
@@ -111,7 +114,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_draft]', $pos_settings['disable_draft'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_draft' ) }}
+                    {!! Form::checkbox('pos_settings[disable_draft]', 1,  
+                        $pos_settings['disable_draft'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_draft' ) }}
                   </label>
                 </div>
             </div>
@@ -122,7 +127,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_express_checkout]', $pos_settings['disable_express_checkout'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_express_checkout' ) }}
+                    {!! Form::checkbox('pos_settings[disable_express_checkout]', 1,  
+                        $pos_settings['disable_express_checkout'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_express_checkout' ) }}
                   </label>
                 </div>
             </div>
@@ -133,7 +140,8 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[hide_product_suggestion]', $pos_settings['hide_product_suggestion'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.hide_product_suggestion' ) }}
+                    {!! Form::checkbox('pos_settings[hide_product_suggestion]', 1,  $pos_settings['hide_product_suggestion'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.hide_product_suggestion' ) }}
                   </label>
                 </div>
             </div>
@@ -144,7 +152,8 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[hide_recent_trans]', $pos_settings['hide_recent_trans'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.hide_recent_trans' ) }}
+                    {!! Form::checkbox('pos_settings[hide_recent_trans]', 1,  $pos_settings['hide_recent_trans'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.hide_recent_trans' ) }}
                   </label>
                 </div>
             </div>
@@ -155,7 +164,8 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_discount]', $pos_settings['disable_discount'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_discount' ) }}
+                    {!! Form::checkbox('pos_settings[disable_discount]', 1,  $pos_settings['disable_discount'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_discount' ) }}
                   </label>
                 </div>
             </div>
@@ -166,7 +176,8 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_order_tax]', $pos_settings['disable_order_tax'], 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_order_tax' ) }}
+                    {!! Form::checkbox('pos_settings[disable_order_tax]', 1,  $pos_settings['disable_order_tax'] , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_order_tax' ) }}
                   </label>
                 </div>
             </div>
@@ -177,7 +188,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[is_pos_subtotal_editable]', empty($pos_settings['is_pos_subtotal_editable']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.subtotal_editable' ) }}
+                    {!! Form::checkbox('pos_settings[is_pos_subtotal_editable]', 1,  
+                    empty($pos_settings['is_pos_subtotal_editable']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.subtotal_editable' ) }}
                   </label>
                   @show_tooltip(__('lang_v1.subtotal_editable_help_text'))
                 </div>
@@ -189,7 +202,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_suspend]', empty($pos_settings['disable_suspend']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_suspend_sale' ) }}
+                    {!! Form::checkbox('pos_settings[disable_suspend]', 1,  
+                    empty($pos_settings['disable_suspend']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_suspend_sale' ) }}
                   </label>
                 </div>
             </div>
@@ -200,7 +215,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[enable_transaction_date]', empty($pos_settings['enable_transaction_date']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.enable_pos_transaction_date' ) }}
+                    {!! Form::checkbox('pos_settings[enable_transaction_date]', 1,  
+                    empty($pos_settings['enable_transaction_date']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.enable_pos_transaction_date' ) }}
                   </label>
                 </div>
             </div>
@@ -211,7 +228,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[inline_service_staff]', !empty($pos_settings['inline_service_staff']) ? true : false, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.enable_service_staff_in_product_line' ) }}
+                    {!! Form::checkbox('pos_settings[inline_service_staff]', 1,  
+                    !empty($pos_settings['inline_service_staff']) ? true : false , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.enable_service_staff_in_product_line' ) }}
                   </label>
                   @show_tooltip(__('lang_v1.inline_service_staff_tooltip'))
                 </div>
@@ -223,7 +242,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[is_service_staff_required]', empty($pos_settings['is_service_staff_required']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.is_service_staff_required' ) }}
+                    {!! Form::checkbox('pos_settings[is_service_staff_required]', 1,  
+                    empty($pos_settings['is_service_staff_required']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.is_service_staff_required' ) }}
                   </label>
                 </div>
             </div>
@@ -233,7 +254,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[disable_credit_sale_button]', empty($pos_settings['disable_credit_sale_button']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_credit_sale_button' ) }}
+                    {!! Form::checkbox('pos_settings[disable_credit_sale_button]', 1,  
+                    empty($pos_settings['disable_credit_sale_button']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.disable_credit_sale_button' ) }}
                   </label>
                   @show_tooltip(__('lang_v1.show_credit_sale_btn_help'))
                 </div>
@@ -245,7 +268,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[enable_weighing_scale]', empty($pos_settings['enable_weighing_scale']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.enable_weighing_scale' ) }}
+                    {!! Form::checkbox('pos_settings[enable_weighing_scale]', 1,  
+                    empty($pos_settings['enable_weighing_scale']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.enable_weighing_scale' ) }}
                   </label>
                 </div>
             </div>
@@ -256,7 +281,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[show_invoice_scheme]', empty($pos_settings['show_invoice_scheme']) ? 0 : 1, 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.show_invoice_scheme' ) }}
+                    {!! Form::checkbox('pos_settings[show_invoice_scheme]', 1,  
+                       empty($pos_settings['show_invoice_scheme']) ? 0 : 1 , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.show_invoice_scheme' ) }}
                   </label>
                 </div>
             </div>
@@ -267,7 +294,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[show_invoice_layout]', !empty($pos_settings['show_invoice_layout']), 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.show_invoice_layout' ) }}
+                    {!! Form::checkbox('pos_settings[show_invoice_layout]', 1,  
+                        !empty($pos_settings['show_invoice_layout']) , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.show_invoice_layout' ) }}
                   </label>
                 </div>
             </div>
@@ -278,7 +307,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[print_on_suspend]', !empty($pos_settings['print_on_suspend']), 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.print_on_suspend' ) }}
+                    {!! Form::checkbox('pos_settings[print_on_suspend]', 1,  
+                        !empty($pos_settings['print_on_suspend']) , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.print_on_suspend' ) }}
                   </label>
                 </div>
             </div>
@@ -289,7 +320,9 @@
                 <div class="checkbox">
                 <br>
                   <label>
-                    {!! html()->checkbox('pos_settings[show_pricing_on_product_sugesstion]', !empty($pos_settings['show_pricing_on_product_sugesstion']), 1)->attributes([ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.show_pricing_on_product_sugesstion' ) }}
+                    {!! Form::checkbox('pos_settings[show_pricing_on_product_sugesstion]', 1,  
+                        !empty($pos_settings['show_pricing_on_product_sugesstion']) , 
+                    [ 'class' => 'input-icheck']); !!} {{ __( 'lang_v1.show_pricing_on_product_sugesstion' ) }}
                   </label>
                 </div>
             </div>

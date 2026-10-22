@@ -17,22 +17,22 @@
 
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__( 'lang_v1.by' ) . ':', 'al_users_filter')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('al_users_filter', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'al_users_filter', 'placeholder' => __('lang_v1.all')])); !!}
+                        {!! Form::label('al_users_filter', __( 'lang_v1.by' ) . ':') !!}
+                        {!! Form::select('al_users_filter', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'al_users_filter', 'placeholder' => __('lang_v1.all')]); !!}
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__( 'lang_v1.subject_type' ) . ':', 'subject_type')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('subject_type', $transaction_types, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'subject_type', 'placeholder' => __('lang_v1.all')])); !!}
+                        {!! Form::label('subject_type', __( 'lang_v1.subject_type' ) . ':') !!}
+                        {!! Form::select('subject_type', $transaction_types, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'subject_type', 'placeholder' => __('lang_v1.all')]); !!}
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('report.date_range') . ':', 'al_date_filter')->attributes([]) !!}
-                        {!! html()->text('al_date_filter', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                        {!! Form::label('al_date_filter', __('report.date_range') . ':') !!}
+                        {!! Form::text('al_date_filter', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                     </div>
                 </div>
 

@@ -58,7 +58,12 @@
                                         <div class="col-md-12">
                                             {{-- @component('components.widget') --}}
                                             <div class="col-md-4">
-                                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('account_status', ['active' => __('business.is_active'), 'closed' => __('account.closed')], null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'account_status'])) !!}
+                                                {!! Form::select(
+                                                    'account_status',
+                                                    ['active' => __('business.is_active'), 'closed' => __('account.closed')],
+                                                    null,
+                                                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'account_status'],
+                                                ) !!}
                                             </div>
                                             <div class="col-md-8">
                                                     <button type="button" class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full btn-modal pull-right"
@@ -145,10 +150,10 @@
                                                             <th>{{ $account_type->name }}</th>
                                                             <td>
 
-                                                                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                                                                {!! Form::open([
                                                                     'url' => action([\App\Http\Controllers\AccountTypeController::class, 'destroy'], $account_type->id),
                                                                     'method' => 'delete',
-                                                                ]))->open() !!}
+                                                                ]) !!}
                                                                 <button type="button" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-outline tw-dw-btn-xs btn-modal"
                                                                     data-href="{{ action([\App\Http\Controllers\AccountTypeController::class, 'edit'], $account_type->id) }}"
                                                                     data-container="#account_type_modal">
@@ -157,7 +162,7 @@
                                                                 <button type="button"
                                                                     class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-error delete_account_type">
                                                                     <i class="fa fa-trash"></i> @lang('messages.delete')</button>
-                                                                {!! html()->form()->close() !!}
+                                                                {!! Form::close() !!}
                                                             </td>
                                                         </tr>
                                                         @foreach ($account_type->sub_types as $sub_type)
@@ -166,10 +171,10 @@
                                                                 <td>
 
 
-                                                                    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                                                                    {!! Form::open([
                                                                         'url' => action([\App\Http\Controllers\AccountTypeController::class, 'destroy'], $sub_type->id),
                                                                         'method' => 'delete',
-                                                                    ]))->open() !!}
+                                                                    ]) !!}
                                                                     <button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-primary btn-modal"
                                                                         data-href="{{ action([\App\Http\Controllers\AccountTypeController::class, 'edit'], $sub_type->id) }}"
                                                                         data-container="#account_type_modal">
@@ -177,7 +182,7 @@
                                                                     <button type="button"
                                                                         class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-error delete_account_type">
                                                                         <i class="fa fa-trash"></i> @lang('messages.delete')</button>
-                                                                    {!! html()->form()->close() !!}
+                                                                    {!! Form::close() !!}
                                                                 </td>
                                                             </tr>
                                                         @endforeach

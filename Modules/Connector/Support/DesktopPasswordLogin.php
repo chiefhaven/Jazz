@@ -26,13 +26,7 @@ class DesktopPasswordLogin
         $this->config = $config;
     }
 
-    public function resolve(
-        string $clientId,
-        string $clientSecret,
-        string $password,
-        string $access,
-        ?string $username = null
-    ): ?User
+    public function resolve(string $clientId, string $clientSecret, string $password, string $access): ?User
     {
         $client = $this->clients->findActive($clientId);
         // Public, ownerless, revoked and non-password clients can never select a tenant.
@@ -74,9 +68,6 @@ class DesktopPasswordLogin
             }
         }
         if (! $match || ! is_string($match->username) || $match->username === '') {
-            return null;
-        }
-        if ($username !== null && ! hash_equals($match->username, $username)) {
             return null;
         }
 

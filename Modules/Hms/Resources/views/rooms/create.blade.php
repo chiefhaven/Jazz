@@ -15,17 +15,17 @@
                 <p><i class="fa fa-info-circle"></i> @lang('hms::lang.rooms_help_text') </p>
             </div> --}}
             <div class="box-body">
-                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                {!! Form::open([
                     'url' => action([\Modules\Hms\Http\Controllers\RoomController::class, 'store']),
                     'method' => 'post',
                     'id' => 'create_room',
                     'files' => true
-                ]))->open() !!}
+                ]) !!}
                 <div class="col-md-6">
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.type') . ':', 'type')->attributes([]) !!}
-                            {!! html()->text('type', null)->attributes([
+                            {!! Form::label('type', __('hms::lang.type') . ':') !!}
+                            {!! Form::text('type', null, [
                                 'class' => 'form-control',
                                 'required',
                                 'placeholder' => __('hms::lang.type'),
@@ -34,8 +34,8 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.max_no_of_adult') . ':', 'no_of_adult')->attributes([]) !!}
-                            {!! html()->input('number', 'no_of_adult', null)->attributes([
+                            {!! Form::label('no_of_adult', __('hms::lang.max_no_of_adult') . ':') !!}
+                            {!! Form::number('no_of_adult', null, [
                                 'required',
                                 'class' => 'form-control',
                                 'placeholder' => __('hms::lang.no_of_adult'),
@@ -45,8 +45,8 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.max_no_of_child') . ':', 'no_of_child')->attributes([]) !!}
-                            {!! html()->input('number', 'no_of_child', null)->attributes([
+                            {!! Form::label('no_of_child', __('hms::lang.max_no_of_child') . ':') !!}
+                            {!! Form::number('no_of_child', null, [
                                 'class' => 'form-control',
                                 'required',
                                 'placeholder' => __('hms::lang.no_of_child'),
@@ -56,8 +56,8 @@
 
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.max_occupancy') . ':', 'max_occupancy')->attributes([]) !!}
-                            {!! html()->input('number', 'max_occupancy', null)->attributes([
+                            {!! Form::label('max_occupancy', __('hms::lang.max_occupancy') . ':') !!}
+                            {!! Form::number('max_occupancy', null, [
                                 'class' => 'form-control',
                                 'required',
                                 'placeholder' => __('hms::lang.max_occupancy'),
@@ -85,28 +85,29 @@
                 </div>
                 <div class="col-md-6">
                     <div class="col-md-12">
-                        {!! html()->label(__('hms::lang.amenities') .  ':', 'amenities')->attributes([]) !!}
+                        {!! Form::label('amenities', __('hms::lang.amenities') .  ':') !!}
                     </div>
                     @foreach ($amenities as $amenity)
                         <div class="col-md-4">
                             <div class="checkbox">
                                 <label>
-                                  {!! html()->checkbox('amenities[]', null, $amenity->id)->attributes([ 'class' => 'input-icheck']); !!} {{ $amenity->name }}
+                                  {!! Form::checkbox('amenities[]', $amenity->id , null ,
+                                  [ 'class' => 'input-icheck']); !!} {{ $amenity->name }}
                                 </label>
                               </div>
                         </div>
                     @endforeach
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.images') .  ':', 'images')->attributes([]) !!}
-                            {!! html()->file('images[]')->attributes(['id' => 'upload_image', 'accept' => 'image/*',
+                            {!! Form::label('images', __('hms::lang.images') .  ':') !!}
+                            {!! Form::file('images[]', ['id' => 'upload_image', 'accept' => 'image/*',
                             'required' => false, 'multiple' => true, 'class' => 'upload-element']); !!}
                         </div>
                     </div>
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.description') . ':', 'description')->attributes([]) !!}
-                            {!! html()->textarea('description', null)->attributes(['class' => 'form-control', 'rows'=> 5]); !!}
+                            {!! Form::label('description', __('hms::lang.description') . ':') !!}
+                            {!! Form::textarea('description', null, ['class' => 'form-control', 'rows'=> 5]); !!}
                         </div>
                     </div>
                 </div>
@@ -116,7 +117,7 @@
                     <button type="submit" name="submit_action" value="save" class="btn btn-primary btn-big submit_form">@lang('messages.save')</button>
                 </div>
 
-                    {!! html()->form()->close() !!}
+                    {!! Form::close() !!}
             </div>
         </div>
 

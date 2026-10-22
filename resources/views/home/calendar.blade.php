@@ -18,15 +18,15 @@
                         @if(!empty($users))
                             <div class="col-md-12">
                                 <div class="form-group">
-                                    {!! html()->label(__('role.user') . ':', 'user_id')->attributes([]) !!}
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('user_id', $users, auth()->user()->id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')])); !!}
+                                    {!! Form::label('user_id', __('role.user') . ':') !!}
+                                    {!! Form::select('user_id', $users, auth()->user()->id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
                                 </div>
                             </div>
                         @endif
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__('sale.location') . ':', 'location_id')->attributes([]) !!}
-                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $all_locations, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')])); !!}
+                                {!! Form::label('location_id', __('sale.location') . ':') !!}
+                                {!! Form::select('location_id', $all_locations, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
                             </div>
                         </div>
                         <div class="clearfix"></div>
@@ -34,7 +34,8 @@
                         <div class="col-md-12">
                             <div class="form-group">
                                 <label>
-                                      {!! html()->checkbox('events', true, $key)->attributes([ 'class' => 'input-icheck event_check']); !!} <span style="color: {{$value['color']}}">{{ $value['label'] }}</span>
+                                      {!! Form::checkbox('events', $key, true, 
+                                      [ 'class' => 'input-icheck event_check']); !!} <span style="color: {{$value['color']}}">{{ $value['label'] }}</span>
                                     </label>
                             </div>
                         </div>

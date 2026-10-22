@@ -31,15 +31,15 @@
                         @if(in_array($tool_details['name'], ['brandproduct-descriptions', 'google-ads', 'fb-ads', 'product_review']))
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__('aiassistance::lang.brandproduct_name') . ':*', 'name')->attributes([])!!}
-                                {!! html()->text('name', null)->attributes(['class' => 'form-control', 'placeholder' => __('aiassistance::lang.brandproduct_name'), 'required', 'autofocus']); !!}
+                                {!! Form::label('name', __('aiassistance::lang.brandproduct_name') . ':*' )!!}
+                                {!! Form::text('name', null, ['class' => 'form-control', 'placeholder' => __('aiassistance::lang.brandproduct_name'), 'required', 'autofocus']); !!}
                             </div>
                         </div>
 
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.brandproduct_details' ) . ':*', 'description')->attributes([]) !!}
-                                {!! html()->textarea('description', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('description', __( 'aiassistance::lang.brandproduct_details' ) . ':*') !!}
+                                {!! Form::textarea('description', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.brandproduct_placeholder' ), 'rows' => 3, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -49,8 +49,8 @@
                         @if(in_array($tool_details['name'], ['product_review']))
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__('aiassistance::lang.product_review_what_like') . ':*', 'features_liked')->attributes([])!!}
-                                {!! html()->text('features_liked', null)->attributes(['class' => 'form-control', 'placeholder' => __('aiassistance::lang.product_review_what_like'), 'required']); !!}
+                                {!! Form::label('features_liked', __('aiassistance::lang.product_review_what_like') . ':*' )!!}
+                                {!! Form::text('features_liked', null, ['class' => 'form-control', 'placeholder' => __('aiassistance::lang.product_review_what_like'), 'required']); !!}
                             </div>
                         </div>
                         @endif
@@ -58,8 +58,8 @@
                         @if(in_array($tool_details['name'], ['review_response']))
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.customer_review' ) . ':*', 'customer_review')->attributes([]) !!}
-                                {!! html()->textarea('customer_review', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('customer_review', __( 'aiassistance::lang.customer_review' ) . ':*') !!}
+                                {!! Form::textarea('customer_review', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.customer_review' ), 'rows' => 3, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -69,8 +69,8 @@
 
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.social_post_details' ) . ':*', 'description')->attributes([]) !!}
-                                {!! html()->textarea('description', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('description', __( 'aiassistance::lang.social_post_details' ) . ':*') !!}
+                                {!! Form::textarea('description', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.social_post_details' ), 'rows' => 3, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -80,8 +80,8 @@
                         @if($tool_details['name'] == 'copywriting')
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.product_service_description' ) . ':*', 'description')->attributes([]) !!}
-                                {!! html()->textarea('description', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('description', __( 'aiassistance::lang.product_service_description' ) . ':*') !!}
+                                {!! Form::textarea('description', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.product_service_description' ), 'rows' => 2, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -90,22 +90,22 @@
                         @if(in_array($tool_details['name'], ['email']))
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__('aiassistance::lang.sender') . ':*', 'sender')->attributes([])!!}
-                                {!! html()->text('sender', null)->attributes(['class' => 'form-control', 'placeholder' => __('aiassistance::lang.sender_placeholder'), 'required']); !!}
+                                {!! Form::label('sender', __('aiassistance::lang.sender') . ':*' )!!}
+                                {!! Form::text('sender', null, ['class' => 'form-control', 'placeholder' => __('aiassistance::lang.sender_placeholder'), 'required']); !!}
                             </div>
                         </div>
 
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__('aiassistance::lang.recipient') . ':*', 'recipient')->attributes([])!!}
-                                {!! html()->text('recipient', null)->attributes(['class' => 'form-control', 'placeholder' => __('aiassistance::lang.recipient_placeholder'), 'required']); !!}
+                                {!! Form::label('recipient', __('aiassistance::lang.recipient') . ':*' )!!}
+                                {!! Form::text('recipient', null, ['class' => 'form-control', 'placeholder' => __('aiassistance::lang.recipient_placeholder'), 'required']); !!}
                             </div>
                         </div>
 
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.email_about' ) . ':*', 'email_about')->attributes([]) !!}
-                                {!! html()->textarea('email_about', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('email_about', __( 'aiassistance::lang.email_about' ) . ':*') !!}
+                                {!! Form::textarea('email_about', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.email_about' ), 'rows' => 2, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -114,7 +114,7 @@
                         @if(in_array($tool_details['name'], ['email']))
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.tone' ) . ':', 'tone')->attributes([]) !!}
+                                {!! Form::label('tone', __( 'aiassistance::lang.tone' ) . ':') !!}
                                 <select class="form-control" style="width: 50%;" name="tone">
                                     <option value="">@lang('messages.please_select')</option>
                                     @foreach($tones as $k => $v)
@@ -130,16 +130,16 @@
                         @if($tool_details['name'] == 'proposal')
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.what_biz_does' ) . ':*', 'what_biz_does')->attributes([]) !!}
-                                {!! html()->textarea('what_biz_does', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('what_biz_does', __( 'aiassistance::lang.what_biz_does' ) . ':*') !!}
+                                {!! Form::textarea('what_biz_does', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.what_biz_does' ), 'rows' => 2, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
 
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.what_do_for_client' ) . ':*', 'what_do_for_client')->attributes([]) !!}
-                                {!! html()->textarea('what_do_for_client', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('what_do_for_client', __( 'aiassistance::lang.what_do_for_client' ) . ':*') !!}
+                                {!! Form::textarea('what_do_for_client', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.what_do_for_client' ), 'rows' => 2, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -149,8 +149,8 @@
                         @if($tool_details['name'] == 'kb')
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'aiassistance::lang.kb_details' ) . ':*', 'kb_details')->attributes([]) !!}
-                                {!! html()->textarea('kb_details', null)->attributes(['class' => 'form-control',
+                                {!! Form::label('kb_details', __( 'aiassistance::lang.kb_details' ) . ':*') !!}
+                                {!! Form::textarea('kb_details', null, ['class' => 'form-control',
                                 'placeholder' => __( 'aiassistance::lang.kb_details' ), 'rows' => 2, 'required', 'maxlength' => 200]); !!}
                             </div>
                         </div>
@@ -163,7 +163,7 @@
 
                         <div class="col-md-12">
                             <div class="form-group">
-                                {!! html()->label(__( 'business.language' ) . ':', 'language')->attributes([]) !!}
+                                {!! Form::label('language', __( 'business.language' ) . ':') !!}
                                 <select class="form-control" style="width: 50%;" name="language">
                                     @foreach($languages as $v)
                                         <option value="{{$v}}" @if($v == $default_lang) selected @endif>{{$v}}</option>

@@ -1,7 +1,7 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\AccountController::class, 'store']), 'method' => 'post', 'id' => 'payment_account_form' ]))->open() !!}
+    {!! Form::open(['url' => action([\App\Http\Controllers\AccountController::class, 'store']), 'method' => 'post', 'id' => 'payment_account_form' ]) !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -10,17 +10,17 @@
 
     <div class="modal-body">
             <div class="form-group">
-                {!! html()->label(__( 'lang_v1.name' ) .":*", 'name')->attributes([]) !!}
-                {!! html()->text('name', null)->attributes(['class' => 'form-control', 'required','placeholder' => __( 'lang_v1.name' ) ]); !!}
+                {!! Form::label('name', __( 'lang_v1.name' ) .":*") !!}
+                {!! Form::text('name', null, ['class' => 'form-control', 'required','placeholder' => __( 'lang_v1.name' ) ]); !!}
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'account.account_number' ) .":*", 'account_number')->attributes([]) !!}
-                {!! html()->text('account_number', null)->attributes(['class' => 'form-control', 'required','placeholder' => __( 'account.account_number' ) ]); !!}
+                {!! Form::label('account_number', __( 'account.account_number' ) .":*") !!}
+                {!! Form::text('account_number', null, ['class' => 'form-control', 'required','placeholder' => __( 'account.account_number' ) ]); !!}
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'account.account_type' ) .":", 'account_type_id')->attributes([]) !!}
+                {!! Form::label('account_type_id', __( 'account.account_type' ) .":") !!}
                 <select name="account_type_id" class="form-control select2">\
                     <option>@lang('messages.please_select')</option>
                     @foreach($account_types as $account_type)
@@ -35,8 +35,8 @@
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'account.opening_balance' ) .":", 'opening_balance')->attributes([]) !!}
-                {!! html()->text('opening_balance', 0)->attributes(['class' => 'form-control input_number','placeholder' => __( 'account.opening_balance' ) ]); !!}
+                {!! Form::label('opening_balance', __( 'account.opening_balance' ) .":") !!}
+                {!! Form::text('opening_balance', 0, ['class' => 'form-control input_number','placeholder' => __( 'account.opening_balance' ) ]); !!}
             </div>
 
             <label>@lang('lang_v1.account_details'):</label>
@@ -52,18 +52,18 @@
                 @for ($i = 0; $i < 6; $i++)
                     <tr>
                         <td>
-                            {!! html()->text('account_details['.$i.'][label]', null)->attributes(['class' => 'form-control']); !!}
+                            {!! Form::text('account_details['.$i.'][label]', null, ['class' => 'form-control']); !!}
                         </td>
                         <td>
-                            {!! html()->text('account_details['.$i.'][value]', null)->attributes(['class' => 'form-control']); !!}      
+                            {!! Form::text('account_details['.$i.'][value]', null, ['class' => 'form-control']); !!}      
                         </td>
                     </tr>
                 @endfor
             </table>
         
             <div class="form-group">
-                {!! html()->label(__( 'brand.note' ), 'note')->attributes([]) !!}
-                {!! html()->textarea('note', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'brand.note' ), 'rows' => 4]); !!}
+                {!! Form::label('note', __( 'brand.note' )) !!}
+                {!! Form::textarea('note', null, ['class' => 'form-control', 'placeholder' => __( 'brand.note' ), 'rows' => 4]); !!}
             </div>
     </div>
 
@@ -72,7 +72,7 @@
       <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! html()->form()->close() !!}
+    {!! Form::close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

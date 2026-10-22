@@ -1,6 +1,6 @@
 <div class="modal fade reminder" id="exampleModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
-  {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Essentials\Http\Controllers\ReminderController::class, 'store']), 'id' => 'reminder_form']))->open() !!}
+  {!! Form::open(['url' => action([\Modules\Essentials\Http\Controllers\ReminderController::class, 'store']), 'id' => 'reminder_form']) !!}
       <div class="modal-content">
         <div class="modal-header">
           <h4 class="modal-title" id="exampleModalCenterTitle">
@@ -21,46 +21,46 @@
             @endphp
           <div class="row">
             <div class="col-md-12">
-              {!! html()->label(__('essentials::lang.event_name') . ":*", 'name')->attributes([]) !!}
+              {!! Form::label('name', __('essentials::lang.event_name') . ":*") !!}
 
-                      {!! html()->text('name', null)->attributes(['class' => 'form-control', 'required']) !!}
+                      {!! Form::text('name', null, ['class' => 'form-control', 'required']) !!}
             </div>
             <div class="clearfix"></div>
             <div class="col-md-6">
-              {!! html()->label(__('essentials::lang.repeat') . ':*', 'repeat')->attributes([]) !!}
-              {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('repeat', $repeat, null, ['class' => 'form-control','required'])) !!}
+              {!! Form::label('repeat', __('essentials::lang.repeat') . ':*') !!}
+              {!! Form::select('repeat', $repeat, null, ['class' => 'form-control','required']) !!}
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                {!! html()->label(__('essentials::lang.date') . ':*', 'date')->attributes([]) !!}
+                {!! Form::label('date', __('essentials::lang.date') . ':*') !!}
                 <div class="input-group">
                   <span class="input-group-addon">
                     <i class="fa fa-calendar"></i>
                   </span>
-                  {!! html()->text('date', @format_date('today'))->attributes(['class' => 'form-control datepicker', 'required', 'readonly']); !!}
+                  {!! Form::text('date', @format_date('today'), ['class' => 'form-control datepicker', 'required', 'readonly']); !!}
                 </div>
                 </div>
             </div>
             <div class="clearfix"></div>
             <div class="col-md-6">
               <div class="form-group">
-                {!! html()->label(__('restaurant.start_time') . ':*', 'time')->attributes([]) !!}
+                {!! Form::label('time', __('restaurant.start_time') . ':*') !!}
                       <div class='input-group'>
                         <span class="input-group-addon">
                               <span class="glyphicon glyphicon-time"></span>
                           </span>
-                {!! html()->text('time', @format_time('now'))->attributes(['class' => 'form-control', 'required', 'id' => 'time', 'readonly']); !!}
+                {!! Form::text('time', @format_time('now'), ['class' => 'form-control', 'required', 'id' => 'time', 'readonly']); !!}
                 </div>
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                {!! html()->label(__('restaurant.end_time') . ':', 'time')->attributes([]) !!}
+                {!! Form::label('time', __('restaurant.end_time') . ':') !!}
                       <div class='input-group'>
                         <span class="input-group-addon">
                               <span class="glyphicon glyphicon-time"></span>
                           </span>
-                {!! html()->text('end_time', @format_time('now'))->attributes(['class' => 'form-control', 'id' => 'end_time', 'readonly']); !!}
+                {!! Form::text('end_time', @format_time('now'), ['class' => 'form-control', 'id' => 'end_time', 'readonly']); !!}
                 </div>
               </div>
             </div>
@@ -75,6 +75,6 @@
           </button>
         </div>
       </div>
-      {!! html()->form()->close() !!}
+      {!! Form::close() !!}
   </div>
 </div>

@@ -42,32 +42,34 @@
                             </div>
                         </div>
                         <br>
-                        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['action' => '\Modules\Accounting\Http\Controllers\SettingsController@saveSettings',
-                            'method' => 'post']))->open() !!}
+                        {!! Form::open(['action' => '\Modules\Accounting\Http\Controllers\SettingsController@saveSettings',
+                            'method' => 'post']) !!}
                             <div class="row">
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        {!! html()->label(__('accounting::lang.journal_entry_prefix') . ':', 'journal_entry_prefix')->attributes([]) !!}
-                                        {!! html()->text('journal_entry_prefix', !empty($accounting_settings['journal_entry_prefix'])? 
-                                            $accounting_settings['journal_entry_prefix'] : '')->attributes(['class' => 'form-control ', 'id' => 'journal_entry_prefix']); !!}
+                                        {!! Form::label('journal_entry_prefix', __('accounting::lang.journal_entry_prefix') . ':') !!}
+                                        {!! Form::text('journal_entry_prefix',!empty($accounting_settings['journal_entry_prefix'])? 
+                                            $accounting_settings['journal_entry_prefix'] : '', 
+                                            ['class' => 'form-control ', 'id' => 'journal_entry_prefix']); !!}
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        {!! html()->label(__('accounting::lang.transfer_prefix') . ':', 'transfer_prefix')->attributes([]) !!}
-                                        {!! html()->text('transfer_prefix', !empty($accounting_settings['transfer_prefix'])? 
-                                            $accounting_settings['transfer_prefix'] : '')->attributes(['class' => 'form-control ', 'id' => 'transfer_prefix']); !!}
+                                        {!! Form::label('transfer_prefix', __('accounting::lang.transfer_prefix') . ':') !!}
+                                        {!! Form::text('transfer_prefix',!empty($accounting_settings['transfer_prefix'])? 
+                                            $accounting_settings['transfer_prefix'] : '', 
+                                            ['class' => 'form-control ', 'id' => 'transfer_prefix']); !!}
                                     </div>
                                 </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group pull-right">
-                                    {{html()->input('submit', null, 'update')->attributes(['class'=>"btn btn-danger"])}}
+                                    {{Form::submit('update', ['class'=>"btn btn-danger"])}}
                                     </div>
                                 </div>
                             </div>
-                        {!! html()->form()->close() !!}
+                        {!! Form::close() !!}
                     </div>
                     
                     <div class="tab-pane" id="sub_type_tab"> 

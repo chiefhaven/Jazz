@@ -10,7 +10,7 @@
             <h3>@lang('crm::lang.view_lead')</h3>
         </div>
         <div class="col-md-4 col-xs-12 mt-15 pull-right">
-            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('lead_id', $leads, $contact->id, ['class' => 'form-control select2', 'id' => 'lead_id'])); !!}
+            {!! Form::select('lead_id', $leads, $contact->id , ['class' => 'form-control select2', 'id' => 'lead_id']); !!}
         </div>
     </div><br>
     <div class="row">

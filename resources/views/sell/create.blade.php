@@ -38,9 +38,9 @@
 				<span class="input-group-addon">
 					<i class="fa fa-map-marker"></i>
 				</span>
-			{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('select_location_id', $business_locations, $default_location->id ?? null, ['class' => 'form-control input-sm',
+			{!! Form::select('select_location_id', $business_locations, $default_location->id ?? null, ['class' => 'form-control input-sm',
 			'id' => 'select_location_id', 
-			'required', 'autofocus'])); !!}
+			'required', 'autofocus'], $bl_attributes); !!}
 			<span class="input-group-addon">
 					@show_tooltip(__('tooltip.sale_location'))
 				</span> 
@@ -55,14 +55,14 @@
 	$common_settings = session()->get('business.common_settings');
 @endphp
 <input type="hidden" id="item_addition_method" value="{{$business_details->item_addition_method}}">
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\SellPosController::class, 'store']), 'method' => 'post', 'id' => 'add_sell_form', 'files' => true ]))->open() !!}
+	{!! Form::open(['url' => action([\App\Http\Controllers\SellPosController::class, 'store']), 'method' => 'post', 'id' => 'add_sell_form', 'files' => true ]) !!}
 	 @if(!empty($sale_type))
 	 	<input type="hidden" id="sale_type" name="type" value="{{$sale_type}}">
 	 @endif
 	<div class="row">
 		<div class="col-md-12 col-sm-12">
 			@component('components.widget', ['class' => 'box-solid'])
-				{!! html()->hidden('location_id', !empty($default_location) ? $default_location->id : null)->attributes(['id' => 'location_id', 'data-receipt_printer_type' => !empty($default_location->receipt_printer_type) ? $default_location->receipt_printer_type : 'browser', 'data-default_payment_accounts' => !empty($default_location) ? $default_location->default_payment_accounts : '']); !!}
+				{!! Form::hidden('location_id', !empty($default_location) ? $default_location->id : null , ['id' => 'location_id', 'data-receipt_printer_type' => !empty($default_location->receipt_printer_type) ? $default_location->receipt_printer_type : 'browser', 'data-default_payment_accounts' => !empty($default_location) ? $default_location->default_payment_accounts : '']); !!}
 
 				@if(!empty($price_groups))
 					@if(count($price_groups) > 1)
@@ -76,8 +76,8 @@
 										reset($price_groups);
 										$selected_price_group = !empty($default_price_group_id) && array_key_exists($default_price_group_id, $price_groups) ? $default_price_group_id : null;
 									@endphp
-									{!! html()->hidden('hidden_price_group', key($price_groups))->attributes(['id' => 'hidden_price_group']) !!}
-									{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('price_group', $price_groups, $selected_price_group, ['class' => 'form-control select2', 'id' => 'price_group'])); !!}
+									{!! Form::hidden('hidden_price_group', key($price_groups), ['id' => 'hidden_price_group']) !!}
+									{!! Form::select('price_group', $price_groups, $selected_price_group, ['class' => 'form-control select2', 'id' => 'price_group']); !!}
 									<span class="input-group-addon">
 										@show_tooltip(__('lang_v1.price_group_help_text'))
 									</span> 
@@ -89,11 +89,11 @@
 						@php
 							reset($price_groups);
 						@endphp
-						{!! html()->hidden('price_group', key($price_groups))->attributes(['id' => 'price_group']) !!}
+						{!! Form::hidden('price_group', key($price_groups), ['id' => 'price_group']) !!}
 					@endif
 				@endif
 
-				{!! html()->hidden('default_price_group', null)->attributes(['id' => 'default_price_group']) !!}
+				{!! Form::hidden('default_price_group', null, ['id' => 'default_price_group']) !!}
 
 				@if(in_array('types_of_service', $enabled_modules) && !empty($types_of_service))
 					<div class="col-md-4 col-sm-6">
@@ -102,9 +102,9 @@
 								<span class="input-group-addon">
 									<i class="fa fa-external-link-square-alt text-primary service_modal_btn"></i>
 								</span>
-								{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('types_of_service_id', $types_of_service, null, ['class' => 'form-control', 'id' => 'types_of_service_id', 'style' => 'width: 100%;', 'placeholder' => __('lang_v1.select_types_of_service')])); !!}
+								{!! Form::select('types_of_service_id', $types_of_service, null, ['class' => 'form-control', 'id' => 'types_of_service_id', 'style' => 'width: 100%;', 'placeholder' => __('lang_v1.select_types_of_service')]); !!}
 
-								{!! html()->hidden('types_of_service_price_group', null)->attributes(['id' => 'types_of_service_price_group']) !!}
+								{!! Form::hidden('types_of_service_price_group', null, ['id' => 'types_of_service_price_group']) !!}
 
 								<span class="input-group-addon">
 									@show_tooltip(__('lang_v1.types_of_service_help'))
@@ -119,7 +119,7 @@
 					<div class="col-md-4 pull-right col-sm-6">
 						<div class="checkbox">
 							<label>
-				              {!! html()->checkbox('is_recurring', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'is_recurring']); !!} @lang('lang_v1.subscribe')?
+				              {!! Form::checkbox('is_recurring', 1, false, ['class' => 'input-icheck', 'id' => 'is_recurring']); !!} @lang('lang_v1.subscribe')?
 				            </label><button type="button" data-toggle="modal" data-target="#recurringInvoiceModal" class="btn btn-link"><i class="fa fa-external-link"></i></button>@show_tooltip(__('lang_v1.recurring_invoice_help'))
 						</div>
 					</div>
@@ -127,7 +127,7 @@
 				<div class="clearfix"></div>
 				<div class="@if(!empty($commission_agent)) col-sm-3 @else col-sm-4 @endif">
 					<div class="form-group">
-						{!! html()->label(__('contact.customer') . ':*', 'contact_id')->attributes([]) !!}
+						{!! Form::label('contact_id', __('contact.customer') . ':*') !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-user"></i>
@@ -142,7 +142,8 @@
 								<input type="hidden" id="default_selling_price_group" 
 							value="{{ $walk_in_customer['selling_price_group_id'] ?? ''}}" >
 							@endif
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required'])); !!}
+							{!! Form::select('contact_id', 
+								[], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required']); !!}
 							<span class="input-group-btn">
 								<button type="button" class="btn btn-default bg-white btn-flat add_new_customer" data-name=""><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
 							</span>
@@ -174,12 +175,15 @@
 		            @php
 						$is_pay_term_required = !empty($pos_settings['is_pay_term_required']);
 					@endphp
-		              {!! html()->label(__('contact.pay_term') . ':', 'pay_term_number')->attributes([]) !!} @show_tooltip(__('tooltip.pay_term'))
+		              {!! Form::label('pay_term_number', __('contact.pay_term') . ':') !!} @show_tooltip(__('tooltip.pay_term'))
 		              <br/>
-		              {!! html()->input('number', 'pay_term_number', $walk_in_customer['pay_term_number'])->attributes(['class' => 'form-control width-40 pull-left', 'placeholder' => __('contact.pay_term'), 'required' => $is_pay_term_required]); !!}
+		              {!! Form::number('pay_term_number', $walk_in_customer['pay_term_number'], ['class' => 'form-control width-40 pull-left', 'placeholder' => __('contact.pay_term'), 'required' => $is_pay_term_required]); !!}
 
-		              {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('pay_term_type', ['months' => __('lang_v1.months'), 
-		              		'days' => __('lang_v1.days')], $walk_in_customer['pay_term_type'], ['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'required' => $is_pay_term_required])); !!}
+		              {!! Form::select('pay_term_type', 
+		              	['months' => __('lang_v1.months'), 
+		              		'days' => __('lang_v1.days')], 
+		              		$walk_in_customer['pay_term_type'], 
+		              	['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'required' => $is_pay_term_required]); !!}
 		            </div>
 		          </div>
 		        </div>
@@ -190,19 +194,20 @@
 				@endphp
 				<div class="col-sm-3">
 					<div class="form-group">
-					{!! html()->label(__('lang_v1.commission_agent') . ':', 'commission_agent')->attributes([]) !!}
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('commission_agent', $commission_agent, null, ['class' => 'form-control select2', 'id' => 'commission_agent', 'required' => $is_commission_agent_required])); !!}
+					{!! Form::label('commission_agent', __('lang_v1.commission_agent') . ':') !!}
+					{!! Form::select('commission_agent', 
+								$commission_agent, null, ['class' => 'form-control select2', 'id' => 'commission_agent', 'required' => $is_commission_agent_required]); !!}
 					</div>
 				</div>
 				@endif
 				<div class="@if(!empty($commission_agent)) col-sm-3 @else col-sm-4 @endif">
 					<div class="form-group">
-						{!! html()->label(__('sale.sale_date') . ':*', 'transaction_date')->attributes([]) !!}
+						{!! Form::label('transaction_date', __('sale.sale_date') . ':*') !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-calendar"></i>
 							</span>
-							{!! html()->text('transaction_date', $default_datetime)->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
+							{!! Form::text('transaction_date', $default_datetime, ['class' => 'form-control', 'readonly', 'required']); !!}
 						</div>
 					</div>
 				</div>
@@ -215,24 +220,24 @@
 				@else
 					<div class="@if(!empty($commission_agent)) col-sm-3 @else col-sm-4 @endif">
 						<div class="form-group">
-							{!! html()->label(__('sale.status') . ':*', 'status')->attributes([]) !!}
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])); !!}
+							{!! Form::label('status', __('sale.status') . ':*') !!}
+							{!! Form::select('status', $statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required']); !!}
 						</div>
 					</div>
 				@endif
 				@if($sale_type != 'sales_order')
 					<div class="col-sm-3">
 						<div class="form-group">
-							{!! html()->label(__('invoice.invoice_scheme') . ':', 'invoice_scheme_id')->attributes([]) !!}
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('invoice_scheme_id', $invoice_schemes, $default_invoice_schemes->id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')])); !!}
+							{!! Form::label('invoice_scheme_id', __('invoice.invoice_scheme') . ':') !!}
+							{!! Form::select('invoice_scheme_id', $invoice_schemes, $default_invoice_schemes->id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
 						</div>
 					</div>
 				@endif
 					@can('edit_invoice_number')
 					<div class="col-sm-3">
 						<div class="form-group">
-							{!! html()->label($sale_type == 'sales_order' ? __('restaurant.order_no') : __('sale.invoice_no') . ':', 'invoice_no')->attributes([]) !!}
-							{!! html()->text('invoice_no', null)->attributes(['class' => 'form-control', 'placeholder' => $sale_type == 'sales_order' ? __('restaurant.order_no') : __('sale.invoice_no')]); !!}
+							{!! Form::label('invoice_no', $sale_type == 'sales_order' ? __('restaurant.order_no') : __('sale.invoice_no') . ':') !!}
+							{!! Form::text('invoice_no', null, ['class' => 'form-control', 'placeholder' => $sale_type == 'sales_order' ? __('restaurant.order_no') : __('sale.invoice_no')]); !!}
 							<p class="help-block">@lang('lang_v1.keep_blank_to_autogenerate')</p>
 						</div>
 					</div>
@@ -265,8 +270,8 @@
 
 		        	<div class="col-md-4">
 				        <div class="form-group">
-				            {!! html()->label($label_1, 'custom_field_1')->attributes([]) !!}
-				            {!! html()->text('custom_field_1', null)->attributes(['class' => 'form-control','placeholder' => $custom_field_1_label, 'required' => $is_custom_field_1_required]); !!}
+				            {!! Form::label('custom_field_1', $label_1 ) !!}
+				            {!! Form::text('custom_field_1', null, ['class' => 'form-control','placeholder' => $custom_field_1_label, 'required' => $is_custom_field_1_required]); !!}
 				        </div>
 				    </div>
 		        @endif
@@ -280,8 +285,8 @@
 
 		        	<div class="col-md-4">
 				        <div class="form-group">
-				            {!! html()->label($label_2, 'custom_field_2')->attributes([]) !!}
-				            {!! html()->text('custom_field_2', null)->attributes(['class' => 'form-control','placeholder' => $custom_field_2_label, 'required' => $is_custom_field_2_required]); !!}
+				            {!! Form::label('custom_field_2', $label_2 ) !!}
+				            {!! Form::text('custom_field_2', null, ['class' => 'form-control','placeholder' => $custom_field_2_label, 'required' => $is_custom_field_2_required]); !!}
 				        </div>
 				    </div>
 		        @endif
@@ -295,8 +300,8 @@
 
 		        	<div class="col-md-4">
 				        <div class="form-group">
-				            {!! html()->label($label_3, 'custom_field_3')->attributes([]) !!}
-				            {!! html()->text('custom_field_3', null)->attributes(['class' => 'form-control','placeholder' => $custom_field_3_label, 'required' => $is_custom_field_3_required]); !!}
+				            {!! Form::label('custom_field_3', $label_3 ) !!}
+				            {!! Form::text('custom_field_3', null, ['class' => 'form-control','placeholder' => $custom_field_3_label, 'required' => $is_custom_field_3_required]); !!}
 				        </div>
 				    </div>
 		        @endif
@@ -310,15 +315,15 @@
 
 		        	<div class="col-md-4">
 				        <div class="form-group">
-				            {!! html()->label($label_4, 'custom_field_4')->attributes([]) !!}
-				            {!! html()->text('custom_field_4', null)->attributes(['class' => 'form-control','placeholder' => $custom_field_4_label, 'required' => $is_custom_field_4_required]); !!}
+				            {!! Form::label('custom_field_4', $label_4 ) !!}
+				            {!! Form::text('custom_field_4', null, ['class' => 'form-control','placeholder' => $custom_field_4_label, 'required' => $is_custom_field_4_required]); !!}
 				        </div>
 				    </div>
 		        @endif
 		        <div class="col-sm-3">
 	                <div class="form-group">
-	                    {!! html()->label(__('purchase.attach_document') . ':', 'upload_document')->attributes([]) !!}
-	                    {!! html()->file('sell_document')->attributes(['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+	                    {!! Form::label('upload_document', __('purchase.attach_document') . ':') !!}
+	                    {!! Form::file('sell_document', ['id' => 'upload_document', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
 	                    <p class="help-block">
 	                    	@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
 	                    	@includeIf('components.document_help_text')
@@ -330,8 +335,8 @@
 		        @if((!empty($pos_settings['enable_sales_order']) && $sale_type != 'sales_order') || $is_order_request_enabled)
 					<div class="col-sm-3">
 						<div class="form-group">
-							{!! html()->label(__('lang_v1.sales_order').':', 'sales_order_ids')->attributes([]) !!}
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sales_order_ids[]', [], null, ['class' => 'form-control select2', 'multiple', 'id' => 'sales_order_ids'])); !!}
+							{!! Form::label('sales_order_ids', __('lang_v1.sales_order').':') !!}
+							{!! Form::select('sales_order_ids[]', [], null, ['class' => 'form-control select2', 'multiple', 'id' => 'sales_order_ids']); !!}
 						</div>
 					</div>
 					<div class="clearfix"></div>
@@ -421,7 +426,7 @@
 							<div class="input-group-btn">
 								<button type="button" class="btn btn-default bg-white btn-flat" data-toggle="modal" data-target="#configure_search_modal" title="{{__('lang_v1.configure_product_search')}}"><i class="fas fa-search-plus"></i></button>
 							</div>
-							{!! html()->text('search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
+							{!! Form::text('search_product', null, ['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
 							'disabled' => is_null($default_location)? true : false,
 							'autofocus' => is_null($default_location)? false : true,
 							]); !!}
@@ -435,12 +440,12 @@
 			@component('components.widget', ['class' => 'box-solid'])
 				<div class="col-md-4  @if($sale_type == 'sales_order') hide @endif">
 			        <div class="form-group">
-			            {!! html()->label(__('sale.discount_type') . ':*', 'discount_type')->attributes([]) !!}
+			            {!! Form::label('discount_type', __('sale.discount_type') . ':*' ) !!}
 			            <div class="input-group">
 			                <span class="input-group-addon">
 			                    <i class="fa fa-info"></i>
 			                </span>
-			                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('discount_type', ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage')], 'percentage', ['class' => 'form-control','placeholder' => __('messages.please_select'), 'required', 'data-default' => 'percentage'])); !!}
+			                {!! Form::select('discount_type', ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage')], 'percentage' , ['class' => 'form-control','placeholder' => __('messages.please_select'), 'required', 'data-default' => 'percentage']); !!}
 			            </div>
 			        </div>
 			    </div>
@@ -460,12 +465,12 @@
 			    @endphp
 			    <div class="col-md-4 @if($sale_type == 'sales_order') hide @endif">
 			        <div class="form-group">
-			            {!! html()->label(__('sale.discount_amount') . ':*', 'discount_amount')->attributes([]) !!}
+			            {!! Form::label('discount_amount', __('sale.discount_amount') . ':*' ) !!}
 			            <div class="input-group">
 			                <span class="input-group-addon">
 			                    <i class="fa fa-info"></i>
 			                </span>
-			                {!! html()->text('discount_amount', @num_format($sales_discount))->attributes(['class' => 'form-control input_number', 'data-default' => $sales_discount, 'data-max-discount' => $max_discount, 'data-max-discount-error_msg' => __('lang_v1.max_discount_error_msg', ['discount' => $max_discount != '' ? @num_format($max_discount) : '']) ]); !!}
+			                {!! Form::text('discount_amount', @num_format($sales_discount), ['class' => 'form-control input_number', 'data-default' => $sales_discount, 'data-max-discount' => $max_discount, 'data-max-discount-error_msg' => __('lang_v1.max_discount_error_msg', ['discount' => $max_discount != '' ? @num_format($max_discount) : '']) ]); !!}
 			            </div>
 			        </div>
 			    </div>
@@ -480,12 +485,12 @@
 			    	<div class="col-md-12"><h4>{{session('business.rp_name')}}</h4></div>
 			    	<div class="col-md-4">
 				        <div class="form-group">
-				            {!! html()->label(__('lang_v1.redeemed') . ':', 'rp_redeemed_modal')->attributes([]) !!}
+				            {!! Form::label('rp_redeemed_modal', __('lang_v1.redeemed') . ':' ) !!}
 				            <div class="input-group">
 				                <span class="input-group-addon">
 				                    <i class="fa fa-gift"></i>
 				                </span>
-				                {!! html()->input('number', 'rp_redeemed_modal', 0)->attributes(['class' => 'form-control direct_sell_rp_input', 'data-amount_per_unit_point' => session('business.redeem_amount_per_unit_rp'), 'min' => 0, 'data-max_points' => 0, 'data-min_order_total' => session('business.min_order_total_for_redeem') ]); !!}
+				                {!! Form::number('rp_redeemed_modal', 0, ['class' => 'form-control direct_sell_rp_input', 'data-amount_per_unit_point' => session('business.redeem_amount_per_unit_rp'), 'min' => 0, 'data-max_points' => 0, 'data-min_order_total' => session('business.min_order_total_for_redeem') ]); !!}
 				                <input type="hidden" id="rp_name" value="{{session('business.rp_name')}}">
 				            </div>
 				        </div>
@@ -500,12 +505,12 @@
 			    <div class="clearfix"></div>
 			    <div class="col-md-4  @if($sale_type == 'sales_order') hide @endif">
 			    	<div class="form-group">
-			            {!! html()->label(__('sale.order_tax') . ':*', 'tax_rate_id')->attributes([]) !!}
+			            {!! Form::label('tax_rate_id', __('sale.order_tax') . ':*' ) !!}
 			            <div class="input-group">
 			                <span class="input-group-addon">
 			                    <i class="fa fa-info"></i>
 			                </span>
-			                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('tax_rate_id', $taxes['tax_rates'], $default_sales_tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control', 'data-default'=> $default_sales_tax])); !!}
+			                {!! Form::select('tax_rate_id', $taxes['tax_rates'], $default_sales_tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control', 'data-default'=> $default_sales_tax], $taxes['attributes']); !!}
 
 							<input type="hidden" name="tax_calculation_amount" id="tax_calculation_amount" 
 							value="@if(empty($edit)) {{@num_format($business_details->tax_calculation_amount)}} @else {{@num_format($transaction->tax?->amount)}} @endif" data-default="{{$business_details->tax_calculation_amount}}">
@@ -519,8 +524,8 @@
 				
 			    <div class="col-md-12">
 			    	<div class="form-group">
-						{!! html()->label(__('sale.sell_note'), 'sell_note')->attributes([]) !!}
-						{!! html()->textarea('sale_note', null)->attributes(['class' => 'form-control', 'rows' => 3]); !!}
+						{!! Form::label('sell_note',__('sale.sell_note')) !!}
+						{!! Form::textarea('sale_note', null, ['class' => 'form-control', 'rows' => 3]); !!}
 					</div>
 			    </div>
 				<input type="hidden" name="is_direct_sale" value="1">
@@ -529,44 +534,44 @@
 			@component('components.widget', ['class' => 'box-solid'])
 			<div class="col-md-4">
 				<div class="form-group">
-		            {!! html()->label(__('sale.shipping_details'), 'shipping_details')->attributes([]) !!}
-		            {!! html()->textarea('shipping_details', null)->attributes(['class' => 'form-control','placeholder' => __('sale.shipping_details') ,'rows' => '3', 'cols'=>'30']); !!}
+		            {!! Form::label('shipping_details', __('sale.shipping_details')) !!}
+		            {!! Form::textarea('shipping_details',null, ['class' => 'form-control','placeholder' => __('sale.shipping_details') ,'rows' => '3', 'cols'=>'30']); !!}
 		        </div>
 			</div>
 			<div class="col-md-4">
 				<div class="form-group">
-		            {!! html()->label(__('lang_v1.shipping_address'), 'shipping_address')->attributes([]) !!}
-		            {!! html()->textarea('shipping_address', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.shipping_address') ,'rows' => '3', 'cols'=>'30']); !!}
+		            {!! Form::label('shipping_address', __('lang_v1.shipping_address')) !!}
+		            {!! Form::textarea('shipping_address',null, ['class' => 'form-control','placeholder' => __('lang_v1.shipping_address') ,'rows' => '3', 'cols'=>'30']); !!}
 		        </div>
 			</div>
 			<div class="col-md-4">
 				<div class="form-group">
-					{!!html()->label(__('sale.shipping_charges'), 'shipping_charges')->attributes([])!!}
+					{!!Form::label('shipping_charges', __('sale.shipping_charges'))!!}
 					<div class="input-group">
 					<span class="input-group-addon">
 					<i class="fa fa-info"></i>
 					</span>
-					{!!html()->text('shipping_charges', @num_format(0.00))->attributes(['class'=>'form-control input_number','placeholder'=> __('sale.shipping_charges')]);!!}
+					{!!Form::text('shipping_charges',@num_format(0.00),['class'=>'form-control input_number','placeholder'=> __('sale.shipping_charges')]);!!}
 					</div>
 				</div>
 			</div>
 			<div class="clearfix"></div>
 			<div class="col-md-4">
 				<div class="form-group">
-		            {!! html()->label(__('lang_v1.shipping_status'), 'shipping_status')->attributes([]) !!}
-		            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('shipping_status', $shipping_statuses, null, ['class' => 'form-control','placeholder' => __('messages.please_select')])); !!}
+		            {!! Form::label('shipping_status', __('lang_v1.shipping_status')) !!}
+		            {!! Form::select('shipping_status',$shipping_statuses, null, ['class' => 'form-control','placeholder' => __('messages.please_select')]); !!}
 		        </div>
 			</div>
 			<div class="col-md-4">
 		        <div class="form-group">
-		            {!! html()->label(__('lang_v1.delivered_to') . ':', 'delivered_to')->attributes([]) !!}
-		            {!! html()->text('delivered_to', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.delivered_to')]); !!}
+		            {!! Form::label('delivered_to', __('lang_v1.delivered_to') . ':' ) !!}
+		            {!! Form::text('delivered_to', null, ['class' => 'form-control','placeholder' => __('lang_v1.delivered_to')]); !!}
 		        </div>
 		    </div>
 			<div class="col-md-4">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.delivery_person') . ':', 'delivery_person')->attributes([]) !!}
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('delivery_person', $users, null, ['class' => 'form-control select2','placeholder' => __('messages.please_select')])); !!}
+					{!! Form::label('delivery_person', __('lang_v1.delivery_person') . ':' ) !!}
+					{!! Form::select('delivery_person', $users, null, ['class' => 'form-control select2','placeholder' => __('messages.please_select')]); !!}
 				</div>
 			</div>
 		    @php
@@ -601,8 +606,8 @@
 
 	        	<div class="col-md-4">
 			        <div class="form-group">
-			            {!! html()->label($label_1, 'shipping_custom_field_1')->attributes([]) !!}
-			            {!! html()->text('shipping_custom_field_1', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_1']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_1'] : null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_1, 'required' => $is_shipping_custom_field_1_required]); !!}
+			            {!! Form::label('shipping_custom_field_1', $label_1 ) !!}
+			            {!! Form::text('shipping_custom_field_1', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_1']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_1'] : null, ['class' => 'form-control','placeholder' => $shipping_custom_label_1, 'required' => $is_shipping_custom_field_1_required]); !!}
 			        </div>
 			    </div>
 	        @endif
@@ -616,8 +621,8 @@
 
 	        	<div class="col-md-4">
 			        <div class="form-group">
-			            {!! html()->label($label_2, 'shipping_custom_field_2')->attributes([]) !!}
-			            {!! html()->text('shipping_custom_field_2', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_2']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_2'] : null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_2, 'required' => $is_shipping_custom_field_2_required]); !!}
+			            {!! Form::label('shipping_custom_field_2', $label_2 ) !!}
+			            {!! Form::text('shipping_custom_field_2', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_2']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_2'] : null, ['class' => 'form-control','placeholder' => $shipping_custom_label_2, 'required' => $is_shipping_custom_field_2_required]); !!}
 			        </div>
 			    </div>
 	        @endif
@@ -631,8 +636,8 @@
 
 	        	<div class="col-md-4">
 			        <div class="form-group">
-			            {!! html()->label($label_3, 'shipping_custom_field_3')->attributes([]) !!}
-			            {!! html()->text('shipping_custom_field_3', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_3']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_3'] : null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_3, 'required' => $is_shipping_custom_field_3_required]); !!}
+			            {!! Form::label('shipping_custom_field_3', $label_3 ) !!}
+			            {!! Form::text('shipping_custom_field_3', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_3']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_3'] : null, ['class' => 'form-control','placeholder' => $shipping_custom_label_3, 'required' => $is_shipping_custom_field_3_required]); !!}
 			        </div>
 			    </div>
 	        @endif
@@ -646,8 +651,8 @@
 
 	        	<div class="col-md-4">
 			        <div class="form-group">
-			            {!! html()->label($label_4, 'shipping_custom_field_4')->attributes([]) !!}
-			            {!! html()->text('shipping_custom_field_4', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_4']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_4'] : null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_4, 'required' => $is_shipping_custom_field_4_required]); !!}
+			            {!! Form::label('shipping_custom_field_4', $label_4 ) !!}
+			            {!! Form::text('shipping_custom_field_4', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_4']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_4'] : null, ['class' => 'form-control','placeholder' => $shipping_custom_label_4, 'required' => $is_shipping_custom_field_4_required]); !!}
 			        </div>
 			    </div>
 	        @endif
@@ -661,15 +666,15 @@
 
 	        	<div class="col-md-4">
 			        <div class="form-group">
-			            {!! html()->label($label_5, 'shipping_custom_field_5')->attributes([]) !!}
-			            {!! html()->text('shipping_custom_field_5', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_5']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_5'] : null)->attributes(['class' => 'form-control','placeholder' => $shipping_custom_label_5, 'required' => $is_shipping_custom_field_5_required]); !!}
+			            {!! Form::label('shipping_custom_field_5', $label_5 ) !!}
+			            {!! Form::text('shipping_custom_field_5', !empty($walk_in_customer['shipping_custom_field_details']['shipping_custom_field_5']) ? $walk_in_customer['shipping_custom_field_details']['shipping_custom_field_5'] : null, ['class' => 'form-control','placeholder' => $shipping_custom_label_5, 'required' => $is_shipping_custom_field_5_required]); !!}
 			        </div>
 			    </div>
 	        @endif
 	        <div class="col-md-4">
                 <div class="form-group">
-                    {!! html()->label(__('lang_v1.shipping_documents') . ':', 'shipping_documents')->attributes([]) !!}
-                    {!! html()->file('shipping_documents[]')->attributes(['id' => 'shipping_documents', 'multiple', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+                    {!! Form::label('shipping_documents', __('lang_v1.shipping_documents') . ':') !!}
+                    {!! Form::file('shipping_documents[]', ['id' => 'shipping_documents', 'multiple', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
                     <p class="help-block">
                     	@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
                     	@includeIf('components.document_help_text')
@@ -691,34 +696,34 @@
 					<tbody>
 						<tr>
 							<td>
-								{!! html()->text('additional_expense_key_1', null)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_1']); !!}
+								{!! Form::text('additional_expense_key_1', null, ['class' => 'form-control', 'id' => 'additional_expense_key_1']); !!}
 							</td>
 							<td>
-								{!! html()->text('additional_expense_value_1', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_1']); !!}
-							</td>
-						</tr>
-						<tr>
-							<td>
-								{!! html()->text('additional_expense_key_2', null)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_2']); !!}
-							</td>
-							<td>
-								{!! html()->text('additional_expense_value_2', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_2']); !!}
+								{!! Form::text('additional_expense_value_1', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_1']); !!}
 							</td>
 						</tr>
 						<tr>
 							<td>
-								{!! html()->text('additional_expense_key_3', null)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_3']); !!}
+								{!! Form::text('additional_expense_key_2', null, ['class' => 'form-control', 'id' => 'additional_expense_key_2']); !!}
 							</td>
 							<td>
-								{!! html()->text('additional_expense_value_3', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_3']); !!}
+								{!! Form::text('additional_expense_value_2', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_2']); !!}
 							</td>
 						</tr>
 						<tr>
 							<td>
-								{!! html()->text('additional_expense_key_4', null)->attributes(['class' => 'form-control', 'id' => 'additional_expense_key_4']); !!}
+								{!! Form::text('additional_expense_key_3', null, ['class' => 'form-control', 'id' => 'additional_expense_key_3']); !!}
 							</td>
 							<td>
-								{!! html()->text('additional_expense_value_4', 0)->attributes(['class' => 'form-control input_number', 'id' => 'additional_expense_value_4']); !!}
+								{!! Form::text('additional_expense_value_3', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_3']); !!}
+							</td>
+						</tr>
+						<tr>
+							<td>
+								{!! Form::text('additional_expense_key_4', null, ['class' => 'form-control', 'id' => 'additional_expense_key_4']); !!}
+							</td>
+							<td>
+								{!! Form::text('additional_expense_value_4', 0, ['class' => 'form-control input_number', 'id' => 'additional_expense_value_4']); !!}
 							</td>
 						</tr>
 					</tbody>
@@ -753,8 +758,8 @@
 	        @for($i; $i <= 6 ; $i++)
 	            <div class="col-md-4 export_div" @if(empty($walk_in_customer['is_export'])) style="display: none;" @endif>
 	                <div class="form-group">
-	                    {!! html()->label(__('lang_v1.export_custom_field'.$i).':', 'export_custom_field_'.$i)->attributes([]) !!}
-	                    {!! html()->text('export_custom_fields_info['.'export_custom_field_'.$i.']', !empty($walk_in_customer['export_custom_field_'.$i]) ? $walk_in_customer['export_custom_field_'.$i] : null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.export_custom_field'.$i), 'id' => 'export_custom_field_'.$i]); !!}
+	                    {!! Form::label('export_custom_field_'.$i, __('lang_v1.export_custom_field'.$i).':') !!}
+	                    {!! Form::text('export_custom_fields_info['.'export_custom_field_'.$i.']', !empty($walk_in_customer['export_custom_field_'.$i]) ? $walk_in_customer['export_custom_field_'.$i] : null, ['class' => 'form-control','placeholder' => __('lang_v1.export_custom_field'.$i), 'id' => 'export_custom_field_'.$i]); !!}
 	                </div>
 	            </div>
 	        @endfor
@@ -774,25 +779,25 @@
 				<div class="well row">
 					<div class="col-md-6">
 						<div class="form-group">
-							{!! html()->label(__('lang_v1.prefer_payment_method') . ':', "prefer_payment_method")->attributes([]) !!}
+							{!! Form::label("prefer_payment_method" , __('lang_v1.prefer_payment_method') . ':') !!}
 							@show_tooltip(__('lang_v1.this_will_be_shown_in_pdf'))
 							<div class="input-group">
 								<span class="input-group-addon">
 									<i class="fas fa-money-bill-alt"></i>
 								</span>
-								{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("prefer_payment_method", $payment_types, 'cash', ['class' => 'form-control','style' => 'width:100%;'])); !!}
+								{!! Form::select("prefer_payment_method", $payment_types, 'cash', ['class' => 'form-control','style' => 'width:100%;']); !!}
 							</div>
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="form-group">
-							{!! html()->label(__('lang_v1.prefer_payment_account') . ':', "prefer_payment_account")->attributes([]) !!}
+							{!! Form::label("prefer_payment_account" , __('lang_v1.prefer_payment_account') . ':') !!}
 							@show_tooltip(__('lang_v1.this_will_be_shown_in_pdf'))
 							<div class="input-group">
 								<span class="input-group-addon">
 									<i class="fas fa-money-bill-alt"></i>
 								</span>
-								{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("prefer_payment_account", $accounts, null, ['class' => 'form-control','style' => 'width:100%;'])); !!}
+								{!! Form::select("prefer_payment_account", $accounts, null, ['class' => 'form-control','style' => 'width:100%;']); !!}
 							</div>
 						</div>
 					</div>
@@ -803,7 +808,7 @@
 					<div class="row">
 						<div class="col-md-12 mb-12">
 							<strong>@lang('lang_v1.advance_balance'):</strong> <span id="advance_balance_text"></span>
-							{!! html()->hidden('advance_balance', null)->attributes(['id' => 'advance_balance', 'data-error-msg' => __('lang_v1.required_advance_balance_not_available')]); !!}
+							{!! Form::hidden('advance_balance', null, ['id' => 'advance_balance', 'data-error-msg' => __('lang_v1.required_advance_balance_not_available')]); !!}
 						</div>
 					</div>
 					@include('sale_pos.partials.payment_row_form', ['row_index' => 0, 'show_date' => true, 'show_denomination' => true])
@@ -817,7 +822,7 @@
 			        		</strong>
 			        		<br/>
 			        		<span class="lead text-bold change_return_span">0</span>
-			        		{!! html()->hidden("change_return", $change_return['amount'])->attributes(['class' => 'form-control change_return input_number', 'required', 'id' => "change_return"]); !!}
+			        		{!! Form::hidden("change_return", $change_return['amount'], ['class' => 'form-control change_return input_number', 'required', 'id' => "change_return"]); !!}
 			        		<!-- <span class="lead text-bold total_quantity">0</span> -->
 			        		@if(!empty($change_return['id']))
 			            		<input type="hidden" name="change_return_id" 
@@ -828,7 +833,7 @@
 					<div class="row hide payment_row" id="change_return_payment_data">
 						<div class="col-md-4">
 							<div class="form-group">
-								{!! html()->label(__('lang_v1.change_return_payment_method') . ':*', "change_return_method")->attributes([]) !!}
+								{!! Form::label("change_return_method" , __('lang_v1.change_return_payment_method') . ':*') !!}
 								<div class="input-group">
 									<span class="input-group-addon">
 										<i class="fas fa-money-bill-alt"></i>
@@ -841,19 +846,19 @@
 											unset($_payment_types['advance']);
 										}
 									@endphp
-									{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[change_return][method]", $_payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'id' => 'change_return_method', 'style' => 'width:100%;'])); !!}
+									{!! Form::select("payment[change_return][method]", $_payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'id' => 'change_return_method', 'style' => 'width:100%;']); !!}
 								</div>
 							</div>
 						</div>
 						@if(!empty($accounts))
 						<div class="col-md-4">
 							<div class="form-group">
-								{!! html()->label(__('lang_v1.change_return_payment_account') . ':', "change_return_account")->attributes([]) !!}
+								{!! Form::label("change_return_account" , __('lang_v1.change_return_payment_account') . ':') !!}
 								<div class="input-group">
 									<span class="input-group-addon">
 										<i class="fas fa-money-bill-alt"></i>
 									</span>
-									{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[change_return][account_id]", $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '', ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;'])); !!}
+									{!! Form::select("payment[change_return][account_id]", $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '' , ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;']); !!}
 								</div>
 							</div>
 						</div>
@@ -873,7 +878,7 @@
 	@endif
 	
 	<div class="row">
-		{!! html()->hidden('is_save_and_print', 0)->attributes(['id' => 'is_save_and_print']); !!}
+		{!! Form::hidden('is_save_and_print', 0, ['id' => 'is_save_and_print']); !!}
 		<div class="col-sm-12 text-center tw-mt-4">
 			<button type="button" id="submit-sell" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white">@lang('messages.save')</button>
 			<button type="button" id="save-and-print" class="tw-dw-btn tw-dw-btn-success tw-dw-btn-lg tw-text-white">@lang('lang_v1.save_and_print')</button>
@@ -884,7 +889,7 @@
 		@include('sale_pos.partials.recurring_invoice_modal')
 	@endif
 	
-	{!! html()->form()->close() !!}
+	{!! Form::close() !!}
 </section>
 
 <div class="modal fade contact_modal" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">

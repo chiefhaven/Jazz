@@ -86,8 +86,8 @@
                                     <td id="activation_date_display">N/A</td>
                                 </tr>
                                 <tr>
-                                    <th>Site</th>
-                                    <td id="branch_display">N/A</td>
+                                    <th>Branch</th>
+                                    <td id="branch">N/A</td>
                                 </tr>
                             </table>
                         </div>
@@ -124,14 +124,18 @@
         <div id="toggle_visibility" @if(!empty($eis_settings['use_superadmin_settings'])) class="hide" @endif>
             <div class="col-xs-6">
                 <div class="form-group">
-                    {!! html()->label(__('lang_v1.terminal_activation_code') . ':', 'terminal_activation_code')->attributes([]) !!}
+                    {!! Form::label('terminal_activation_code', __('lang_v1.terminal_activation_code') . ':') !!}
 
                     <div class="input-group">
-                        {!! html()->text('eis_settings[terminal_activation_code]', $eis_settings['terminal_activation_code'] ?? '')->attributes([
+                        {!! Form::text(
+                            'eis_settings[terminal_activation_code]',
+                            $eis_settings['terminal_activation_code'] ?? '',
+                            [
                                 'class' => 'form-control',
                                 'placeholder' => __('lang_v1.terminal_activation_code'),
                                 'id' => 'terminal_activation_code_input'
-                            ]) !!}
+                            ]
+                        ) !!}
 
                         <span class="input-group-btn activate_eis_terminal_btn @if(!empty($eis_settings['use_superadmin_settings'])) hide @endif">
                             <button type="button"

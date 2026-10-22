@@ -22,9 +22,9 @@
 				<span class="input-group-addon">
 					<i class="fa fa-map-marker"></i>
 				</span>
-			{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('select_location_id', $business_locations, $default_location->id ?? null, ['class' => 'form-control input-sm',
+			{!! Form::select('select_location_id', $business_locations, $default_location->id ?? null, ['class' => 'form-control input-sm',
 			'id' => 'select_location_id', 
-			'required', 'autofocus'])); !!}
+			'required', 'autofocus'], $bl_attributes); !!}
 			<span class="input-group-addon">
 					@show_tooltip(__('tooltip.sale_location'))
 				</span> 
@@ -39,12 +39,12 @@
 	$common_settings = session()->get('business.common_settings');
 @endphp
 <input type="hidden" id="item_addition_method" value="{{$business_details->item_addition_method}}">
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\OrderRequestController::class, 'store']), 'method' => 'post', 'id' => 'add_sell_form', 'files' => true ]))->open() !!}
+	{!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\OrderRequestController::class, 'store']), 'method' => 'post', 'id' => 'add_sell_form', 'files' => true ]) !!}
 	<input type="hidden" id="customer_id" name="contact_id" value="{{$contact->id}}">
 	 <input type="hidden" id="sale_type" name="type" value="crm_order_request">
 	<div class="row">
 		<div class="col-md-12 col-sm-12">
-			{!! html()->hidden('location_id', !empty($default_location) ? $default_location->id : null)->attributes(['id' => 'location_id', 'data-receipt_printer_type' => !empty($default_location->receipt_printer_type) ? $default_location->receipt_printer_type : 'browser', 'data-default_payment_accounts' => !empty($default_location) ? $default_location->default_payment_accounts : '']); !!}
+			{!! Form::hidden('location_id', !empty($default_location) ? $default_location->id : null , ['id' => 'location_id', 'data-receipt_printer_type' => !empty($default_location->receipt_printer_type) ? $default_location->receipt_printer_type : 'browser', 'data-default_payment_accounts' => !empty($default_location) ? $default_location->default_payment_accounts : '']); !!}
 
 			@component('components.widget', ['class' => 'box-solid'])
 				<div class="col-sm-10 col-sm-offset-1">
@@ -53,7 +53,7 @@
 							<div class="input-group-btn">
 								<button type="button" class="btn btn-default bg-white btn-flat" data-toggle="modal" data-target="#configure_search_modal" title="{{__('lang_v1.configure_product_search')}}"><i class="fas fa-search-plus"></i></button>
 							</div>
-							{!! html()->text('or_search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'or_search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
+							{!! Form::text('or_search_product', null, ['class' => 'form-control mousetrap', 'id' => 'or_search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
 							'disabled' => is_null($default_location)? true : false,
 							'autofocus' => is_null($default_location)? false : true,
 							]); !!}
@@ -110,14 +110,14 @@
 			@component('components.widget', ['class' => 'box-solid'])
 			    <div class="col-md-6">
 			    	<div class="form-group">
-						{!! html()->label(__('purchase.additional_notes'), 'sell_note')->attributes([]) !!}
-						{!! html()->textarea('sale_note', null)->attributes(['class' => 'form-control', 'rows' => 3]); !!}
+						{!! Form::label('sell_note',__('purchase.additional_notes')) !!}
+						{!! Form::textarea('sale_note', null, ['class' => 'form-control', 'rows' => 3]); !!}
 					</div>
 			    </div>
 			    <div class="col-md-6">
 					<div class="form-group">
-			            {!! html()->label(__('lang_v1.shipping_address'), 'shipping_address')->attributes([]) !!}
-			            {!! html()->textarea('shipping_address', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.shipping_address') ,'rows' => '3', 'cols'=>'30']); !!}
+			            {!! Form::label('shipping_address', __('lang_v1.shipping_address')) !!}
+			            {!! Form::textarea('shipping_address',null, ['class' => 'form-control','placeholder' => __('lang_v1.shipping_address') ,'rows' => '3', 'cols'=>'30']); !!}
 			        </div>
 				</div>
 				<div class="col-md-4 col-md-offset-8">
@@ -143,7 +143,7 @@
 		</div>
 	</div>
 	
-	{!! html()->form()->close() !!}
+	{!! Form::close() !!}
 </section>
 
 @include('sale_pos.partials.configure_search_modal')

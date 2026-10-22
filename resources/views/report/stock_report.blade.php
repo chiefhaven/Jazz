@@ -13,35 +13,35 @@
     <div class="row">
         <div class="col-md-12">
             @component('components.filters', ['title' => __('report.filters')])
-              {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ReportController::class, 'getStockReport']), 'method' => 'get', 'id' => 'stock_report_filter_form' ]))->open() !!}
+              {!! Form::open(['url' => action([\App\Http\Controllers\ReportController::class, 'getStockReport']), 'method' => 'get', 'id' => 'stock_report_filter_form' ]) !!}
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('purchase.business_location') . ':', 'location_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
+                        {!! Form::label('location_id',  __('purchase.business_location') . ':') !!}
+                        {!! Form::select('location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('category.category') . ':', 'category_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('category', $categories, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'category_id'])); !!}
+                        {!! Form::label('category_id', __('category.category') . ':') !!}
+                        {!! Form::select('category', $categories, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'category_id']); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('product.sub_category') . ':', 'sub_category_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sub_category', array(), null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'sub_category_id'])); !!}
+                        {!! Form::label('sub_category_id', __('product.sub_category') . ':') !!}
+                        {!! Form::select('sub_category', array(), null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'sub_category_id']); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('product.brand') . ':', 'brand')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('brand', $brands, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%'])); !!}
+                        {!! Form::label('brand', __('product.brand') . ':') !!}
+                        {!! Form::select('brand', $brands, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%']); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('product.unit') . ':', 'unit')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('unit', $units, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%'])); !!}
+                        {!! Form::label('unit',__('product.unit') . ':') !!}
+                        {!! Form::select('unit', $units, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%']); !!}
                     </div>
                 </div>
                 @if($show_manufacturing_data)
@@ -50,13 +50,14 @@
                             <br>
                             <div class="checkbox">
                                 <label>
-                                  {!! html()->checkbox('only_mfg', false, 1)->attributes([ 'class' => 'input-icheck', 'id' => 'only_mfg_products']); !!} {{ __('manufacturing::lang.only_mfg_products') }}
+                                  {!! Form::checkbox('only_mfg', 1, false, 
+                                  [ 'class' => 'input-icheck', 'id' => 'only_mfg_products']); !!} {{ __('manufacturing::lang.only_mfg_products') }}
                                 </label>
                             </div>
                         </div>
                     </div>
                 @endif
-                {!! html()->form()->close() !!}
+                {!! Form::close() !!}
             @endcomponent
         </div>
     </div>

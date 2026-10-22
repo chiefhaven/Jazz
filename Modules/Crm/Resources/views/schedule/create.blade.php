@@ -1,6 +1,6 @@
 <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
-        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\ScheduleController::class, 'store']), 'method' => 'post', 'id' => 'add_schedule' ]))->open() !!}
+        {!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\ScheduleController::class, 'store']), 'method' => 'post', 'id' => 'add_schedule' ]) !!}
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -14,63 +14,63 @@
                     <input type="hidden" name="schedule_for" value="{{$schedule_for}}" id="schedule_for">
                     <div class="col-md-8">
                        <div class="form-group">
-                            {!! html()->label(__('crm::lang.title') . ':*', 'title')->attributes([])!!}
-                            {!! html()->text('title', null)->attributes(['class' => 'form-control', 'required' ]) !!}
+                            {!! Form::label('title', __('crm::lang.title') . ':*' )!!}
+                            {!! Form::text('title', null, ['class' => 'form-control', 'required' ]) !!}
                        </div>
                     </div>
                     <div class="col-md-4">
                        <div class="form-group">
-                            {!! html()->label(__('contact.customer') . '/' . __('crm::lang.lead') .':*', 'contact_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', $customers, $contact_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::label('contact_id', __('contact.customer') . '/' . __('crm::lang.lead') .':*') !!}
+                            {!! Form::select('contact_id', $customers, $contact_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
                        </div>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-4">
                        <div class="form-group">
-                            {!! html()->label(__('sale.status') .':', 'status')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;', 'id' => 'follow_up_create_status'])); !!}
+                            {!! Form::label('status', __('sale.status') .':') !!}
+                            {!! Form::select('status', $statuses, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'style' => 'width: 100%;', 'id' => 'follow_up_create_status']); !!}
                        </div>
                     </div>
                     <div class="col-md-4">
                        <div class="form-group">
-                            {!! html()->label(__('crm::lang.start_datetime') . ':*', 'start_datetime')->attributes([])!!}
-                            {!! html()->text('start_datetime', null)->attributes(['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
+                            {!! Form::label('start_datetime', __('crm::lang.start_datetime') . ':*' )!!}
+                            {!! Form::text('start_datetime', null, ['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
                        </div>
                     </div>
                     <div class="col-md-4">
                        <div class="form-group">
-                            {!! html()->label(__('crm::lang.end_datetime') . ':*', 'end_datetime')->attributes([])!!}
-                            {!! html()->text('end_datetime', null)->attributes(['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
+                            {!! Form::label('end_datetime', __('crm::lang.end_datetime') . ':*' )!!}
+                            {!! Form::text('end_datetime', null, ['class' => 'form-control datetimepicker', 'required', 'readonly']) !!}
                        </div>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.description') . ':', 'description')->attributes([]) !!}
-                            {!! html()->textarea('description', null)->attributes(['class' => 'form-control ', 'id' => 'description']); !!}
+                            {!! Form::label('description', __('crm::lang.description') . ':') !!}
+                            {!! Form::textarea('description', null, ['class' => 'form-control ', 'id' => 'description']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.schedule_type') .':*', 'schedule_type')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('schedule_type', $follow_up_types, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::label('schedule_type', __('crm::lang.schedule_type') .':*') !!}
+                            {!! Form::select('schedule_type', $follow_up_types, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.followup_category') .':*', 'followup_category_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('followup_category_id', $followup_category, null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'placeholder' => __('messages.please_select')])); !!}
+                            {!! Form::label('followup_category_id', __('crm::lang.followup_category') .':*') !!}
+                            {!! Form::select('followup_category_id', $followup_category, null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;', 'placeholder' => __('messages.please_select')]); !!}
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.assgined') .':*', 'user_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('user_id[]', $users, null, ['class' => 'form-control select2', 'multiple', 'required', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::label('user_id', __('crm::lang.assgined') .':*') !!}
+                            {!! Form::select('user_id[]', $users, null, ['class' => 'form-control select2', 'multiple', 'required', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                 </div>
@@ -78,7 +78,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label>
-                                {!! html()->checkbox('allow_notification', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'allow_notification']); !!}
+                                {!! Form::checkbox('allow_notification', 1, false, ['class' => 'input-icheck', 'id' => 'allow_notification']); !!}
                                 @lang('crm::lang.send_notification')
                             </label>
                             @show_tooltip(__('crm::lang.send_schedule_notificatoion'))
@@ -87,16 +87,16 @@
                     <div class="clearfix"></div>
                     <div class="allow_notification_elements hide">
                         <div class="col-md-6">
-                            {!! html()->label(__('crm::lang.notify_via') .':*', 'notify_via')->attributes([]) !!} 
+                            {!! Form::label('notify_via', __('crm::lang.notify_via') .':*') !!} 
                             <div class="form-group checkbox-inline">
                                 <label>
-                                    {!! html()->checkbox('notify_via[sms]', false, 1)->attributes(['class' => 'input-icheck']); !!}
+                                    {!! Form::checkbox('notify_via[sms]', 1, false, ['class' => 'input-icheck']); !!}
                                     @lang('crm::lang.sms')
                                 </label>
                             </div>
                             <div class="form-group checkbox-inline">
                                 <label>
-                                    {!! html()->checkbox('notify_via[mail]', true, 1)->attributes(['class' => 'input-icheck']); !!}
+                                    {!! Form::checkbox('notify_via[mail]', 1, true, ['class' => 'input-icheck']); !!}
                                     @lang('business.email')
                                 </label>
                             </div>
@@ -104,11 +104,11 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <div class="multi-input">
-                                    {!! html()->label(__('crm::lang.notify_before') . ':*', 'notify_before')->attributes([]) !!}
+                                    {!! Form::label('notify_before', __('crm::lang.notify_before') . ':*') !!}
                                     <br/>
-                                    {!! html()->input('number', 'notify_before', null)->attributes(['class' => 'form-control width-40 pull-left', 'placeholder' => __('crm::lang.notify_before'), 'required']); !!}
+                                    {!! Form::number('notify_before', null, ['class' => 'form-control width-40 pull-left', 'placeholder' => __('crm::lang.notify_before'), 'required']); !!}
 
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('notify_type', $notify_type, '', ['class' => 'form-control width-60 pull-left'])); !!}
+                                    {!! Form::select('notify_type', $notify_type, '', ['class' => 'form-control width-60 pull-left']); !!}
                                 </div>
                             </div>
                         </div>
@@ -123,6 +123,6 @@
                     @lang('messages.save')
                 </button>
             </div>
-        {!! html()->form()->close() !!}
+        {!! Form::close() !!}
     </div>
 </div>

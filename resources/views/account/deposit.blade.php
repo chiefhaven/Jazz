@@ -1,7 +1,7 @@
 <div class="modal-dialog" role="document">
   <div class="modal-content">
 
-    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\AccountController::class, 'postDeposit']), 'method' => 'post', 'id' => 'deposit_form' ]))->open() !!}
+    {!! Form::open(['url' => action([\App\Http\Controllers\AccountController::class, 'postDeposit']), 'method' => 'post', 'id' => 'deposit_form' ]) !!}
 
     <div class="modal-header">
       <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -12,28 +12,28 @@
             <div class="form-group">
                 <strong>@lang('account.selected_account')</strong>: 
                 {{$account->name}}
-                {!! html()->hidden('account_id', $account->id)->attributes([]) !!}
+                {!! Form::hidden('account_id', $account->id) !!}
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'lang_v1.deposit_to' ) .":", 'account_id')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('account_id', $from_accounts, $account->id, ['class' => 'form-control' ])); !!}
+                {!! Form::label('account_id', __( 'lang_v1.deposit_to' ) .":") !!}
+                {!! Form::select('account_id', $from_accounts, $account->id, ['class' => 'form-control' ]); !!}
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'sale.amount' ) .":*", 'amount')->attributes([]) !!}
-                {!! html()->text('amount', 0)->attributes(['class' => 'form-control input_number', 'required','placeholder' => __( 'sale.amount' ) ]); !!}
+                {!! Form::label('amount', __( 'sale.amount' ) .":*") !!}
+                {!! Form::text('amount', 0, ['class' => 'form-control input_number', 'required','placeholder' => __( 'sale.amount' ) ]); !!}
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'account.deposit_from' ) .":", 'from_account')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('from_account', $from_accounts, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select') ])); !!}
+                {!! Form::label('from_account', __( 'account.deposit_from' ) .":") !!}
+                {!! Form::select('from_account', $from_accounts, null, ['class' => 'form-control', 'placeholder' => __('messages.please_select') ]); !!}
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'messages.date' ) .":*", 'operation_date')->attributes([]) !!}
+                {!! Form::label('operation_date', __( 'messages.date' ) .":*") !!}
                 <div class="input-group date">
-                  {!! html()->text('operation_date', null)->attributes(['class' => 'form-control', 'required','placeholder' => __( 'messages.date' ), 'id'=>'od_datetimepicker' ]); !!}
+                  {!! Form::text('operation_date', null, ['class' => 'form-control', 'required','placeholder' => __( 'messages.date' ), 'id'=>'od_datetimepicker' ]); !!}
                   <span class="input-group-addon">
                     <span class="glyphicon glyphicon-calendar"></span>
                   </span>
@@ -41,8 +41,8 @@
             </div>
 
             <div class="form-group">
-                {!! html()->label(__( 'brand.note' ), 'note')->attributes([]) !!}
-                {!! html()->textarea('note', null)->attributes(['class' => 'form-control', 'placeholder' => __( 'brand.note' ), 'rows' => 4]); !!}
+                {!! Form::label('note', __( 'brand.note' )) !!}
+                {!! Form::textarea('note', null, ['class' => 'form-control', 'placeholder' => __( 'brand.note' ), 'rows' => 4]); !!}
             </div>
     </div>
 
@@ -51,7 +51,7 @@
       <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 
-    {!! html()->form()->close() !!}
+    {!! Form::close() !!}
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->

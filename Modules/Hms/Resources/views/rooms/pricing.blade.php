@@ -15,23 +15,23 @@
                 </h3>
             </div> --}}
             <div class="box-body">
-                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                {!! Form::open([
                     'url' => action([\Modules\Hms\Http\Controllers\RoomController::class, 'post_pricing']),
                     'method' => 'post',
                     'id' => 'create_pricing',
                     'files' => true
-                ]))->open() !!}
+                ]) !!}
                 <div class="col-md-12">
                     <div class="col-md-4">
                         <input type="hidden" name="season_type" value="default">
                         <div class="form-group"> 
-                            {!! html()->label('Room type', 'type_id')->attributes([]) !!}
-                             {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('type_id', $types, $room_type->id ?? null, [
+                            {!! Form::label('type_id', 'Room type') !!}
+                             {!! Form::select('type_id', $types, $room_type->id ?? null, [
                                 'class' => 'form-control',
                                 'id' => 'type_id',
                                 'placeholder' => __('messages.please_select'),
                                 'required',
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
                 </div>
@@ -61,49 +61,49 @@
                                 @if (is_object($default_pricing))
                                 <input type="hidden" name="pricing[0][id]" value="{{ $default_pricing->id }}">
                                 @endif
-                                {!! html()->input('number', 'pricing[0][monday]', $default_pricing ?$default_pricing->price_monday : null)->attributes([
+                                {!! Form::number('pricing[0][monday]', $default_pricing ?$default_pricing->price_monday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
                                 ]) !!}
                             </td>
                             <td>
-                                {!! html()->input('number', 'pricing[0][tuesday]', $default_pricing ?$default_pricing->price_tuesday : null)->attributes([
+                                {!! Form::number('pricing[0][tuesday]', $default_pricing ?$default_pricing->price_tuesday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
                                 ]) !!}
                             </td>
                             <td>
-                                {!! html()->input('number', 'pricing[0][wednesday]', $default_pricing ?$default_pricing->price_wednesday : null)->attributes([
+                                {!! Form::number('pricing[0][wednesday]', $default_pricing ?$default_pricing->price_wednesday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
                                 ]) !!}
                             </td>
                             <td>
-                                {!! html()->input('number', 'pricing[0][thursday]', $default_pricing ?$default_pricing->price_thursday : null)->attributes([
+                                {!! Form::number('pricing[0][thursday]', $default_pricing ?$default_pricing->price_thursday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
                                 ]) !!}
                             </td>
                             <td>
-                                {!! html()->input('number', 'pricing[0][friday]', $default_pricing ?$default_pricing->price_friday : null)->attributes([
+                                {!! Form::number('pricing[0][friday]', $default_pricing ?$default_pricing->price_friday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
                                 ]) !!}
                             </td>
                             <td>
-                                {!! html()->input('number', 'pricing[0][saturday]', $default_pricing ?$default_pricing->price_saturday : null)->attributes([
+                                {!! Form::number('pricing[0][saturday]', $default_pricing ?$default_pricing->price_saturday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
                                 ]) !!}
                             </td>
                             <td>
-                                {!! html()->input('number', 'pricing[0][sunday]', $default_pricing ?$default_pricing->price_sunday : null)->attributes([
+                                {!! Form::number('pricing[0][sunday]', $default_pricing ?$default_pricing->price_sunday : null, [
                                     'class' => 'form-control',
                                     'required',
                                     'step' => '0.0001'
@@ -114,8 +114,8 @@
                 </div>
                 <div class="col-md-12 default_price" style="display: none;">
                      <div class="col-md-4">
-                        {!! html()->label(__('hms::lang.default_price_per_night'), 'default_price')->attributes([]) !!}
-                        {!! html()->input('number', 'pricing[0][default_price]', $default_pricing ?$default_pricing->default_price_per_night : null)->attributes([
+                        {!! Form::label('default_price', __('hms::lang.default_price_per_night') ) !!}
+                        {!! Form::number('pricing[0][default_price]', $default_pricing ?$default_pricing->default_price_per_night : null, [
                             'class' => 'form-control',
                             'required',
                             'step' => '0.0001'
@@ -208,10 +208,10 @@
                 </div>
 
                 <div class="col-md-12 text-center">
-                    {!! html()->input('submit', null, __('messages.submit'))->attributes(['class' => 'btn btn-success btn-big']) !!}
+                    {!! Form::submit(__('messages.submit'), ['class' => 'btn btn-success btn-big']) !!}
                 </div>
 
-                    {!! html()->form()->close() !!}
+                    {!! Form::close() !!}
             </div>
         </div>
 

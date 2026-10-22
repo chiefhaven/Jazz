@@ -9,6 +9,7 @@ use Modules\EIS\Exceptions\SyncException;
 use Modules\EIS\Models\EisOfflineLimit;
 use Modules\EIS\Models\EisTaxRate;
 use Modules\EIS\Models\EisTerminalConfiguration;
+use Modules\EIS\Models\EisTerminalSite;
 use Modules\EIS\Services\Configuration\EISConfigurationResponse;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
 
@@ -64,7 +65,7 @@ class ConfigurationSyncService
         ]);
 
         try {
-            $configuration = DB::transaction(function () use ($businessId, $token) {
+            return DB::transaction(function () use ($businessId, $token) {
                 // Fetch configuration from EIS
                 $response = $this->client->latest($token);
 
@@ -136,10 +137,6 @@ class ConfigurationSyncService
 
                 return $configuration;
             });
-
-            static::businessLocation($businessId);
-
-            return $configuration;
         } catch (SyncException $e) {
             // Re-throw SyncException as-is
             throw $e;
@@ -393,12 +390,12 @@ class ConfigurationSyncService
                 'is_active' => $terminalData->isActiveTerminal ?? false
             ]);
 
-            // Configuration fetches can report false while activation confirmation is pending.
-            // Keep the local activation/toggle state for an existing terminal.
+            // Prepare terminal configuration data
             $terminalConfigData = [
                 'configuration_id' => $configuration->id,
                 'version' => $terminalData->versionNo ?? null,
                 'terminal_label' => $terminalData->terminalLabel ?? null,
+                'is_active' => $terminalData->isActiveTerminal ?? false,
                 'email_address' => $terminalData->emailAddress ?? null,
                 'phone_number' => $terminalData->phoneNumber ?? null,
                 'trading_name' => $terminalData->tradingName ?? null,
@@ -411,16 +408,16 @@ class ConfigurationSyncService
                 'last_synced_at' => now()
             ];
 
-            $terminalConfig = EisTerminalConfiguration::firstOrNew([
-                'configuration_id' => $configuration->id,
-            ]);
+            // Update or create terminal configuration
+            $terminalConfig = EisTerminalConfiguration::updateOrCreate(
+                ['configuration_id' => $configuration->id],
+                $terminalConfigData
+            );
 
-            if (! $terminalConfig->exists) {
-                $terminalConfig->is_active = $terminalData->isActiveTerminal ?? false;
+            // Sync terminal site if present
+            if (isset($terminalData->terminalSite)) {
+                $this->syncTerminalSite($terminalConfig, $terminalData->terminalSite);
             }
-
-            $terminalConfig->fill($terminalConfigData);
-            $terminalConfig->save();
 
             // Sync offline limit if present
             if (isset($terminalData->offlineLimit)) {
@@ -442,6 +439,35 @@ class ConfigurationSyncService
             // Re-throw to be handled by parent
             throw $e;
         }
+    }
+
+    /**
+     * Sync terminal site.
+     *
+     * @param TerminalConfiguration $terminalConfig
+     * @param object $siteData
+     * @return void
+     */
+    private function syncTerminalSite(EisTerminalConfiguration $terminalConfig, object $siteData): void
+    {
+        $siteData = [
+            'terminal_configuration_id' => $terminalConfig->id,
+            'site_id' => $siteData->siteId ?? null,
+            'site_name' => $siteData->siteName ?? null,
+            'raw_data' => json_encode($siteData),
+            'last_synced_at' => now()
+        ];
+
+        EisTerminalSite::updateOrCreate(
+            ['terminal_configuration_id' => $terminalConfig->id],
+            $siteData
+        );
+
+        Log::debug('Terminal site synced', [
+            'terminal_config_id' => $terminalConfig->id,
+            'site_id' => $siteData['site_id'],
+            'site_name' => $siteData['site_name']
+        ]);
     }
 
     /**
@@ -661,7 +687,7 @@ class ConfigurationSyncService
             'is_vat_registered' => $data->taxpayerConfiguration->isVATRegistered ?? false,
             'tax_office_code' => $data->taxpayerConfiguration->taxOfficeCode ?? null,
             'tax_office_name' => $data->taxpayerConfiguration->taxOffice->name ?? null,
-            'raw_response' => ['data' => $data],
+            'raw_response' => json_encode(['data' => $data]),
             'last_synced_at' => now()
         ];
     }
@@ -940,7 +966,7 @@ class ConfigurationSyncService
             'terminal' => $terminal ? [
                 'is_active' => $terminal->is_active,
                 'trading_name' => $terminal->trading_name,
-                'has_site' => $terminal->hasSite(),
+                'has_site' => EisTerminalSite::where('terminal_configuration_id', $terminal->id)->exists(),
                 'has_offline_limit' => EisOfflineLimit::where('terminal_configuration_id', $terminal->id)->exists()
             ] : null,
             'hours_since_sync' => $configuration->last_synced_at 
@@ -1041,7 +1067,7 @@ class ConfigurationSyncService
     public function getTerminalConfiguration(EisConfiguration $configuration): ?EisTerminalConfiguration
     {
         return EisTerminalConfiguration::where('configuration_id', $configuration->id)
-            ->with('offlineLimit')
+            ->with(['terminalSite', 'offlineLimit'])
             ->first();
     }
 
@@ -1081,10 +1107,26 @@ class ConfigurationSyncService
         $eisConfiguration = EisConfiguration::where('business_id', $businessId)
             ->firstOrFail();
 
+        // Decode the stored EIS API response
+        $response = json_decode(
+            $eisConfiguration->raw_response,
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
         // Extract EIS configurations
-        $rawResponse = $eisConfiguration->decodedRawResponse();
-        $terminalConfig = data_get($rawResponse, 'data.terminalConfiguration', []);
-        $taxpayerConfig = data_get($rawResponse, 'data.taxpayerConfiguration', []);
+        $terminalConfig = data_get(
+            $response,
+            'data.terminalConfiguration',
+            []
+        );
+
+        $taxpayerConfig = data_get(
+            $response,
+            'data.taxpayerConfiguration',
+            []
+        );
 
         $terminalSite = data_get(
             $terminalConfig,
@@ -1092,8 +1134,7 @@ class ConfigurationSyncService
             []
         );
 
-        $siteId = data_get($terminalSite, 'siteId')
-            ?: \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->value('branch_id');
+        $siteId = data_get($terminalSite, 'siteId');
 
         if (blank($siteId)) {
             throw new \InvalidArgumentException(
@@ -1101,21 +1142,10 @@ class ConfigurationSyncService
             );
         }
 
-        $savedTerminalActivity = \Modules\EIS\Models\EisTerminalConfiguration::where(
-            'configuration_id',
-            $eisConfiguration->id
-        )->value('is_active');
-        $terminalActivity = $savedTerminalActivity !== null
-            ? (bool) $savedTerminalActivity
-            : data_get($terminalConfig, 'isActiveTerminal');
-        $terminalIsActive = $terminalActivity === true;
-        $terminalIsInactive = $terminalActivity === false;
-
         Log::info('EIS terminal site details retrieved', [
             'business_id' => $businessId,
             'site_id' => $siteId,
             'site_name' => data_get($terminalSite, 'siteName'),
-            'is_active_terminal' => $terminalActivity,
         ]);
 
         return DB::transaction(function () use (
@@ -1123,9 +1153,7 @@ class ConfigurationSyncService
             $terminalConfig,
             $taxpayerConfig,
             $terminalSite,
-            $siteId,
-            $terminalIsActive,
-            $terminalIsInactive
+            $siteId
         ) {
 
             /*
@@ -1160,75 +1188,33 @@ class ConfigurationSyncService
             |--------------------------------------------------------------------------
             */
 
-            $businessLocation = \App\BusinessLocation::withTrashed()->firstOrNew(
+            $businessLocation = \App\BusinessLocation::updateOrCreate(
                 [
                     'business_id' => $business->id,
-                    'eis_site_id' => $siteId,
                 ],
+                [
+                    'eis_site_id' => $siteId,
+
+                    'name' => data_get(
+                        $terminalSite,
+                        'siteName',
+                    ),
+
+                    'country' => 'Malawi',
+
+                    'sale_invoice_scheme_id' => 1,
+
+                    'mobile' => data_get(
+                        $terminalConfig,
+                        'phoneNumber'
+                    ),
+
+                    'email' => data_get(
+                        $terminalConfig,
+                        'emailAddress'
+                    ),
+                ]
             );
-
-            if ($terminalIsInactive) {
-                if ($businessLocation->exists && ! $businessLocation->trashed()) {
-                    $businessLocation->delete();
-                    Log::info('Soft-deleted EIS business location for inactive terminal', [
-                        'business_id' => $business->id,
-                        'business_location_id' => $businessLocation->id,
-                        'eis_site_id' => $siteId,
-                    ]);
-                }
-
-                return null;
-            }
-
-            if ($terminalIsActive && $businessLocation->exists && $businessLocation->trashed()) {
-                $businessLocation->restore();
-            }
-
-            $businessLocation->fill([
-                'name' => data_get(
-                    $terminalSite,
-                    'siteName',
-                    'Location 1'
-                ),
-                'country' => 'Malawi',
-                'mobile' => data_get(
-                    $terminalConfig,
-                    'phoneNumber'
-                ),
-                'email' => data_get(
-                    $terminalConfig,
-                    'emailAddress'
-                ),
-            ]);
-
-            $invoiceLayout = \App\InvoiceLayout::where('business_id', $business->id)
-                ->where('is_default', 1)
-                ->first();
-
-            if (! $invoiceLayout) {
-                throw new \RuntimeException(
-                    "Business {$business->id} must have a default invoice layout before its EIS location can be synchronized."
-                );
-            }
-
-            $businessLocation->invoice_layout_id = $invoiceLayout->id;
-            $businessLocation->sale_invoice_layout_id = $invoiceLayout->id;
-
-            if (! $businessLocation->exists) {
-                $invoiceScheme = \App\InvoiceScheme::where('business_id', $business->id)
-                    ->where('is_default', 1)
-                    ->first();
-
-                if (! $invoiceScheme) {
-                    throw new \RuntimeException(
-                        "Business {$business->id} must have a default invoice scheme before its EIS location can be created."
-                    );
-                }
-
-                $businessLocation->invoice_scheme_id = $invoiceScheme->id;
-            }
-
-            $businessLocation->save();
 
             Log::info('EIS business location synchronized successfully', [
                 'business_id' => $business->id,

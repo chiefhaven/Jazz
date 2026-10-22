@@ -13,77 +13,77 @@
     <div class="row">
         <div class="col-md-12">
             @component('components.filters', ['title' => __('report.filters')])
-              {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ReportController::class, 'getStockReport']), 'method' => 'get', 'id' => 'product_sell_report_form' ]))->open() !!}
+              {!! Form::open(['url' => action([\App\Http\Controllers\ReportController::class, 'getStockReport']), 'method' => 'get', 'id' => 'product_sell_report_form' ]) !!}
                 <div class="col-md-3">
                     <div class="form-group">
-                    {!! html()->label(__('lang_v1.search_product') . ':', 'search_product')->attributes([]) !!}
+                    {!! Form::label('search_product', __('lang_v1.search_product') . ':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-search"></i>
                             </span>
                             <input type="hidden" value="" id="variation_id">
-                            {!! html()->text('search_product', null)->attributes(['class' => 'form-control', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'autofocus']); !!}
+                            {!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'), 'autofocus']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('contact.customer') . ':', 'customer_id')->attributes([]) !!}
+                        {!! Form::label('customer_id', __('contact.customer') . ':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-user"></i>
                             </span>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('customer_id', $customers, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width:100%'])); !!}
+                            {!! Form::select('customer_id', $customers, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width:100%']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__( 'lang_v1.customer_group_name' ) . ':', 'psr_customer_group_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('psr_customer_group_id', $customer_group, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'psr_customer_group_id'])); !!}
+                        {!! Form::label('psr_customer_group_id', __( 'lang_v1.customer_group_name' ) . ':') !!}
+                        {!! Form::select('psr_customer_group_id', $customer_group, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'psr_customer_group_id']); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('purchase.business_location').':', 'location_id')->attributes([]) !!}
+                        {!! Form::label('location_id', __('purchase.business_location').':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-map-marker"></i>
                             </span>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width:100%'])); !!}
+                            {!! Form::select('location_id', $business_locations, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width:100%']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('product.category') . ':', 'category_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('category_id', $categories, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'psr_filter_category_id', 'placeholder' => __('lang_v1.all')])); !!}
+                        {!! Form::label('category_id', __('product.category') . ':') !!}
+                        {!! Form::select('category_id', $categories, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'psr_filter_category_id', 'placeholder' => __('lang_v1.all')]); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('product.brand') . ':', 'brand_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('brand_id', $brands, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'psr_filter_brand_id', 'placeholder' => __('lang_v1.all')])); !!}
+                        {!! Form::label('brand_id', __('product.brand') . ':') !!}
+                        {!! Form::select('brand_id', $brands, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'psr_filter_brand_id', 'placeholder' => __('lang_v1.all')]); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('report.date_range') . ':', 'product_sr_date_filter')->attributes([]) !!}
-                        {!! html()->text('date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'product_sr_date_filter', 'readonly']); !!}
+                        {!! Form::label('product_sr_date_filter', __('report.date_range') . ':') !!}
+                        {!! Form::text('date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'product_sr_date_filter', 'readonly']); !!}
                     </div>
                 </div>
                 <div class="col-md-3">
-                    {!! html()->label(__('lang_v1.time_range') . ':', 'product_sr_start_time')->attributes([]) !!}
+                    {!! Form::label('product_sr_start_time', __('lang_v1.time_range') . ':') !!}
                     @php
                         $startDay = Carbon::now()->startOfDay();
                         $endDay   = $startDay->copy()->endOfDay();
                     @endphp
                     <div class="form-group">
-                        {!! html()->text('start_time', @format_time($startDay))->attributes(['style' => __('lang_v1.select_a_date_range'), 'class' => 'form-control width-50 f-left', 'id' => 'product_sr_start_time']); !!}
-                        {!! html()->text('end_time', @format_time($endDay))->attributes(['class' => 'form-control width-50 f-left', 'id' => 'product_sr_end_time']); !!}
+                        {!! Form::text('start_time', @format_time($startDay), ['style' => __('lang_v1.select_a_date_range'), 'class' => 'form-control width-50 f-left', 'id' => 'product_sr_start_time']); !!}
+                        {!! Form::text('end_time', @format_time($endDay), ['class' => 'form-control width-50 f-left', 'id' => 'product_sr_end_time']); !!}
                     </div>
                 </div>
-                {!! html()->form()->close() !!}
+                {!! Form::close() !!}
             @endcomponent
         </div>
     </div>

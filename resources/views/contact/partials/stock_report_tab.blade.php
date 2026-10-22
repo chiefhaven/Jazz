@@ -1,9 +1,9 @@
 <div class="row">
 	<div class="col-md-4">
 	    <div class="form-group">
-	        {!! html()->label(__('purchase.business_location') . ':', 'sr_location_id')->attributes([]) !!}
+	        {!! Form::label('sr_location_id',  __('purchase.business_location') . ':') !!}
 
-	        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sr_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
+	        {!! Form::select('sr_location_id', $business_locations, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
 	    </div>
 	</div>
 </div>

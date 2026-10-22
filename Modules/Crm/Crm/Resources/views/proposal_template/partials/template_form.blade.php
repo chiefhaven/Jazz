@@ -1,8 +1,8 @@
 <div class="row">
     <div class="col-md-12">
         <div class="form-group">
-            {!! html()->label('CC:', 'cc')->attributes([])!!}
-            {!! html()->text('cc', !empty($proposal_template) ? $proposal_template->cc : '')->attributes(['class' => 'form-control' ]) !!}
+            {!! Form::label('cc', 'CC:' )!!}
+            {!! Form::text('cc',!empty($proposal_template) ? $proposal_template->cc : '', ['class' => 'form-control' ]) !!}
             <p class="help-block">@lang('crm::lang.comma_separated_email')</p>
        </div>
     </div>
@@ -10,8 +10,8 @@
 <div class="row">
     <div class="col-md-12">
         <div class="form-group">
-            {!! html()->label('BCC:', 'bcc')->attributes([])!!}
-            {!! html()->text('bcc', !empty($proposal_template) ? $proposal_template->bcc : '')->attributes(['class' => 'form-control' ]) !!}
+            {!! Form::label('bcc', 'BCC:' )!!}
+            {!! Form::text('bcc',!empty($proposal_template) ? $proposal_template->bcc : '', ['class' => 'form-control' ]) !!}
             <p class="help-block">@lang('crm::lang.comma_separated_email')</p>
        </div> 
     </div>
@@ -19,16 +19,16 @@
 <div class="row">
     <div class="col-md-12">
         <div class="form-group">
-            {!! html()->label(__('crm::lang.subject') . ':*', 'subject')->attributes([])!!}
-            {!! html()->text('subject', !empty($proposal_template) ? $proposal_template->subject : '')->attributes(['class' => 'form-control', 'required' ]) !!}
+            {!! Form::label('subject', __('crm::lang.subject') . ':*' )!!}
+            {!! Form::text('subject',!empty($proposal_template) ? $proposal_template->subject : '', ['class' => 'form-control', 'required' ]) !!}
        </div>
     </div>
 </div>
 <div class="row">
 	<div class="col-md-12">
         <div class="form-group">
-            {!! html()->label(__('crm::lang.email_body') . ':*', 'body')->attributes([]) !!}
-            {!! html()->textarea('body', !empty($proposal_template) ? $proposal_template->body : '')->attributes(['class' => 'form-control', 'id' => 'proposal_email_body','required']); !!}
+            {!! Form::label('body', __('crm::lang.email_body') . ':*') !!}
+            {!! Form::textarea('body', !empty($proposal_template) ? $proposal_template->body : '', ['class' => 'form-control', 'id' => 'proposal_email_body','required']); !!}
         </div>
         @error('body')
         	<label id="proposal_email_body-error" class="error" for="body">
@@ -41,8 +41,8 @@
 	<div class="row">
 		<div class="col-sm-12">
 	      <div class="form-group">
-	        {!! html()->label(__('crm::lang.attachments') . ':', 'attachments')->attributes([]) !!}
-	        {!! html()->file('attachments[]')->attributes(['id' => 'attachments', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types'))), 'multiple']); !!}
+	        {!! Form::label('attachments', __('crm::lang.attachments') . ':') !!}
+	        {!! Form::file('attachments[]', ['id' => 'attachments', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types'))), 'multiple']); !!}
 	        <small>
 	        	<p class="help-block">
 	        		<p class="help-block">

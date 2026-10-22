@@ -13,14 +13,14 @@
 					<div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', true, 'name')->attributes(['class' => 'input-icheck search_fields']); !!} @lang('product.product_name')
+				              	{!! Form::checkbox('search_fields[]', 'name', true, ['class' => 'input-icheck search_fields']); !!} @lang('product.product_name')
 				            </label>
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', true, 'sku')->attributes(['class' => 'input-icheck search_fields']); !!} @lang('product.sku')
+				              	{!! Form::checkbox('search_fields[]', 'sku', true, ['class' => 'input-icheck search_fields']); !!} @lang('product.sku')
 				            </label>
 						</div>
 					</div>
@@ -28,7 +28,7 @@
 					<div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', true, 'lot')->attributes(['class' => 'input-icheck search_fields']); !!} @lang('lang_v1.lot_number')
+				              	{!! Form::checkbox('search_fields[]', 'lot', true, ['class' => 'input-icheck search_fields']); !!} @lang('lang_v1.lot_number')
 				            </label>
 						</div>
 					</div>
@@ -45,28 +45,28 @@
 			        <div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', false, 'product_custom_field1')->attributes(['class' => 'input-icheck search_fields']); !!} {{$product_custom_field1}}
+				              	{!! Form::checkbox('search_fields[]', 'product_custom_field1', false, ['class' => 'input-icheck search_fields']); !!} {{$product_custom_field1}}
 				            </label>
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', false, 'product_custom_field2')->attributes(['class' => 'input-icheck search_fields']); !!} {{$product_custom_field2}}
+				              	{!! Form::checkbox('search_fields[]', 'product_custom_field2', false, ['class' => 'input-icheck search_fields']); !!} {{$product_custom_field2}}
 				            </label>
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', false, 'product_custom_field3')->attributes(['class' => 'input-icheck search_fields']); !!} {{$product_custom_field3}}
+				              	{!! Form::checkbox('search_fields[]', 'product_custom_field3', false, ['class' => 'input-icheck search_fields']); !!} {{$product_custom_field3}}
 				            </label>
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="checkbox">
 							<label>
-				              	{!! html()->checkbox('search_fields[]', false, 'product_custom_field4')->attributes(['class' => 'input-icheck search_fields']); !!} {{$product_custom_field4}}
+				              	{!! Form::checkbox('search_fields[]', 'product_custom_field4', false, ['class' => 'input-icheck search_fields']); !!} {{$product_custom_field4}}
 				            </label>
 						</div>
 					</div>

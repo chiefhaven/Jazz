@@ -11,8 +11,9 @@
     <div class="row">
         <div class="col-md-3 col-md-offset-1">
             <div class="form-group">
-                {!! html()->label(__('purchase.business_location') . ':', 'location_id')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, request()->input('location_id'), ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
+                {!! Form::label('location_id',  __('purchase.business_location') . ':') !!}
+                {!! Form::select('location_id', $business_locations, request()->input('location_id'), 
+                    ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
             </div>
         </div>
     </div>

@@ -13,26 +13,26 @@
         <div class="row">
         	<div class="col-md-4">
                 <div class="form-group">
-                    {!! html()->label(__('contact.contact') . ':', 'contact_id_filter')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id_filter', $contacts, null, ['class' => 'form-control select2', 'id' => 'contact_id_filter', 'placeholder' => __('messages.all')])); !!}
+                    {!! Form::label('contact_id_filter', __('contact.contact') . ':') !!}
+                    {!! Form::select('contact_id_filter', $contacts, null, ['class' => 'form-control select2', 'id' => 'contact_id_filter', 'placeholder' => __('messages.all')]); !!}
                 </div>    
             </div>
             <div class="col-md-4">
                 <div class="form-group">
-                    {!! html()->label(__('crm::lang.contact_person') . ':', 'crm_contact_id')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('crm_contact_id', $crm_contact_persons, null, ['class' => 'form-control select2', 'id' => 'crm_contact_id', 'placeholder' => __('messages.all')])); !!}
+                    {!! Form::label('crm_contact_id', __('crm::lang.contact_person') . ':') !!}
+                    {!! Form::select('crm_contact_id', $crm_contact_persons, null, ['class' => 'form-control select2', 'id' => 'crm_contact_id', 'placeholder' => __('messages.all')]); !!}
                 </div>    
             </div>
             <div class="col-md-4">
                 <div class="form-group">
-                    {!! html()->label(__('sale.location') . ':', 'location_id')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, ['class' => 'form-control select2', 'id' => 'location_id', 'placeholder' => __('messages.all')])); !!}
+                    {!! Form::label('location_id', __('sale.location') . ':') !!}
+                    {!! Form::select('location_id', $business_locations, null, ['class' => 'form-control select2', 'id' => 'location_id', 'placeholder' => __('messages.all')]); !!}
                 </div>    
             </div>
             <div class="col-md-4">
             	<div class="form-group">
-            		{!! html()->label(__('report.date_range') . ':', 'commission_date_range')->attributes([]) !!}
-            		{!! html()->text('commission_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+            		{!! Form::label('commission_date_range', __('report.date_range') . ':') !!}
+            		{!! Form::text('commission_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
             	</div>
             </div>
         </div>

@@ -11,31 +11,31 @@
 <!-- Main content -->
 <section class="content">
 
-	{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Manufacturing\Http\Controllers\ProductionController::class, 'update'], [$production_purchase->id]), 'method' => 'put', 'id' => 'production_form', 'files' => true ]))->open() !!}
+	{!! Form::open(['url' => action([\Modules\Manufacturing\Http\Controllers\ProductionController::class, 'update'], [$production_purchase->id]), 'method' => 'put', 'id' => 'production_form', 'files' => true ]) !!}
 	@component('components.widget', ['class' => 'box-solid'])
 		<div class="row">
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('purchase.ref_no').':', 'ref_no')->attributes([]) !!}
-					{!! html()->text('ref_no', $production_purchase->ref_no)->attributes(['class' => 'form-control']); !!}
+					{!! Form::label('ref_no', __('purchase.ref_no').':') !!}
+					{!! Form::text('ref_no', $production_purchase->ref_no, ['class' => 'form-control']); !!}
 				</div>
 			</div>
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('manufacturing::lang.mfg_date') . ':*', 'transaction_date')->attributes([]) !!}
+					{!! Form::label('transaction_date', __('manufacturing::lang.mfg_date') . ':*') !!}
 					<div class="input-group">
 						<span class="input-group-addon">
 							<i class="fa fa-calendar"></i>
 						</span>
-						{!! html()->text('transaction_date', @format_datetime($production_purchase->transaction_date))->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
+						{!! Form::text('transaction_date', @format_datetime($production_purchase->transaction_date), ['class' => 'form-control', 'readonly', 'required']); !!}
 					</div>
 				</div>
 			</div>
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('purchase.business_location').':*', 'location_id')->attributes([]) !!}
+					{!! Form::label('location_id', __('purchase.business_location').':*') !!}
 					@show_tooltip(__('tooltip.purchase_location'))
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, $production_purchase->location_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])); !!}
+					{!! Form::select('location_id', $business_locations, $production_purchase->location_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required']); !!}
 				</div>
 			</div>
 			@php
@@ -43,16 +43,16 @@
 			@endphp
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('sale.product').':*', 'variation_id_shown')->attributes([]) !!}
-					{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('variation_id_shown', $recipe_dropdown, $purchase_line->variation_id, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'disabled'])); !!}
-					{!! html()->hidden('variation_id', $purchase_line->variation_id)->attributes(['id' => 'variation_id']); !!}
+					{!! Form::label('variation_id_shown', __('sale.product').':*') !!}
+					{!! Form::select('variation_id_shown', $recipe_dropdown, $purchase_line->variation_id, ['class' => 'form-control', 'placeholder' => __('messages.please_select'), 'required', 'disabled']); !!}
+					{!! Form::hidden('variation_id', $purchase_line->variation_id, ['id' => 'variation_id']); !!}
 				</div>
 			</div>
 			<div class="col-sm-3">
 				<div class="form-group">
-					{!! html()->label(__('lang_v1.quantity').':*', 'recipe_quantity')->attributes([]) !!}
+					{!! Form::label('recipe_quantity', __('lang_v1.quantity').':*') !!}
 					<div class="@if(!empty($sub_units)) input_inline @else input-group @endif" id="recipe_quantity_input">
-						{!! html()->text('quantity', @format_quantity($quantity))->attributes(['class' => 'form-control input_number', 'id' => 'recipe_quantity', 'required', 'data-rule-notEmpty' => 'true', 'data-rule-notEqualToWastedQuantity' => 'true']); !!}
+						{!! Form::text('quantity', @format_quantity($quantity), ['class' => 'form-control input_number', 'id' => 'recipe_quantity', 'required', 'data-rule-notEmpty' => 'true', 'data-rule-notEqualToWastedQuantity' => 'true']); !!}
 						<span class="@if(empty($sub_units)) input-group-addon @endif" id="unit_html">
 							@if(!empty($sub_units))
 								<select name="sub_unit_id" class="form-control" id="sub_unit_id">
@@ -80,8 +80,8 @@
 
 			<div class="col-md-4">
                 <div class="form-group">
-                    {!! html()->label(__('purchase.attach_document') . ':', 'upload_document')->attributes([]) !!}
-                    {!! html()->file('documents[]')->attributes(['id' => 'upload_document', 'multiple', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+                    {!! Form::label('upload_document', __('purchase.attach_document') . ':') !!}
+                    {!! Form::file('documents[]', ['id' => 'upload_document', 'multiple', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
                     <p class="help-block">
                     	@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)])
                     	@includeIf('components.document_help_text')
@@ -104,40 +104,40 @@
 			@if(request()->session()->get('business.enable_lot_number') == 1)
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! html()->label(__('lang_v1.lot_number').':', 'lot_number')->attributes([]) !!}
-						{!! html()->text('lot_number', $purchase_line->lot_number)->attributes(['class' => 'form-control']); !!}
+						{!! Form::label('lot_number', __('lang_v1.lot_number').':') !!}
+						{!! Form::text('lot_number', $purchase_line->lot_number, ['class' => 'form-control']); !!}
 					</div>
 				</div>
 			@endif
 			@if(session('business.enable_product_expiry'))
 				<div class="col-sm-3">
 					<div class="form-group">
-						{!! html()->label(__('product.exp_date').':*', 'exp_date')->attributes([]) !!}
+						{!! Form::label('exp_date', __('product.exp_date').':*') !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-calendar"></i>
 							</span>
-							{!! html()->text('exp_date', !empty($purchase_line->exp_date) ? @format_date($purchase_line->exp_date) : null)->attributes(['class' => 'form-control', 'readonly']); !!}
+							{!! Form::text('exp_date', !empty($purchase_line->exp_date) ? @format_date($purchase_line->exp_date) : null, ['class' => 'form-control', 'readonly']); !!}
 						</div>
 					</div>
 				</div>
 			@endif
 			<div class="col-md-3">
 				<div class="form-group">
-					{!! html()->label(__('manufacturing::lang.waste_units').':', 'mfg_wasted_units')->attributes([]) !!} @show_tooltip(__('manufacturing::lang.wastage_tooltip'))
+					{!! Form::label('mfg_wasted_units', __('manufacturing::lang.waste_units').':') !!} @show_tooltip(__('manufacturing::lang.wastage_tooltip'))
 					<div class="input-group">
-						{!! html()->text('mfg_wasted_units', @num_format($production_purchase->mfg_wasted_units))->attributes(['class' => 'form-control input_number']); !!}
+						{!! Form::text('mfg_wasted_units', @num_format($production_purchase->mfg_wasted_units), ['class' => 'form-control input_number']); !!}
 						<span class="input-group-addon" id="wasted_units_text">{{$unit_name}}</span>
 					</div>
 				</div>
 			</div>
 			<div class="col-md-3">
 				<div class="form-group">
-					{!! html()->label(__('manufacturing::lang.production_cost').':', 'production_cost')->attributes([]) !!} @show_tooltip(__('manufacturing::lang.production_cost_tooltip'))
+					{!! Form::label('production_cost', __('manufacturing::lang.production_cost').':') !!} @show_tooltip(__('manufacturing::lang.production_cost_tooltip'))
 					<div class="input_inline">
-						{!! html()->text('production_cost', @num_format($production_purchase->mfg_production_cost))->attributes(['class' => 'form-control input_number']); !!}
+						{!! Form::text('production_cost', @num_format($production_purchase->mfg_production_cost), ['class' => 'form-control input_number']); !!}
 						<span>
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('mfg_production_cost_type', ['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage'), 'per_unit' => __('manufacturing::lang.per_unit')], $production_purchase->mfg_production_cost_type, ['class' => 'form-control', 'id' => 'mfg_production_cost_type'])); !!}	
+							{!! Form::select('mfg_production_cost_type',['fixed' => __('lang_v1.fixed'), 'percentage' => __('lang_v1.percentage'), 'per_unit' => __('manufacturing::lang.per_unit')], $production_purchase->mfg_production_cost_type, ['class' => 'form-control', 'id' => 'mfg_production_cost_type']); !!}	
 						</span>
 					</div>
 					<p><strong>
@@ -149,7 +149,7 @@
 		</div>
 		<div class="row">
 			<div class="col-md-3 col-md-offset-9">
-				{!! html()->hidden('final_total', @num_format($production_purchase->final_total))->attributes(['id' => 'final_total']); !!}
+				{!! Form::hidden('final_total', @num_format($production_purchase->final_total), ['id' => 'final_total']); !!}
 				<strong>
 					{{__('manufacturing::lang.total_cost')}}:
 				</strong>
@@ -162,7 +162,7 @@
 					<br>
 					<div class="checkbox">
 						<label>
-						{!! html()->checkbox('finalize', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'finalize']); !!} @lang('manufacturing::lang.finalize')
+						{!! Form::checkbox('finalize', 1, false, ['class' => 'input-icheck', 'id' => 'finalize']); !!} @lang('manufacturing::lang.finalize')
 						</label> @show_tooltip(__('manufacturing::lang.finalize_tooltip'))
 					</div>
 		        </div>
@@ -175,7 +175,7 @@
 		</div>
 	@endcomponent
 
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 </section>
 @endsection
 

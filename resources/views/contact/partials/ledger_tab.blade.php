@@ -16,8 +16,8 @@
     <div class="col-md-12">
         <div class="col-md-3">
             <div class="form-group">
-                {!! html()->label(__('report.date_range') . ':', 'ledger_date_range')->attributes([]) !!}
-                {!! html()->text('ledger_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                {!! Form::label('ledger_date_range', __('report.date_range') . ':') !!}
+                {!! Form::text('ledger_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
             </div>
         </div>
         <div class="col-md-4">
@@ -41,8 +41,8 @@
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                {!! html()->label(__('purchase.business_location') . ':', 'ledger_location')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('ledger_location', $business_locations, null, ['class' => 'form-control select2', 'id' => 'ledger_location'])); !!}
+                {!! Form::label('ledger_location', __('purchase.business_location') . ':') !!}
+                {!! Form::select('ledger_location', $business_locations, null , ['class' => 'form-control select2', 'id' => 'ledger_location']); !!}
             </div>
         </div>
         <div class="col-md-2 text-right">

@@ -5,7 +5,6 @@ namespace Modules\Connector\Http\Controllers\Api;
 use App\Account;
 use App\Business;
 use App\Utils\BusinessUtil;
-use App\Utils\ContactUtil;
 use App\Utils\ModuleUtil;
 use App\Utils\ProductUtil;
 use App\Utils\TransactionUtil;
@@ -34,22 +33,13 @@ class CommonResourceController extends ApiController
 
     protected $commonUtil;
 
-    protected $contactUtil;
-
-    public function __construct(
-        TransactionUtil $transactionUtil,
-        BusinessUtil $businessUtil,
-        ProductUtil $productUtil,
-        ModuleUtil $moduleUtil,
-        Util $commonUtil,
-        ContactUtil $contactUtil
-    ) {
+    public function __construct(TransactionUtil $transactionUtil, BusinessUtil $businessUtil, ProductUtil $productUtil, ModuleUtil $moduleUtil, Util $commonUtil)
+    {
         $this->businessUtil = $businessUtil;
         $this->transactionUtil = $transactionUtil;
         $this->productUtil = $productUtil;
         $this->moduleUtil = $moduleUtil;
         $this->commonUtil = $commonUtil;
-        $this->contactUtil = $contactUtil;
     }
 
     /**
@@ -426,16 +416,7 @@ class CommonResourceController extends ApiController
         $business = Business::with(['locations', 'currency', 'printers'])
                         ->findOrFail($user->business_id);
 
-        $businessData = (new BusinessResource($business))->resolve();
-        $walkInCustomer = $this->contactUtil->getWalkInCustomer($user->business_id);
-        $businessData['walk_in_customer'] = $walkInCustomer
-            ? [
-                'id' => (int) $walkInCustomer['id'],
-                'name' => $walkInCustomer['name'],
-            ]
-            : null;
-
-        return response()->json(['data' => $businessData]);
+        return new BusinessResource($business);
     }
 
     /**

@@ -18,32 +18,32 @@
 
 <!-- Main content -->
 <section class="content">
-{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ProductController::class, 'update'] , [$product->id] ), 'method' => 'PUT', 'id' => 'product_add_form',
-        'class' => 'product_form', 'files' => true ]))->open() !!}
+{!! Form::open(['url' => action([\App\Http\Controllers\ProductController::class, 'update'] , [$product->id] ), 'method' => 'PUT', 'id' => 'product_add_form',
+        'class' => 'product_form', 'files' => true ]) !!}
     <input type="hidden" id="product_id" value="{{ $product->id }}">
 
     @component('components.widget', ['class' => 'box-primary'])
         <div class="row">
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('product.product_name') . ':*', 'name')->attributes([]) !!}
-                  {!! html()->text('name', $product->name)->attributes(['class' => 'form-control', 'required',
+                {!! Form::label('name', __('product.product_name') . ':*') !!}
+                  {!! Form::text('name', $product->name, ['class' => 'form-control', 'required',
                   'placeholder' => __('product.product_name')]); !!}
               </div>
             </div>
 
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('product.sku')  . ':*', 'sku')->attributes([]) !!} @show_tooltip(__('tooltip.sku'))
-                {!! html()->text('sku', $product->sku)->attributes(['class' => 'form-control',
+                {!! Form::label('sku', __('product.sku')  . ':*') !!} @show_tooltip(__('tooltip.sku'))
+                {!! Form::text('sku', $product->sku, ['class' => 'form-control',
                 'placeholder' => __('product.sku'), 'required']); !!}
               </div>
             </div>
 
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('product.barcode_type') . ':*', 'barcode_type')->attributes([]) !!}
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('barcode_type', $barcode_types, $product->barcode_type, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2', 'required'])); !!}
+                {!! Form::label('barcode_type', __('product.barcode_type') . ':*') !!}
+                  {!! Form::select('barcode_type', $barcode_types, $product->barcode_type, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2', 'required']); !!}
               </div>
             </div>
 
@@ -51,9 +51,9 @@
             
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('product.unit') . ':*', 'unit_id')->attributes([]) !!}
+                {!! Form::label('unit_id', __('product.unit') . ':*') !!}
                 <div class="input-group">
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('unit_id', $units, $product->unit_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2', 'required'])); !!}
+                  {!! Form::select('unit_id', $units, $product->unit_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2', 'required']); !!}
                   <span class="input-group-btn">
                     <button type="button" @if(!auth()->user()->can('unit.create')) disabled @endif class="btn btn-default bg-white btn-flat quick_add_unit btn-modal" data-href="{{action([\App\Http\Controllers\UnitController::class, 'create'], ['quick_add' => true])}}" title="@lang('unit.add_unit')" data-container=".view_modal"><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
                   </span>
@@ -63,7 +63,7 @@
 
             <div class="col-sm-4 @if(!session('business.enable_sub_units')) hide @endif">
               <div class="form-group">
-                {!! html()->label(__('lang_v1.related_sub_units') . ':', 'sub_unit_ids')->attributes([]) !!} @show_tooltip(__('lang_v1.sub_units_tooltip'))
+                {!! Form::label('sub_unit_ids', __('lang_v1.related_sub_units') . ':') !!} @show_tooltip(__('lang_v1.sub_units_tooltip'))
 
                 <select name="sub_unit_ids[]" class="form-control select2" multiple id="sub_unit_ids">
                   @foreach($sub_units as $sub_unit_id => $sub_unit_value)
@@ -78,17 +78,17 @@
             @if(!empty($common_settings['enable_secondary_unit']))
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.secondary_unit') . ':', 'secondary_unit_id')->attributes([]) !!} @show_tooltip(__('lang_v1.secondary_unit_help'))
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('secondary_unit_id', $units, $product->secondary_unit_id, ['class' => 'form-control select2'])); !!}
+                        {!! Form::label('secondary_unit_id', __('lang_v1.secondary_unit') . ':') !!} @show_tooltip(__('lang_v1.secondary_unit_help'))
+                        {!! Form::select('secondary_unit_id', $units, $product->secondary_unit_id, ['class' => 'form-control select2']); !!}
                     </div>
                 </div>
             @endif
 
             <div class="col-sm-4 @if(!session('business.enable_brand')) hide @endif">
               <div class="form-group">
-                {!! html()->label(__('product.brand') . ':', 'brand_id')->attributes([]) !!}
+                {!! Form::label('brand_id', __('product.brand') . ':') !!}
                 <div class="input-group">
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('brand_id', $brands, $product->brand_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2'])); !!}
+                  {!! Form::select('brand_id', $brands, $product->brand_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2']); !!}
                   <span class="input-group-btn">
                     <button type="button" @if(!auth()->user()->can('brand.create')) disabled @endif class="btn btn-default bg-white btn-flat btn-modal" data-href="{{action([\App\Http\Controllers\BrandController::class, 'create'], ['quick_add' => true])}}" title="@lang('brand.add_brand')" data-container=".view_modal"><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
                   </span>
@@ -97,22 +97,22 @@
             </div>
             <div class="col-sm-4 @if(!session('business.enable_category')) hide @endif">
               <div class="form-group">
-                {!! html()->label(__('product.category') . ':', 'category_id')->attributes([]) !!}
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('category_id', $categories, $product->category_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2'])); !!}
+                {!! Form::label('category_id', __('product.category') . ':') !!}
+                  {!! Form::select('category_id', $categories, $product->category_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2']); !!}
               </div>
             </div>
 
             <div class="col-sm-4 @if(!(session('business.enable_category') && session('business.enable_sub_category'))) hide @endif">
               <div class="form-group">
-                {!! html()->label(__('product.sub_category')  . ':', 'sub_category_id')->attributes([]) !!}
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('sub_category_id', $sub_categories, $product->sub_category_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2'])); !!}
+                {!! Form::label('sub_category_id', __('product.sub_category')  . ':') !!}
+                  {!! Form::select('sub_category_id', $sub_categories, $product->sub_category_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2']); !!}
               </div>
             </div>
 
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('business.business_locations') . ':', 'product_locations')->attributes([]) !!} @show_tooltip(__('lang_v1.product_location_help'))
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('product_locations[]', $business_locations, $product->product_locations->pluck('id'), ['class' => 'form-control select2', 'multiple', 'id' => 'product_locations'])); !!}
+                {!! Form::label('product_locations', __('business.business_locations') . ':') !!} @show_tooltip(__('lang_v1.product_location_help'))
+                  {!! Form::select('product_locations[]', $business_locations, $product->product_locations->pluck('id'), ['class' => 'form-control select2', 'multiple', 'id' => 'product_locations']); !!}
               </div>
             </div>
 
@@ -122,22 +122,22 @@
               <div class="form-group">
               <br>
                 <label>
-                  {!! html()->checkbox('enable_stock', $product->enable_stock, 1)->attributes(['class' => 'input-icheck', 'id' => 'enable_stock']); !!} <strong>@lang('product.manage_stock')</strong>
+                  {!! Form::checkbox('enable_stock', 1, $product->enable_stock, ['class' => 'input-icheck', 'id' => 'enable_stock']); !!} <strong>@lang('product.manage_stock')</strong>
                 </label>@show_tooltip(__('tooltip.enable_stock')) <p class="help-block"><i>@lang('product.enable_stock_help')</i></p>
               </div>
             </div>
             <div class="col-sm-4" id="alert_quantity_div" @if(!$product->enable_stock) style="display:none" @endif>
               <div class="form-group">
-                {!! html()->label(__('product.alert_quantity') . ':', 'alert_quantity')->attributes([]) !!} @show_tooltip(__('tooltip.alert_quantity'))
-                {!! html()->text('alert_quantity', $alert_quantity)->attributes(['class' => 'form-control input_number',
+                {!! Form::label('alert_quantity', __('product.alert_quantity') . ':') !!} @show_tooltip(__('tooltip.alert_quantity'))
+                {!! Form::text('alert_quantity', $alert_quantity, ['class' => 'form-control input_number',
                 'placeholder' => __('product.alert_quantity') , 'min' => '0']); !!}
               </div>
             </div>
             @if(!empty($common_settings['enable_product_warranty']))
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('lang_v1.warranty') . ':', 'warranty_id')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('warranty_id', $warranties, $product->warranty_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')])); !!}
+                {!! Form::label('warranty_id', __('lang_v1.warranty') . ':') !!}
+                {!! Form::select('warranty_id', $warranties, $product->warranty_id, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
               </div>
             </div>
             @endif
@@ -152,22 +152,22 @@
             <div class="clearfix"></div>
             <div class="col-sm-8">
               <div class="form-group">
-                {!! html()->label(__('lang_v1.product_description') . ':', 'product_description')->attributes([]) !!}
-                {!! html()->text('product_description', $product->product_description)->attributes(['class' => 'form-control']); !!}
+                {!! Form::label('product_description', __('lang_v1.product_description') . ':') !!}
+                {!! Form::text('product_description', $product->product_description, ['class' => 'form-control'] ); !!}
               </div>
             </div>
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('lang_v1.product_image') . ':', 'image')->attributes([]) !!}
-                {!! html()->file('image')->attributes(['id' => 'upload_image', 'accept' => 'image/*', 'required' => $is_image_required]); !!}
+                {!! Form::label('image', __('lang_v1.product_image') . ':') !!}
+                {!! Form::file('image', ['id' => 'upload_image', 'accept' => 'image/*', 'required' => $is_image_required]); !!}
                 <small><p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)]). @lang('lang_v1.aspect_ratio_should_be_1_1') @if(!empty($product->image)) <br> @lang('lang_v1.previous_image_will_be_replaced') @endif</p></small>
               </div>
             </div>
             </div>
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('lang_v1.product_brochure') . ':', 'product_brochure')->attributes([]) !!}
-                {!! html()->file('product_brochure')->attributes(['id' => 'product_brochure', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
+                {!! Form::label('product_brochure', __('lang_v1.product_brochure') . ':') !!}
+                {!! Form::file('product_brochure', ['id' => 'product_brochure', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
                 <small>
                     <p class="help-block">
                         @lang('lang_v1.previous_file_will_be_replaced')<br>
@@ -207,10 +207,10 @@
                     $disabled_period = true;
                   }
                 @endphp
-                  {!! html()->label(__('product.expires_in') . ':', 'expiry_period')->attributes([]) !!}<br>
-                  {!! html()->text('expiry_period', @num_format($product->expiry_period))->attributes(['class' => 'form-control pull-left input_number',
+                  {!! Form::label('expiry_period', __('product.expires_in') . ':') !!}<br>
+                  {!! Form::text('expiry_period', @num_format($product->expiry_period), ['class' => 'form-control pull-left input_number',
                     'placeholder' => __('product.expiry_period'), 'style' => 'width:60%;', 'disabled' => $disabled]); !!}
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('expiry_period_type', ['months'=>__('product.months'), 'days'=>__('product.days'), '' =>__('product.not_applicable') ], $product->expiry_period_type, ['class' => 'form-control select2 pull-left', 'style' => 'width:40%;', 'id' => 'expiry_period_type', 'disabled' => $disabled_period])); !!}
+                  {!! Form::select('expiry_period_type', ['months'=>__('product.months'), 'days'=>__('product.days'), '' =>__('product.not_applicable') ], $product->expiry_period_type, ['class' => 'form-control select2 pull-left', 'style' => 'width:40%;', 'id' => 'expiry_period_type', 'disabled' => $disabled_period]); !!}
               </div>
             </div>
           </div>
@@ -218,7 +218,7 @@
           <div class="col-sm-4">
             <div class="checkbox">
               <label>
-                {!! html()->checkbox('enable_sr_no', $product->enable_sr_no, 1)->attributes(['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.enable_imei_or_sr_no')</strong>
+                {!! Form::checkbox('enable_sr_no', 1, $product->enable_sr_no, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.enable_imei_or_sr_no')</strong>
               </label>
               @show_tooltip(__('lang_v1.tooltip_sr_no'))
             </div>
@@ -228,7 +228,7 @@
           <div class="form-group">
             <br>
             <label>
-              {!! html()->checkbox('not_for_selling', $product->not_for_selling, 1)->attributes(['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.not_for_selling')</strong>
+              {!! Form::checkbox('not_for_selling', 1, $product->not_for_selling, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.not_for_selling')</strong>
             </label> @show_tooltip(__('lang_v1.tooltip_not_for_selling'))
           </div>
         </div>
@@ -245,27 +245,27 @@
           @foreach($business_locations as $id => $location)
             <div class="col-sm-3">
               <div class="form-group">
-                {!! html()->label($location . ':', 'rack_' . $id)->attributes([]) !!}
+                {!! Form::label('rack_' . $id,  $location . ':') !!}
 
                 
                   @if(!empty($rack_details[$id]))
                     @if(session('business.enable_racks'))
-                      {!! html()->text('product_racks_update[' . $id . '][rack]', $rack_details[$id]['rack'])->attributes(['class' => 'form-control', 'id' => 'rack_' . $id]); !!}
+                      {!! Form::text('product_racks_update[' . $id . '][rack]', $rack_details[$id]['rack'], ['class' => 'form-control', 'id' => 'rack_' . $id]); !!}
                     @endif
 
                     @if(session('business.enable_row'))
-                      {!! html()->text('product_racks_update[' . $id . '][row]', $rack_details[$id]['row'])->attributes(['class' => 'form-control']); !!}
+                      {!! Form::text('product_racks_update[' . $id . '][row]', $rack_details[$id]['row'], ['class' => 'form-control']); !!}
                     @endif
 
                     @if(session('business.enable_position'))
-                      {!! html()->text('product_racks_update[' . $id . '][position]', $rack_details[$id]['position'])->attributes(['class' => 'form-control']); !!}
+                      {!! Form::text('product_racks_update[' . $id . '][position]', $rack_details[$id]['position'], ['class' => 'form-control']); !!}
                     @endif
                   @else
-                    {!! html()->text('product_racks[' . $id . '][rack]', null)->attributes(['class' => 'form-control', 'id' => 'rack_' . $id, 'placeholder' => __('lang_v1.rack')]); !!}
+                    {!! Form::text('product_racks[' . $id . '][rack]', null, ['class' => 'form-control', 'id' => 'rack_' . $id, 'placeholder' => __('lang_v1.rack')]); !!}
 
-                    {!! html()->text('product_racks[' . $id . '][row]', null)->attributes(['class' => 'form-control', 'placeholder' => __('lang_v1.row')]); !!}
+                    {!! Form::text('product_racks[' . $id . '][row]', null, ['class' => 'form-control', 'placeholder' => __('lang_v1.row')]); !!}
 
-                    {!! html()->text('product_racks[' . $id . '][position]', null)->attributes(['class' => 'form-control', 'placeholder' => __('lang_v1.position')]); !!}
+                    {!! Form::text('product_racks[' . $id . '][position]', null, ['class' => 'form-control', 'placeholder' => __('lang_v1.position')]); !!}
                   @endif
 
               </div>
@@ -276,8 +276,8 @@
 
         <div class="col-sm-4">
           <div class="form-group">
-            {!! html()->label(__('lang_v1.weight') . ':', 'weight')->attributes([]) !!}
-            {!! html()->text('weight', $product->weight)->attributes(['class' => 'form-control', 'placeholder' => __('lang_v1.weight')]); !!}
+            {!! Form::label('weight',  __('lang_v1.weight') . ':') !!}
+            {!! Form::text('weight', $product->weight, ['class' => 'form-control', 'placeholder' => __('lang_v1.weight')]); !!}
           </div>
         </div>
         <div class="clearfix"></div>
@@ -299,12 +299,12 @@
 
                 <div class="col-sm-3">
                     <div class="form-group">
-                        {!! html()->label($cf . ':', $db_field_name)->attributes([]) !!}
+                        {!! Form::label($db_field_name, $cf . ':') !!}
                         @if(in_array($cf_type, ['text', 'date']))
                             <input type="{{$cf_type}}" name="{{$db_field_name}}" id="{{$db_field_name}}" 
                             value="{{$product->$db_field_name}}" class="form-control" placeholder="{{$cf}}">
                         @elseif($cf_type == 'dropdown')
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })($db_field_name, $dropdown, $product->$db_field_name, ['placeholder' => $cf, 'class' => 'form-control select2'])); !!}
+                            {!! Form::select($db_field_name, $dropdown, $product->$db_field_name, ['placeholder' => $cf, 'class' => 'form-control select2']); !!}
                         @endif
                     </div>
                 </div>
@@ -313,8 +313,8 @@
 
         <div class="col-sm-3">
           <div class="form-group">
-            {!! html()->label(__('lang_v1.preparation_time_in_minutes') . ':', 'preparation_time_in_minutes')->attributes([]) !!}
-            {!! html()->input('number', 'preparation_time_in_minutes', $product->preparation_time_in_minutes)->attributes(['class' => 'form-control', 'placeholder' => __('lang_v1.preparation_time_in_minutes')]); !!}
+            {!! Form::label('preparation_time_in_minutes',  __('lang_v1.preparation_time_in_minutes') . ':') !!}
+            {!! Form::number('preparation_time_in_minutes', $product->preparation_time_in_minutes, ['class' => 'form-control', 'placeholder' => __('lang_v1.preparation_time_in_minutes')]); !!}
           </div>
         </div>
         <!--custom fields-->
@@ -326,24 +326,25 @@
         <div class="row">
             <div class="col-sm-4 @if(!session('business.enable_price_tax')) hide @endif">
               <div class="form-group">
-                {!! html()->label(__('product.applicable_tax') . ':', 'tax')->attributes([]) !!}
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('tax', $taxes, $product->tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2'])); !!}
+                {!! Form::label('tax', __('product.applicable_tax') . ':') !!}
+                  {!! Form::select('tax', $taxes, $product->tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2'], $tax_attributes); !!}
               </div>
             </div>
 
             <div class="col-sm-4 @if(!session('business.enable_price_tax')) hide @endif">
               <div class="form-group">
-                {!! html()->label(__('product.selling_price_tax_type') . ':*', 'tax_type')->attributes([]) !!}
-                  {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('tax_type', ['inclusive' => __('product.inclusive'), 'exclusive' => __('product.exclusive')], $product->tax_type, ['class' => 'form-control select2', 'required'])); !!}
+                {!! Form::label('tax_type', __('product.selling_price_tax_type') . ':*') !!}
+                  {!! Form::select('tax_type',['inclusive' => __('product.inclusive'), 'exclusive' => __('product.exclusive')], $product->tax_type,
+                  ['class' => 'form-control select2', 'required']); !!}
               </div>
             </div>
 
             <div class="clearfix"></div>
             <div class="col-sm-4">
               <div class="form-group">
-                {!! html()->label(__('product.product_type') . ':*', 'type')->attributes([]) !!} @show_tooltip(__('tooltip.product_type'))
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('type', $product_types, $product->type, ['class' => 'form-control select2',
-                  'required','disabled', 'data-action' => 'edit', 'data-product_id' => $product->id ])); !!}
+                {!! Form::label('type', __('product.product_type') . ':*') !!} @show_tooltip(__('tooltip.product_type'))
+                {!! Form::select('type', $product_types, $product->type, ['class' => 'form-control select2',
+                  'required','disabled', 'data-action' => 'edit', 'data-product_id' => $product->id ]); !!}
               </div>
             </div>
 
@@ -373,7 +374,7 @@
           </div>
         </div>
   </div>
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 </section>
 <!-- /.content -->
 

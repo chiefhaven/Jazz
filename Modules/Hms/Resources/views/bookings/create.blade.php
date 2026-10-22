@@ -11,12 +11,12 @@
                     <h3 class="box-title"> @lang('hms::lang.add_bookings')</h3>
                 </div>
                 <div class="box-body">
-                    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                    {!! Form::open([
                         'url' => action([\Modules\Hms\Http\Controllers\HmsBookingController::class, 'store']),
                         'method' => 'post',
                         'id' => 'create_booking',
                         'files' => true
-                    ]))->open() !!}
+                    ]) !!}
 
                     <input type="hidden" name="total_booking_amount" id="final_total_input">
                     <input type="hidden" name="total_discount" id="total_discount">
@@ -25,7 +25,7 @@
                     
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('contact.customer') . ':*', 'contact_id')->attributes([]) !!}
+                            {!! Form::label('contact_id', __('contact.customer') . ':*') !!}
                             <div class="input-group">
                                 <span class="input-group-addon">
                                     <i class="fa fa-user"></i>
@@ -40,7 +40,8 @@
                                     <input type="hidden" id="default_selling_price_group" 
                                 value="{{ $walk_in_customer['selling_price_group_id'] ?? ''}}" >
                                 @endif
-                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required'])); !!}
+                                {!! Form::select('contact_id', 
+                                    [], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required']); !!}
                                 <span class="input-group-btn">
                                     <button type="button" class="btn btn-default bg-white btn-flat add_new_customer" data-name=""><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
                                 </span>
@@ -58,18 +59,18 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.status') . ':*', 'status')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $status, '', [
+                            {!! Form::label('status', __('hms::lang.status') . ':*') !!}
+                            {!! Form::select('status', $status, '', [
                                 'class' => 'form-control status',
                                 'required',
                                 'placeholder' => __('hms::lang.status'),
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.arrival_date') . ':', 'arrival_date')->attributes([]) !!}
-                            {!! html()->text('arrival_date', request()->input('booking_date') ? @format_date(request()->input('booking_date')) : null)->attributes([
+                            {!! Form::label('arrival_date', __('hms::lang.arrival_date') . ':') !!}
+                            {!! Form::text('arrival_date', request()->input('booking_date') ? @format_date(request()->input('booking_date')) : null, [
                                 'class' => 'form-control date_picker',
                                 'placeholder' => __('hms::lang.arrival_date'),
                                 'readonly',
@@ -80,8 +81,8 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.arrival_time') . ':', 'arrival_time')->attributes([]) !!}
-                            {!! html()->text('arrival_time', null)->attributes([
+                            {!! Form::label('arrival_time', __('hms::lang.arrival_time') . ':') !!}
+                            {!! Form::text('arrival_time', null, [
                                 'class' => 'form-control time_picker',
                                 'placeholder' => __('hms::lang.arrival_time'),
                                 'readonly',
@@ -92,8 +93,8 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.departure_date') . ':', 'departure_date')->attributes([]) !!}
-                            {!! html()->text('departure_date', request()->input('booking_date') ? @format_date(request()->input('booking_date')) : null)->attributes([
+                            {!! Form::label('departure_date', __('hms::lang.departure_date') . ':') !!}
+                            {!! Form::text('departure_date', request()->input('booking_date') ? @format_date(request()->input('booking_date')) : null, [
                                 'class' => 'form-control departure_date',
                                 'placeholder' => __('hms::lang.departure_date'),
                                 'readonly',
@@ -105,8 +106,8 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            {!! html()->label(__('hms::lang.departure_time') . ':', 'departure_time')->attributes([]) !!}
-                            {!! html()->text('departure_time', null)->attributes([
+                            {!! Form::label('departure_time', __('hms::lang.departure_time') . ':') !!}
+                            {!! Form::text('departure_time', null, [
                                 'class' => 'form-control time_picker',
                                 'placeholder' => __('hms::lang.departure_time'),
                                 'readonly',
@@ -201,7 +202,7 @@
                     <hr>
                         <div class="col-xs-6">
                             <div class="form-group">
-                                {!! html()->input('number', 'discount_percent', null)->attributes([
+                                {!! Form::number('discount_percent', null, [
                                     'class' => 'form-control',
                                     'id' => 'discount_percent',
                                     'placeholder' => __('hms::lang.discount_percent'),
@@ -229,8 +230,8 @@
                     <div class="row">
                         <div class="col-xs-12">
                             <div class="form-group">
-                                {!! html()->label(__('hms::lang.coupon_code') . ':', 'coupon_code')->attributes([]) !!}
-                                {!! html()->text('coupon_code', null)->attributes([
+                                {!! Form::label('coupon_code', __('hms::lang.coupon_code') . ':') !!}
+                                {!! Form::text('coupon_code', null, [
                                     'class' => 'form-control',
                                     'placeholder' => __('hms::lang.coupon_code'),
                                     'required',
@@ -265,7 +266,7 @@
                                     </strong>
                                     <br/>
                                     <span class="lead text-bold change_return_span">0</span>
-                                    {!! html()->hidden("change_return", $change_return['amount'])->attributes(['class' => 'form-control change_return input_number', 'required', 'id' => "change_return"]); !!}
+                                    {!! Form::hidden("change_return", $change_return['amount'], ['class' => 'form-control change_return input_number', 'required', 'id' => "change_return"]); !!}
                                     <!-- <span class="lead text-bold total_quantity">0</span> -->
                                     @if(!empty($change_return['id']))
                                         <input type="hidden" name="change_return_id" 
@@ -276,7 +277,7 @@
                             <div class="hide payment_row" id="change_return_payment_data">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        {!! html()->label(__('lang_v1.change_return_payment_method') . ':*', "change_return_method")->attributes([]) !!}
+                                        {!! Form::label("change_return_method" , __('lang_v1.change_return_payment_method') . ':*') !!}
                                         <div class="input-group">
                                             <span class="input-group-addon">
                                                 <i class="fas fa-money-bill-alt"></i>
@@ -289,19 +290,19 @@
                                                     unset($_payment_types['advance']);
                                                 }
                                             @endphp
-                                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[change_return][method]", $_payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'id' => 'change_return_method', 'style' => 'width:100%;'])); !!}
+                                            {!! Form::select("payment[change_return][method]", $_payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'id' => 'change_return_method', 'style' => 'width:100%;']); !!}
                                         </div>
                                     </div>
                                 </div>
                                 @if(!empty($accounts))
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        {!! html()->label(__('lang_v1.change_return_payment_account') . ':', "change_return_account")->attributes([]) !!}
+                                        {!! Form::label("change_return_account" , __('lang_v1.change_return_payment_account') . ':') !!}
                                         <div class="input-group">
                                             <span class="input-group-addon">
                                                 <i class="fas fa-money-bill-alt"></i>
                                             </span>
-                                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[change_return][account_id]", $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '', ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;'])); !!}
+                                            {!! Form::select("payment[change_return][account_id]", $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '' , ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;']); !!}
                                         </div>
                                     </div>
                                 </div>
@@ -322,7 +323,7 @@
        <div class="col-md-12 text-center">
         <button type="submit" name="submit_action" value="save" id="submit_action" class="btn btn-primary btn-big">@lang('messages.save')</button>
         </div>
-       {!! html()->form()->close() !!}
+       {!! Form::close() !!}
            {{-- model  --}}
             <div class="modal fade view_modal_room" tabindex="-1" role="dialog" 
             aria-labelledby="gridSystemModalLabel"></div>

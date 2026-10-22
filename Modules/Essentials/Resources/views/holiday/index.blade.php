@@ -14,15 +14,15 @@
         @component('components.filters', ['title' => __('report.filters'), 'class' => 'box-solid'])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('purchase.business_location') . ':', 'location_id')->attributes([]) !!}
+                    {!! Form::label('location_id',  __('purchase.business_location') . ':') !!}
 
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $locations, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all') ])); !!}
+                    {!! Form::select('location_id', $locations, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all') ]); !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('report.date_range') . ':', 'holiday_filter_date_range')->attributes([]) !!}
-                    {!! html()->text('holiday_filter_date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
+                    {!! Form::label('holiday_filter_date_range', __('report.date_range') . ':') !!}
+                    {!! Form::text('holiday_filter_date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'readonly']); !!}
                 </div>
             </div>
         @endcomponent

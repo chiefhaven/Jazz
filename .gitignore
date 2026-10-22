@@ -3,13 +3,6 @@
 /public/storage
 /storage/*.key
 /storage/
-!/storage/
-!/storage/framework/
-!/storage/framework/cache/
-!/storage/framework/cache/data/
-!/storage/framework/cache/data/.gitignore
-!/storage/framework/views/
-!/storage/framework/views/.gitignore
 /vendor
 /.idea
 /.vagrant
@@ -35,6 +28,3 @@ npm-debug.log
 /public/js/icons/
 storage.zip
 vendor.zip
-/storage
-storage/logs/laravel.log
-*.log

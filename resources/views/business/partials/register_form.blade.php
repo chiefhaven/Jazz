@@ -1,83 +1,83 @@
 @if(empty($is_admin))
     <h3>@lang('business.business')</h3>
 @endif
-{!! html()->hidden('language', request()->lang)->attributes([]); !!}
+{!! Form::hidden('language', request()->lang); !!}
 
 <fieldset>
 <legend class="text-black">@lang('business.business_details'):</legend>
 <div class="col-md-12">
     <div class="form-group">
-        {!! html()->label(__('business.business_name') . ':*', 'name')->attributes([]) !!}
+        {!! Form::label('name', __('business.business_name') . ':*' ) !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-suitcase"></i>
             </span>
-            {!! html()->text('name', null)->attributes(['class' => 'form-control','placeholder' => __('business.business_name'), 'required']); !!}
+            {!! Form::text('name', null, ['class' => 'form-control','placeholder' => __('business.business_name'), 'required']); !!}
         </div>
     </div>
 </div>
         
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.start_date') . ':', 'start_date')->attributes([]) !!}
+    {!! Form::label('start_date', __('business.start_date') . ':') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-calendar"></i>
         </span>
-        {!! html()->text('start_date', null)->attributes(['class' => 'form-control start-date-picker','placeholder' => __('business.start_date'), 'readonly']); !!}
+        {!! Form::text('start_date', null, ['class' => 'form-control start-date-picker','placeholder' => __('business.start_date'), 'readonly']); !!}
     </div>
     </div>
 </div>
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.currency') . ':*', 'currency_id')->attributes([]) !!}
+    {!! Form::label('currency_id', __('business.currency') . ':*') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fas fa-money-bill-alt"></i>
         </span>
-        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('currency_id', $currencies, '', ['class' => 'form-control select2_register','placeholder' => __('business.currency_placeholder'), 'required'])); !!}
+        {!! Form::select('currency_id', $currencies, '', ['class' => 'form-control select2_register','placeholder' => __('business.currency_placeholder'), 'required']); !!}
     </div>
     </div>
 </div>
 <div class="clearfix"></div>
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.upload_logo') . ':', 'business_logo')->attributes([]) !!}
-        {!! html()->file('business_logo')->attributes(['accept' => 'image/*']); !!}
+        {!! Form::label('business_logo', __('business.upload_logo') . ':') !!}
+        {!! Form::file('business_logo', ['accept' => 'image/*']); !!}
     </div>
 </div>
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('lang_v1.website') . ':', 'website')->attributes([]) !!}
+        {!! Form::label('website', __('lang_v1.website') . ':') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-globe"></i>
             </span>
-            {!! html()->text('website', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.website')]); !!}
+            {!! Form::text('website', null, ['class' => 'form-control','placeholder' => __('lang_v1.website')]); !!}
         </div>
     </div>
 </div>
 <div class="clearfix"></div>
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('lang_v1.business_telephone') . ':', 'mobile')->attributes([]) !!}
+    {!! Form::label('mobile', __('lang_v1.business_telephone') . ':') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-phone"></i>
         </span>
-        {!! html()->text('mobile', null)->attributes(['class' => 'form-control','placeholder' => __('lang_v1.business_telephone')]); !!}
+        {!! Form::text('mobile', null, ['class' => 'form-control','placeholder' => __('lang_v1.business_telephone')]); !!}
     </div>
     </div>
 </div>
 
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.alternate_number') . ':', 'alternate_number')->attributes([]) !!}
+        {!! Form::label('alternate_number', __('business.alternate_number') . ':') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-phone"></i>
             </span>
-            {!! html()->text('alternate_number', null)->attributes(['class' => 'form-control','placeholder' => __('business.alternate_number')]); !!}
+            {!! Form::text('alternate_number', null, ['class' => 'form-control','placeholder' => __('business.alternate_number')]); !!}
         </div>
     </div>
 </div>
@@ -86,70 +86,70 @@
 
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.country') . ':*', 'country')->attributes([]) !!}
+    {!! Form::label('country', __('business.country') . ':*') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-globe"></i>
         </span>
-        {!! html()->text('country', null)->attributes(['class' => 'form-control','placeholder' => __('business.country'), 'required']); !!}
+        {!! Form::text('country', null, ['class' => 'form-control','placeholder' => __('business.country'), 'required']); !!}
     </div>
     </div>
 </div>
 
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.state') . ':*', 'state')->attributes([]) !!}
+    {!! Form::label('state',__('business.state') . ':*') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-map-marker"></i>
         </span>
-        {!! html()->text('state', null)->attributes(['class' => 'form-control','placeholder' => __('business.state'), 'required']); !!}
+        {!! Form::text('state', null, ['class' => 'form-control','placeholder' => __('business.state'), 'required']); !!}
     </div>
     </div>
 </div>
 <div class="clearfix"></div>
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.city'). ':*', 'city')->attributes([]) !!}
+    {!! Form::label('city',__('business.city'). ':*') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-map-marker"></i>
         </span>
-        {!! html()->text('city', null)->attributes(['class' => 'form-control','placeholder' => __('business.city'), 'required']); !!}
+        {!! Form::text('city', null, ['class' => 'form-control','placeholder' => __('business.city'), 'required']); !!}
     </div>
     </div>
 </div>
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.zip_code') . ':*', 'zip_code')->attributes([]) !!}
+    {!! Form::label('zip_code', __('business.zip_code') . ':*') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-map-marker"></i>
         </span>
-        {!! html()->text('zip_code', null)->attributes(['class' => 'form-control','placeholder' => __('business.zip_code_placeholder'), 'required']); !!}
+        {!! Form::text('zip_code', null, ['class' => 'form-control','placeholder' => __('business.zip_code_placeholder'), 'required']); !!}
     </div>
     </div>
 </div>
 <div class="clearfix"></div>
 <div class="col-md-6">
     <div class="form-group">
-    {!! html()->label(__('business.landmark') . ':*', 'landmark')->attributes([]) !!}
+    {!! Form::label('landmark', __('business.landmark') . ':*') !!}
     <div class="input-group">
         <span class="input-group-addon">
             <i class="fa fa-map-marker"></i>
         </span>
-        {!! html()->text('landmark', null)->attributes(['class' => 'form-control','placeholder' => __('business.landmark'), 'required']); !!}
+        {!! Form::text('landmark', null, ['class' => 'form-control','placeholder' => __('business.landmark'), 'required']); !!}
     </div>
     </div>
 </div>
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.time_zone') . ':*', 'time_zone')->attributes([]) !!}
+        {!! Form::label('time_zone', __('business.time_zone') . ':*') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fas fa-clock"></i>
             </span>
-            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('time_zone', $timezone_list, config('app.timezone'), ['class' => 'form-control select2_register','placeholder' => __('business.time_zone'), 'required'])); !!}
+            {!! Form::select('time_zone', $timezone_list, config('app.timezone'), ['class' => 'form-control select2_register','placeholder' => __('business.time_zone'), 'required']); !!}
         </div>
     </div>
 </div>
@@ -163,71 +163,71 @@
     <legend class="text-black">@lang('business.business_settings'):</legend>
     <div class="col-md-6">
         <div class="form-group">
-            {!! html()->label(__('business.tax_1_name') . ':', 'tax_label_1')->attributes([]) !!}
+            {!! Form::label('tax_label_1', __('business.tax_1_name') . ':') !!}
             <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-info"></i>
                 </span>
-                {!! html()->text('tax_label_1', null)->attributes(['class' => 'form-control','placeholder' => __('business.tax_1_placeholder')]); !!}
+                {!! Form::text('tax_label_1', null, ['class' => 'form-control','placeholder' => __('business.tax_1_placeholder')]); !!}
             </div>
         </div>
     </div>
 
     <div class="col-md-6">
         <div class="form-group">
-            {!! html()->label(__('business.tax_1_no') . ':', 'tax_number_1')->attributes([]) !!}
+            {!! Form::label('tax_number_1', __('business.tax_1_no') . ':') !!}
             <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-info"></i>
                 </span>
-                {!! html()->text('tax_number_1', null)->attributes(['class' => 'form-control']); !!}
+                {!! Form::text('tax_number_1', null, ['class' => 'form-control']); !!}
             </div>
         </div>
     </div>
     <div class="clearfix"></div>
     <div class="col-md-6">
         <div class="form-group">
-            {!! html()->label(__('business.tax_2_name') . ':', 'tax_label_2')->attributes([]) !!}
+            {!! Form::label('tax_label_2',__('business.tax_2_name') . ':') !!}
             <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-info"></i>
                 </span>
-                {!! html()->text('tax_label_2', null)->attributes(['class' => 'form-control','placeholder' => __('business.tax_1_placeholder')]); !!}
+                {!! Form::text('tax_label_2', null, ['class' => 'form-control','placeholder' => __('business.tax_1_placeholder')]); !!}
             </div>
         </div>
     </div>
 
     <div class="col-md-6">
         <div class="form-group">
-            {!! html()->label(__('business.tax_2_no') . ':', 'tax_number_2')->attributes([]) !!}
+            {!! Form::label('tax_number_2',__('business.tax_2_no') . ':') !!}
             <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-info"></i>
                 </span>
-                {!! html()->text('tax_number_2', null)->attributes(['class' => 'form-control',]); !!}
+                {!! Form::text('tax_number_2', null, ['class' => 'form-control',]); !!}
             </div>
         </div>
     </div>
     <div class="clearfix"></div>
     <div class="col-md-6">
         <div class="form-group">
-            {!! html()->label(__('business.fy_start_month') . ':*', 'fy_start_month')->attributes([]) !!} @show_tooltip(__('tooltip.fy_start_month'))
+            {!! Form::label('fy_start_month', __('business.fy_start_month') . ':*') !!} @show_tooltip(__('tooltip.fy_start_month'))
             <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-calendar"></i>
                 </span>
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('fy_start_month', $months, null, ['class' => 'form-control select2_register', 'required', 'style' => 'width:100%;'])); !!}
+                {!! Form::select('fy_start_month', $months, null, ['class' => 'form-control select2_register', 'required', 'style' => 'width:100%;']); !!}
             </div>
         </div>
     </div>
     <div class="col-sm-6">
         <div class="form-group">
-            {!! html()->label(__('business.accounting_method') . ':*', 'accounting_method')->attributes([]) !!}
+            {!! Form::label('accounting_method', __('business.accounting_method') . ':*') !!}
             <div class="input-group">
                 <span class="input-group-addon">
                     <i class="fa fa-calculator"></i>
                 </span>
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('accounting_method', $accounting_methods, null, ['class' => 'form-control select2_register', 'required', 'style' => 'width:100%;'])); !!}
+                {!! Form::select('accounting_method', $accounting_methods, null, ['class' => 'form-control select2_register', 'required', 'style' => 'width:100%;']); !!}
             </div>
         </div>
     </div>
@@ -243,84 +243,84 @@
 <legend class="text-black">@lang('business.owner_info')</legend>
 <div class="col-md-4">
     <div class="form-group">
-        {!! html()->label(__('business.prefix') . ':', 'surname')->attributes([]) !!}
+        {!! Form::label('surname', __('business.prefix') . ':') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-info"></i>
             </span>
-            {!! html()->text('surname', null)->attributes(['class' => 'form-control','placeholder' => __('business.prefix_placeholder')]); !!}
+            {!! Form::text('surname', null, ['class' => 'form-control','placeholder' => __('business.prefix_placeholder')]); !!}
         </div>
     </div>
 </div>
 
 <div class="col-md-4">
     <div class="form-group">
-        {!! html()->label(__('business.first_name') . ':*', 'first_name')->attributes([]) !!}
+        {!! Form::label('first_name', __('business.first_name') . ':*') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-info"></i>
             </span>
-            {!! html()->text('first_name', null)->attributes(['class' => 'form-control','placeholder' => __('business.first_name'), 'required']); !!}
+            {!! Form::text('first_name', null, ['class' => 'form-control','placeholder' => __('business.first_name'), 'required']); !!}
         </div>
     </div>
 </div>
 
 <div class="col-md-4">
     <div class="form-group">
-        {!! html()->label(__('business.last_name') . ':', 'last_name')->attributes([]) !!}
+        {!! Form::label('last_name', __('business.last_name') . ':') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-info"></i>
             </span>
-            {!! html()->text('last_name', null)->attributes(['class' => 'form-control','placeholder' =>  __('business.last_name')]); !!}
+            {!! Form::text('last_name', null, ['class' => 'form-control','placeholder' =>  __('business.last_name')]); !!}
         </div>
     </div>
 </div>
 <div class="clearfix"></div>
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.username') . ':*', 'username')->attributes([]) !!}
+        {!! Form::label('username', __('business.username') . ':*') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-user"></i>
             </span>
-            {!! html()->text('username', null)->attributes(['class' => 'form-control','placeholder' => __('business.username'), 'required']); !!}
+            {!! Form::text('username', null, ['class' => 'form-control','placeholder' => __('business.username'), 'required']); !!}
         </div>
     </div>
 </div>
 
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.email') . ':*', 'email')->attributes([]) !!}
+        {!! Form::label('email', __('business.email') . ':*') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-envelope"></i>
             </span>
-            {!! html()->text('email', null)->attributes(['class' => 'form-control','placeholder' => __('business.email'), 'required']); !!}
+            {!! Form::text('email', null, ['class' => 'form-control','placeholder' => __('business.email'), 'required']); !!}
         </div>
     </div>
 </div>
 <div class="clearfix"></div>
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.password') . ':*', 'password')->attributes([]) !!}
+        {!! Form::label('password', __('business.password') . ':*') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-lock"></i>
             </span>
-            {!! html()->password('password')->attributes(['class' => 'form-control','placeholder' => __('business.password'), 'required']); !!}
+            {!! Form::password('password', ['class' => 'form-control','placeholder' => __('business.password'), 'required']); !!}
         </div>
     </div>
 </div>
 
 <div class="col-md-6">
     <div class="form-group">
-        {!! html()->label(__('business.confirm_password') . ':*', 'confirm_password')->attributes([]) !!}
+        {!! Form::label('confirm_password', __('business.confirm_password') . ':*') !!}
         <div class="input-group">
             <span class="input-group-addon">
                 <i class="fa fa-lock"></i>
             </span>
-            {!! html()->password('confirm_password')->attributes(['class' => 'form-control','placeholder' => __('business.confirm_password'), 'required']); !!}
+            {!! Form::password('confirm_password', ['class' => 'form-control','placeholder' => __('business.confirm_password'), 'required']); !!}
         </div>
     </div>
 </div>
@@ -329,7 +329,7 @@
         <div class="col-md-6">
             <div>
                 <label>
-                    {!! html()->checkbox('accept_tc', false, 0)->attributes(['required', 'class' => 'input-check-box']); !!}
+                    {!! Form::checkbox('accept_tc', 0, false, ['required', 'class' => 'input-check-box']); !!}
                     <a class="terms_condition cursor-pointer" data-toggle="modal" data-target="#tc_modal">
                         @lang('lang_v1.accept_terms_and_conditions') <i></i>
                     </a>

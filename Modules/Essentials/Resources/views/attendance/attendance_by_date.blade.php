@@ -1,7 +1,7 @@
 <div class="row">
 	<div class="col-md-4">
 		<div class="input-group date">
-			{!! html()->text('attendance_by_date_filter', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'id' => 'attendance_by_date_filter', 'class' => 'form-control', 'readonly']); !!}
+			{!! Form::text('attendance_by_date_filter', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'id' => 'attendance_by_date_filter', 'class' => 'form-control', 'readonly']); !!}
     		<span class="input-group-addon"><i class="fas fa-calendar"></i></span>
     	</div>
 	</div>

@@ -17,9 +17,10 @@
           <?php $count = $loop->index; ?>
           <tr class="variation_row">
             <td>
-              {!! html()->text('product_variation[' . $loop->index . '][name]', $product_variation->name)->attributes(['class' => 'form-control input-sm variation_name', 'required']); !!}
+              {!! Form::text('product_variation[' . $loop->index . '][name]', $product_variation->name,
+              ['class' => 'form-control input-sm variation_name', 'required']); !!}
               <input type="hidden" class="row_index" value="{{  $loop->index }}">
-              {!! html()->hidden('product_variation[' . $loop->index . '][product_variation_id]', $product_variation->id)->attributes([]); !!}
+              {!! Form::hidden('product_variation[' . $loop->index . '][product_variation_id]', $product_variation->id); !!}
             </td>
             <td>
                 <table class="table table-condensed table-bordered blue-header variation_value_table">
@@ -32,15 +33,19 @@
                     @foreach($product_variation->variations as $variation )
                     <tr>
                         <td>
-                          {!! html()->text('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][value]', $variation->name)->attributes(['class' => 'form-control input-sm variation_value_name', 'required']); !!}
-                          {!! html()->hidden('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][variation_id]', $variation->id)->attributes([]); !!}
+                          {!! Form::text('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][value]',
+                          $variation->name, ['class' => 'form-control input-sm variation_value_name', 'required']); !!}
+                          {!! Form::hidden('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][variation_id]', $variation->id); !!}
                         </td>
                         <td class="drag-select">
-                          {!! html()->input('number', 'product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][default_purchase_price]', $variation->default_purchase_price)->attributes(['class' => 'form-control input-sm dpp', 'min' => '0']); !!}
+                          {!! Form::number('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][default_purchase_price]',
+                          $variation->default_purchase_price, ['class' => 'form-control input-sm dpp', 'min' => '0']); !!}
                         </td>
                         <td class="drag-select">
-                          {!! html()->input('number', 'product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][default_sell_price]', $variation->default_sell_price)->attributes(['class' => 'form-control input-sm variable_dsp', 'min' => '0', 'placeholder' => __('product.exc_of_tax')]); !!}
-                          {!! html()->input('number', 'product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][sell_price_inc_tax]', $variation->sell_price_inc_tax)->attributes(['class' => 'form-control input-sm variable_dsp_inc_tax', 'min' => '0', 'placeholder' => __('product.inc_of_tax')]); !!}
+                          {!! Form::number('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][default_sell_price]',
+                          $variation->default_sell_price, ['class' => 'form-control input-sm variable_dsp', 'min' => '0', 'placeholder' => __('product.exc_of_tax')]); !!}
+                          {!! Form::number('product_variation[' . $loop->parent->index . '][variations][' . $loop->index . '][sell_price_inc_tax]',
+                          $variation->sell_price_inc_tax, ['class' => 'form-control input-sm variable_dsp_inc_tax', 'min' => '0', 'placeholder' => __('product.inc_of_tax')]); !!}
                         </td>
                         <td><button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-error remove_variation_value_row"><i class="fa fa-trash"></i></button>
                         <input type="hidden" class="variation_row_index" value="{{ $loop->index }}"></td>

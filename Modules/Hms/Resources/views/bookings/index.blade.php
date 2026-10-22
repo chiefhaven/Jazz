@@ -13,28 +13,28 @@
         @component('components.filters', ['title' => __('report.filters')])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('contact.customer') . ':', 'customer_id')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('customer_id', $customers, null, [
+                    {!! Form::label('customer_id', __('contact.customer') . ':') !!}
+                    {!! Form::select('customer_id', $customers, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ])) !!}
+                    ]) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('hms::lang.status') . ':', 'status')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $status, null, [
+                    {!! Form::label('status', __('hms::lang.status') . ':') !!}
+                    {!! Form::select('status', $status, null, [
                         'class' => 'form-control',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ])) !!}
+                    ]) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('hms::lang.payment_status') . ':', 'filter_payment_status')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('filter_payment_status', ['paid' => __('lang_v1.paid'), 'due' => __('lang_v1.due'), 'partial' => __('lang_v1.partial'), 'overdue' => __('lang_v1.overdue')], null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
+                    {!! Form::label('filter_payment_status',  __('hms::lang.payment_status') . ':') !!}
+                    {!! Form::select('filter_payment_status', ['paid' => __('lang_v1.paid'), 'due' => __('lang_v1.due'), 'partial' => __('lang_v1.partial'), 'overdue' => __('lang_v1.overdue')], null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
                 </div>
             </div>
         @endcomponent

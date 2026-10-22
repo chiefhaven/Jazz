@@ -33,9 +33,9 @@
 					</div>
 					<input type="hidden" id="item_addition_method" value="{{$business_details->item_addition_method}}">
 				@endslot
-				{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\SellPosController::class, 'store']), 'method' => 'post', 'id' => 'add_pos_sell_form' ]))->open() !!}
+				{!! Form::open(['url' => action([\App\Http\Controllers\SellPosController::class, 'store']), 'method' => 'post', 'id' => 'add_pos_sell_form' ]) !!}
 
-				{!! html()->hidden('location_id', $default_location->id)->attributes(['id' => 'location_id', 'data-receipt_printer_type' => !empty($default_location->receipt_printer_type) ? $default_location->receipt_printer_type : 'browser', 'data-default_accounts' => $default_location->default_payment_accounts]); !!}
+				{!! Form::hidden('location_id', $default_location->id, ['id' => 'location_id', 'data-receipt_printer_type' => !empty($default_location->receipt_printer_type) ? $default_location->receipt_printer_type : 'browser', 'data-default_accounts' => $default_location->default_payment_accounts]); !!}
 
 				<!-- /.box-header -->
 				<div class="box-body">
@@ -43,12 +43,12 @@
 						@if(!empty($pos_settings['enable_transaction_date']))
 							<div class="col-md-4 col-sm-6">
 								<div class="form-group">
-									{!! html()->label(__('sale.sale_date') . ':*', 'transaction_date')->attributes([]) !!}
+									{!! Form::label('transaction_date', __('sale.sale_date') . ':*') !!}
 									<div class="input-group">
 										<span class="input-group-addon">
 											<i class="fa fa-calendar"></i>
 										</span>
-										{!! html()->text('transaction_date', $default_datetime)->attributes(['class' => 'form-control', 'readonly', 'required']); !!}
+										{!! Form::text('transaction_date', $default_datetime, ['class' => 'form-control', 'readonly', 'required']); !!}
 									</div>
 								</div>
 							</div>
@@ -60,7 +60,7 @@
 										<span class="input-group-addon">
 											<i class="fas fa-exchange-alt"></i>
 										</span>
-										{!! html()->text('exchange_rate', config('constants.currency_exchange_rate'))->attributes(['class' => 'form-control input-sm input_number', 'placeholder' => __('lang_v1.currency_exchange_rate'), 'id' => 'exchange_rate']); !!}
+										{!! Form::text('exchange_rate', config('constants.currency_exchange_rate'), ['class' => 'form-control input-sm input_number', 'placeholder' => __('lang_v1.currency_exchange_rate'), 'id' => 'exchange_rate']); !!}
 									</div>
 								</div>
 							</div>
@@ -76,8 +76,8 @@
 											reset($price_groups);
 											$selected_price_group = !empty($default_price_group_id) && array_key_exists($default_price_group_id, $price_groups) ? $default_price_group_id : null;
 										@endphp
-										{!! html()->hidden('hidden_price_group', key($price_groups))->attributes(['id' => 'hidden_price_group']) !!}
-										{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('price_group', $price_groups, $selected_price_group, ['class' => 'form-control select2', 'id' => 'price_group', 'style' => 'width: 100%;'])); !!}
+										{!! Form::hidden('hidden_price_group', key($price_groups), ['id' => 'hidden_price_group']) !!}
+										{!! Form::select('price_group', $price_groups, $selected_price_group, ['class' => 'form-control select2', 'id' => 'price_group', 'style' => 'width: 100%;']); !!}
 										<span class="input-group-addon">
 											@show_tooltip(__('lang_v1.price_group_help_text'))
 										</span> 
@@ -88,10 +88,10 @@
 							@php
 								reset($price_groups);
 							@endphp
-							{!! html()->hidden('price_group', key($price_groups))->attributes(['id' => 'price_group']) !!}
+							{!! Form::hidden('price_group', key($price_groups), ['id' => 'price_group']) !!}
 						@endif
 						@if(!empty($default_price_group_id))
-							{!! html()->hidden('default_price_group', $default_price_group_id)->attributes(['id' => 'default_price_group']) !!}
+							{!! Form::hidden('default_price_group', $default_price_group_id, ['id' => 'default_price_group']) !!}
 						@endif
 
 						@if(in_array('types_of_service', $enabled_modules) && !empty($types_of_service))
@@ -101,9 +101,9 @@
 										<span class="input-group-addon">
 											<i class="fa fa-external-link text-primary service_modal_btn"></i>
 										</span>
-										{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('types_of_service_id', $types_of_service, null, ['class' => 'form-control', 'id' => 'types_of_service_id', 'style' => 'width: 100%;', 'placeholder' => __('lang_v1.select_types_of_service')])); !!}
+										{!! Form::select('types_of_service_id', $types_of_service, null, ['class' => 'form-control', 'id' => 'types_of_service_id', 'style' => 'width: 100%;', 'placeholder' => __('lang_v1.select_types_of_service')]); !!}
 
-										{!! html()->hidden('types_of_service_price_group', null)->attributes(['id' => 'types_of_service_price_group']) !!}
+										{!! Form::hidden('types_of_service_price_group', null, ['id' => 'types_of_service_price_group']) !!}
 
 										<span class="input-group-addon">
 											@show_tooltip(__('lang_v1.types_of_service_help'))
@@ -119,7 +119,7 @@
 							<div class="col-md-4 pull-right col-sm-6">
 								<div class="checkbox">
 									<label>
-						              {!! html()->checkbox('is_recurring', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'is_recurring']); !!} @lang('lang_v1.subscribe')?
+						              {!! Form::checkbox('is_recurring', 1, false, ['class' => 'input-icheck', 'id' => 'is_recurring']); !!} @lang('lang_v1.subscribe')?
 						            </label><button type="button" data-toggle="modal" data-target="#recurringInvoiceModal" class="btn btn-link"><i class="fa fa-external-link"></i></button>@show_tooltip(__('lang_v1.recurring_invoice_help'))
 								</div>
 							</div>
@@ -136,7 +136,8 @@
 									value="{{ $walk_in_customer['id']}}" >
 									<input type="hidden" id="default_customer_name" 
 									value="{{ $walk_in_customer['name']}}" >
-									{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required', 'style' => 'width: 100%;'])); !!}
+									{!! Form::select('contact_id', 
+										[], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required', 'style' => 'width: 100%;']); !!}
 									<span class="input-group-btn">
 										<button type="button" class="btn btn-default bg-white btn-flat add_new_customer" data-name=""  @if(!auth()->user()->can('customer.create')) disabled @endif><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
 									</span>
@@ -149,7 +150,8 @@
 						@if(!empty($commission_agent))
 							<div class="col-sm-4">
 								<div class="form-group">
-								{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('commission_agent', $commission_agent, null, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.commission_agent')])); !!}
+								{!! Form::select('commission_agent', 
+											$commission_agent, null, ['class' => 'form-control select2', 'placeholder' => __('lang_v1.commission_agent')]); !!}
 								</div>
 							</div>
 						@endif
@@ -160,7 +162,7 @@
 									<div class="input-group-btn">
 										<button type="button" class="btn btn-default bg-white btn-flat" data-toggle="modal" data-target="#configure_search_modal" title="{{__('lang_v1.configure_product_search')}}"><i class="fa fa-barcode"></i></button>
 									</div>
-									{!! html()->text('search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
+									{!! Form::text('search_product', null, ['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
 									'disabled' => is_null($default_location)? true : false,
 									'autofocus' => is_null($default_location)? false : true,
 									]); !!}
@@ -233,7 +235,7 @@
 					@endif
 				</div>
 				<!-- /.box-body -->
-				{!! html()->form()->close() !!}
+				{!! Form::close() !!}
 			@endcomponent
 		</div>
 

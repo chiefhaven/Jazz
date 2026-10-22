@@ -23,27 +23,27 @@
               <div id="collapseFilter" class="panel-collapse active collapse in" aria-expanded="true">
                 <div class="box-body">
                     <div class="row">
-                        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\ReportController::class, 'productStockDetails']), 'method' => 'get' ]))->open() !!}
+                        {!! Form::open(['url' => action([\App\Http\Controllers\ReportController::class, 'productStockDetails']), 'method' => 'get' ]) !!}
                         <div class="col-md-4">
                             <div class="form-group">
-                            {!! html()->label(__('lang_v1.search_product') . ':', 'search_product')->attributes([]) !!}
+                            {!! Form::label('search_product', __('lang_v1.search_product') . ':') !!}
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-search"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('variation_id', [], null, ['class' => 'form-control', 'id' => 'variation_id', 'placeholder' => __('lang_v1.search_product_placeholder')])); !!}
+                                    {!! Form::select('variation_id', [], null, ['class' => 'form-control', 'id' => 'variation_id', 'placeholder' => __('lang_v1.search_product_placeholder')]); !!}
                                 </div>
                             </div>
                         </div>
                         
                         <div class="col-md-4">
                             <div class="form-group">
-                                {!! html()->label(__('purchase.business_location').':', 'location_id')->attributes([]) !!}
+                                {!! Form::label('location_id', __('purchase.business_location').':') !!}
                                 <div class="input-group">
                                     <span class="input-group-addon">
                                         <i class="fa fa-map-marker"></i>
                                     </span>
-                                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, (!empty($location) ? $location->id: null), ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required'])); !!}
+                                    {!! Form::select('location_id', $business_locations, (!empty($location) ? $location->id: null), ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required']); !!}
                                 </div>
                             </div>
                         </div>
@@ -53,7 +53,7 @@
                                 <button type="submit" class="tw-dw-btn tw-dw-btn-primary tw-text-white">@lang('lang_v1.search')</button>
                             </div>
                         </div>
-                        {!! html()->form()->close() !!}
+                        {!! Form::close() !!}
                     </div>
 
                     @if(!empty($stock_details))

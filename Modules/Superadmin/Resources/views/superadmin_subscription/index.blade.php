@@ -17,20 +17,20 @@
     @component('components.filters', ['title' => __('report.filters')])
         <div class="col-md-3">
             <div class="form-group">
-                {!! html()->label(__('superadmin::lang.packages') . ':', 'package_id')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('package_id', $packages, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
+                {!! Form::label('package_id',  __('superadmin::lang.packages') . ':') !!}
+                {!! Form::select('package_id', $packages, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
             </div>
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                {!! html()->label(__('superadmin::lang.status') . ':', 'subscription_status')->attributes([]) !!}
-                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('subscription_status', $subscription_statuses, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')])); !!}
+                {!! Form::label('subscription_status',  __('superadmin::lang.status') . ':') !!}
+                {!! Form::select('subscription_status', $subscription_statuses, null, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => __('lang_v1.all')]); !!}
             </div>
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                {!! html()->label(__('lang_v1.created_at') . ':', 'created_at')->attributes([]) !!}
-                {!! html()->text('created_at', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 
+                {!! Form::label('created_at', __('lang_v1.created_at') . ':') !!}
+                {!! Form::text('created_at', null, ['placeholder' => __('lang_v1.select_a_date_range'), 
                     'class' => 'form-control', 'readonly']); !!}
             </div>
         </div>

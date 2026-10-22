@@ -14,18 +14,18 @@
 <section class="content no-print">
     <div class="box box-solid">
         <div class="box-body">
-            {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Crm\Http\Controllers\CampaignController::class, 'store']), 'method' => 'post', 'id' => 'campaign_form' ]))->open() !!}
+            {!! Form::open(['url' => action([\Modules\Crm\Http\Controllers\CampaignController::class, 'store']), 'method' => 'post', 'id' => 'campaign_form' ]) !!}
                 <div class="row">
                     <div class="col-md-8">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.campaign_name') . ':*', 'name')->attributes([])!!}
-                            {!! html()->text('name', null)->attributes(['class' => 'form-control', 'required' ]) !!}
+                            {!! Form::label('name', __('crm::lang.campaign_name') . ':*' )!!}
+                            {!! Form::text('name', null, ['class' => 'form-control', 'required' ]) !!}
                        </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.campaign_type') .':*', 'campaign_type')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('campaign_type', ['sms' => __('crm::lang.sms'), 'email' => __('business.email')], 'email', ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::label('campaign_type', __('crm::lang.campaign_type') .':*') !!}
+                            {!! Form::select('campaign_type', ['sms' => __('crm::lang.sms'), 'email' => __('business.email')], 'email', ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                 </div>
@@ -43,50 +43,50 @@
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.to').':*', 'to')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('to', ['customer' => __('lang_v1.customers'), 'lead' => __('crm::lang.leads'), 'transaction_activity' => __('crm::lang.transaction_activity'), 'contact' => __('contact.contact')], $to, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::label('to', __('crm::lang.to').':*') !!}
+                            {!! Form::select('to', ['customer' => __('lang_v1.customers'), 'lead' => __('crm::lang.leads'), 'transaction_activity' => __('crm::lang.transaction_activity'), 'contact' => __('contact.contact')], $to, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select'), 'required', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                     <div class="col-md-8 customer_div" style="display: none;">
                         <div class="form-group">
-                            {!! html()->label(__('lang_v1.customers') .':*', 'contact_id')->attributes([]) !!}
+                            {!! Form::label('contact_id', __('lang_v1.customers') .':*') !!}
                             <button type="button" class="btn btn-primary btn-xs select-all">
                                 @lang('lang_v1.select_all')
                             </button>
                             <button type="button" class="btn btn-primary btn-xs deselect-all">
                                 @lang('lang_v1.deselect_all')
                             </button>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id[]', $customers, null, ['class' => 'form-control select2', 'multiple', 'id' => 'contact_id', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::select('contact_id[]', $customers, null, ['class' => 'form-control select2', 'multiple', 'id' => 'contact_id', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                     <div class="col-md-8 lead_div" style="display: none;">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.leads') .':*', 'lead_id')->attributes([]) !!}
+                            {!! Form::label('lead_id', __('crm::lang.leads') .':*') !!}
                             <button type="button" class="btn btn-primary btn-xs select-all">
                                 @lang('lang_v1.select_all')
                             </button>
                             <button type="button" class="btn btn-primary btn-xs deselect-all">
                                 @lang('lang_v1.deselect_all')
                             </button>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('lead_id[]', $leads, null, ['class' => 'form-control select2', 'multiple', 'id' => 'lead_id', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::select('lead_id[]', $leads, null, ['class' => 'form-control select2', 'multiple', 'id' => 'lead_id', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                     <div class="col-md-8 contact_div" style="display: none;">
                         <div class="form-group">
-                            {!! html()->label(__('contact.contact') .':*', 'contact')->attributes([]) !!}
+                            {!! Form::label('contact', __('contact.contact') .':*') !!}
                             <button type="button" class="btn btn-primary btn-xs select-all">
                                 @lang('lang_v1.select_all')
                             </button>
                             <button type="button" class="btn btn-primary btn-xs deselect-all">
                                 @lang('lang_v1.deselect_all')
                             </button>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact[]', $contacts, $default_value, ['class' => 'form-control select2', 'multiple', 'id' => 'contact', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::select('contact[]', $contacts, $default_value, ['class' => 'form-control select2', 'multiple', 'id' => 'contact', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                     <div class="col-md-4 transaction_activity_div" style="display: none;">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.transaction_activity').':*', 'trans_activity')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('trans_activity', ['has_transactions' => __('crm::lang.has_transactions'), 'has_no_transactions' => __('crm::lang.has_no_transactions')], null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;'])); !!}
+                            {!! Form::label('trans_activity', __('crm::lang.transaction_activity').':*') !!}
+                            {!! Form::select('trans_activity', ['has_transactions' => __('crm::lang.has_transactions'), 'has_no_transactions' => __('crm::lang.has_no_transactions')], null, ['class' => 'form-control select2', 'required', 'style' => 'width: 100%;']); !!}
                         </div>
                     </div>
                     <div class="col-md-4 transaction_activity_div" style="display: none;">
@@ -104,22 +104,22 @@
                 <div class="row email_div">
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.subject') . ':*', 'subject')->attributes([])!!}
-                            {!! html()->text('subject', null)->attributes(['class' => 'form-control', 'required' ]) !!}
+                            {!! Form::label('subject', __('crm::lang.subject') . ':*' )!!}
+                            {!! Form::text('subject', null, ['class' => 'form-control', 'required' ]) !!}
                        </div>
                     </div>
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.email_body') . ':*', 'email_body')->attributes([]) !!}
-                            {!! html()->textarea('email_body', null)->attributes(['class' => 'form-control ', 'id' => 'email_body', 'required']); !!}
+                            {!! Form::label('email_body', __('crm::lang.email_body') . ':*') !!}
+                            {!! Form::textarea('email_body', null, ['class' => 'form-control ', 'id' => 'email_body', 'required']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="row sms_div">
                     <div class="col-md-12">
                         <div class="form-group">
-                            {!! html()->label(__('crm::lang.sms_body') . ':', 'sms_body')->attributes([]) !!}
-                            {!! html()->textarea('sms_body', null)->attributes(['class' => 'form-control ', 'id' => 'sms_body', 'rows' => '6', 'required']); !!}
+                            {!! Form::label('sms_body', __('crm::lang.sms_body') . ':') !!}
+                            {!! Form::textarea('sms_body', null, ['class' => 'form-control ', 'id' => 'sms_body', 'rows' => '6', 'required']); !!}
                         </div>
                     </div>
                 </div>
@@ -142,7 +142,7 @@
                     </span>
                 </button>
 
-            {!! html()->form()->close() !!}
+            {!! Form::close() !!}
         </div>
     </div>
 @stop

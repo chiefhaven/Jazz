@@ -11,12 +11,12 @@
                 <h3 class="box-title"> @lang('hms::lang.edit_booking')</h3>
             </div>
             <div class="box-body">
-                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                {!! Form::open([
                     'url' => action([\Modules\Hms\Http\Controllers\HmsBookingController::class, 'update'],[$transaction->id]),
                     'method' => 'put',
                     'id' => 'edit_booking',
                     'files' => true 
-                ]))->open() !!}
+                ]) !!}
 
                 <input type="hidden" name="total_booking_amount" id="total_booking_amount">
                 <input type="hidden" name="total_discount" id="total_discount">
@@ -24,7 +24,7 @@
                 <input type="hidden" name="discount_type" id="discount_type">
                 <div class="col-md-6">
 					<div class="form-group">
-						{!! html()->label(__('contact.customer') . ':*', 'contact_id')->attributes([]) !!}
+						{!! Form::label('contact_id', __('contact.customer') . ':*') !!}
 						<div class="input-group">
 							<span class="input-group-addon">
 								<i class="fa fa-user"></i>
@@ -33,7 +33,8 @@
 							value="{{ $transaction->contact->id }}" >
 							<input type="hidden" id="default_customer_name" 
 							value="{{ $transaction->contact->name }}" >
-							{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('contact_id', [], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required'])); !!}
+							{!! Form::select('contact_id', 
+								[], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required']); !!}
 							<span class="input-group-btn">
 								<button type="button" class="btn btn-default bg-white btn-flat add_new_customer" data-name=""><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
 							</span>
@@ -51,18 +52,18 @@
 				</div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! html()->label(__('hms::lang.status') . '*', 'status')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $status, $transaction->status, [
+                        {!! Form::label('status', __('hms::lang.status') . '*') !!}
+                        {!! Form::select('status', $status, $transaction->status, [
                             'class' => 'form-control status',
                             'required',
                             'placeholder' => __('hms::lang.status'),
-                        ])) !!}
+                        ]) !!}
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! html()->label(__('hms::lang.arrival_date') . ':', 'arrival_date')->attributes([]) !!}
-                        {!! html()->text('arrival_date', @format_date($transaction->hms_booking_arrival_date_time))->attributes([
+                        {!! Form::label('arrival_date', __('hms::lang.arrival_date') . ':') !!}
+                        {!! Form::text('arrival_date', @format_date($transaction->hms_booking_arrival_date_time), [
                             'class' => 'form-control date_picker',
                             'placeholder' => __('hms::lang.arrival_date'),
                             'readonly',
@@ -73,8 +74,8 @@
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! html()->label(__('hms::lang.arrival_time') . ':', 'arrival_time')->attributes([]) !!}
-                        {!! html()->text('arrival_time', @format_time($transaction->hms_booking_arrival_date_time))->attributes([
+                        {!! Form::label('arrival_time', __('hms::lang.arrival_time') . ':') !!}
+                        {!! Form::text('arrival_time', @format_time($transaction->hms_booking_arrival_date_time), [
                             'class' => 'form-control time_picker',
                             'placeholder' => __('hms::lang.arrival_time'),
                             'readonly',
@@ -85,8 +86,8 @@
                 </div>
                  <div class="col-md-6">
                     <div class="form-group">
-                        {!! html()->label(__('hms::lang.departure_date') . ':', 'departure_date')->attributes([]) !!}
-                        {!! html()->text('departure_date', @format_date($transaction->hms_booking_departure_date_time))->attributes([
+                        {!! Form::label('departure_date', __('hms::lang.departure_date') . ':') !!}
+                        {!! Form::text('departure_date', @format_date($transaction->hms_booking_departure_date_time), [
                             'class' => 'form-control departure_date',
                             'placeholder' => __('hms::lang.departure_date'),
                             'readonly',
@@ -98,8 +99,8 @@
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {!! html()->label(__('hms::lang.departure_time') . ':', 'departure_time')->attributes([]) !!}
-                        {!! html()->text('departure_time', @format_time($transaction->hms_booking_departure_date_time))->attributes([ 
+                        {!! Form::label('departure_time', __('hms::lang.departure_time') . ':') !!}
+                        {!! Form::text('departure_time', @format_time($transaction->hms_booking_departure_date_time), [ 
                             'class' => 'form-control time_picker',
                             'placeholder' => __('hms::lang.departure_time'),
                             'readonly',
@@ -236,7 +237,7 @@
                     @endphp
                         <div class="col-xs-6">
                             <div class="form-group">
-                                {!! html()->input('number', 'discount_percent', ($discount_percent_disable == 0 &&  $transaction->discount_amount > 0)? number_format($transaction->discount_amount, 2)  : null)->attributes([
+                                {!! Form::number('discount_percent', ($discount_percent_disable == 0 &&  $transaction->discount_amount > 0)? number_format($transaction->discount_amount, 2)  : null, [
                                     'class' => 'form-control',
                                     'id' => 'discount_percent',
                                     'disabled' => $discount_percent_disable == 1 ? 'disabled' : null,
@@ -265,8 +266,8 @@
                     <div class="row">
                         <div class="col-xs-12">
                             <div class="form-group">
-                                {!! html()->label(__('hms::lang.coupon_code') . ':', 'coupon_code')->attributes([]) !!}
-                                {!! html()->text('coupon_code', $transaction->coupon_code)->attributes([
+                                {!! Form::label('coupon_code', __('hms::lang.coupon_code') . ':') !!}
+                                {!! Form::text('coupon_code', $transaction->coupon_code, [
                                     'class' => 'form-control coupon_code',
                                     'placeholder' => __('hms::lang.coupon_code'),
                                     'disabled' => (empty($transaction->hms_coupon_id) && $transaction->discount_amount > 0) ? 'disabled' : null,
@@ -299,7 +300,7 @@
                                 @endif
 
                                 @if(!empty($payment_line['id']))
-                                    {!! html()->hidden("payment[$loop->index][payment_id]", $payment_line['id'])->attributes([]); !!}
+                                    {!! Form::hidden("payment[$loop->index][payment_id]", $payment_line['id']); !!}
                                 @endif
                                 <div class="box-body payment_row">
                                     @include('hms::partials.payment_row_form', ['row_index' => $loop->index, 'show_date' => true, 'payment_lines' => $payment_line, 'show_denomination' => true])
@@ -314,7 +315,7 @@
                                     </strong>
                                     <br/>
                                     <span class="lead text-bold change_return_span">0</span>
-                                    {!! html()->hidden("change_return", $change_return['amount'])->attributes(['class' => 'form-control change_return input_number', 'required', 'id' => "change_return"]); !!}
+                                    {!! Form::hidden("change_return", $change_return['amount'], ['class' => 'form-control change_return input_number', 'required', 'id' => "change_return"]); !!}
                                     <!-- <span class="lead text-bold total_quantity">0</span> -->
                                     @if(!empty($change_return['id']))
                                         <input type="hidden" name="change_return_id" 
@@ -325,7 +326,7 @@
                             <div class="hide payment_row" id="change_return_payment_data">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        {!! html()->label(__('lang_v1.change_return_payment_method') . ':*', "change_return_method")->attributes([]) !!}
+                                        {!! Form::label("change_return_method" , __('lang_v1.change_return_payment_method') . ':*') !!}
                                         <div class="input-group">
                                             <span class="input-group-addon">
                                                 <i class="fas fa-money-bill-alt"></i>
@@ -338,19 +339,19 @@
                                                     unset($_payment_types['advance']);
                                                 }
                                             @endphp
-                                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[change_return][method]", $_payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'id' => 'change_return_method', 'style' => 'width:100%;'])); !!}
+                                            {!! Form::select("payment[change_return][method]", $_payment_types, $_payment_method, ['class' => 'form-control col-md-12 payment_types_dropdown', 'id' => 'change_return_method', 'style' => 'width:100%;']); !!}
                                         </div>
                                     </div>
                                 </div>
                                 @if(!empty($accounts))
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            {!! html()->label(__('lang_v1.change_return_payment_account') . ':', "change_return_account")->attributes([]) !!}
+                                            {!! Form::label("change_return_account" , __('lang_v1.change_return_payment_account') . ':') !!}
                                             <div class="input-group">
                                                 <span class="input-group-addon">
                                                     <i class="fas fa-money-bill-alt"></i>
                                                 </span>
-                                                {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("payment[change_return][account_id]", $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '', ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;'])); !!}
+                                                {!! Form::select("payment[change_return][account_id]", $accounts, !empty($change_return['account_id']) ? $change_return['account_id'] : '' , ['class' => 'form-control select2', 'id' => 'change_return_account', 'style' => 'width:100%;']); !!}
                                             </div>
                                         </div>
                                     </div>
@@ -371,7 +372,7 @@
     <div class="col-md-12 text-center">
     <button type="submit" name="submit_action" value="save" id="submit_action" class="btn btn-primary btn-big">@lang('messages.save')</button>
     </div>
-       {!! html()->form()->close() !!}
+       {!! Form::close() !!}
            {{-- model  --}}
             <div class="modal fade view_modal_room" tabindex="-1" role="dialog" 
             aria-labelledby="gridSystemModalLabel"></div>

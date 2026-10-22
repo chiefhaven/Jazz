@@ -14,50 +14,50 @@
         @component('components.filters', ['title' => __('report.filters')])
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('purchase.business_location') . ':', 'po_list_filter_location_id')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('po_list_filter_location_id', $business_locations, null, [
+                    {!! Form::label('po_list_filter_location_id', __('purchase.business_location') . ':') !!}
+                    {!! Form::select('po_list_filter_location_id', $business_locations, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ])) !!}
+                    ]) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('purchase.supplier') . ':', 'po_list_filter_supplier_id')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('po_list_filter_supplier_id', $suppliers, null, [
+                    {!! Form::label('po_list_filter_supplier_id', __('purchase.supplier') . ':') !!}
+                    {!! Form::select('po_list_filter_supplier_id', $suppliers, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ])) !!}
+                    ]) !!}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('sale.status') . ':', 'po_list_filter_status')->attributes([]) !!}
-                    {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('po_list_filter_status', $purchaseOrderStatuses, null, [
+                    {!! Form::label('po_list_filter_status', __('sale.status') . ':') !!}
+                    {!! Form::select('po_list_filter_status', $purchaseOrderStatuses, null, [
                         'class' => 'form-control select2',
                         'style' => 'width:100%',
                         'placeholder' => __('lang_v1.all'),
-                    ])) !!}
+                    ]) !!}
                 </div>
             </div>
             @if (!empty($shipping_statuses))
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.shipping_status') . ':', 'shipping_status')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('shipping_status', $shipping_statuses, null, [
+                        {!! Form::label('shipping_status', __('lang_v1.shipping_status') . ':') !!}
+                        {!! Form::select('shipping_status', $shipping_statuses, null, [
                             'class' => 'form-control select2',
                             'style' => 'width:100%',
                             'placeholder' => __('lang_v1.all'),
-                        ])) !!}
+                        ]) !!}
                     </div>
                 </div>
             @endif
             <div class="col-md-3">
                 <div class="form-group">
-                    {!! html()->label(__('report.date_range') . ':', 'po_list_filter_date_range')->attributes([]) !!}
-                    {!! html()->text('po_list_filter_date_range', null)->attributes([
+                    {!! Form::label('po_list_filter_date_range', __('report.date_range') . ':') !!}
+                    {!! Form::text('po_list_filter_date_range', null, [
                         'placeholder' => __('lang_v1.select_a_date_range'),
                         'class' => 'form-control',
                         'readonly',

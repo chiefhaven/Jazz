@@ -12,8 +12,8 @@
 
 <!-- Main content -->
 <section class="content">
-{!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\App\Http\Controllers\BusinessController::class, 'postBusinessSettings']), 'method' => 'post', 'id' => 'bussiness_edit_form',
-           'files' => true ]))->open() !!}
+{!! Form::open(['url' => action([\App\Http\Controllers\BusinessController::class, 'postBusinessSettings']), 'method' => 'post', 'id' => 'bussiness_edit_form',
+           'files' => true ]) !!}
     <div class="row">
         <div class="col-xs-12">
         @component('components.widget', ['class' =>  'pos-tab-container'])
@@ -95,7 +95,7 @@
             <button class="tw-dw-btn tw-dw-btn-error tw-dw-btn-lg tw-text-white" type="submit">@lang('business.update_settings')</button>
         </div>
     </div>
-{!! html()->form()->close() !!}
+{!! Form::close() !!}
 </section>
 <!-- /.content -->
 @stop
@@ -200,7 +200,9 @@
                             icon: 'success'
                         });
                         
-                        getTerminalStatus();
+                        if (result.data) {
+                            updateTerminalUI(result.data);
+                        }
                         
                         // Display activation code if returned
                         if (result.activation_code) {
@@ -351,7 +353,8 @@
         // Get Latest Terminal Config
         $(document).on('click', '#get_latest_eis_config_btn', function() {
             var data = {
-                business_id: $('#business_id').val()
+                business_id: $('#business_id').val(),
+                token: $('#eis_token').val()
             };
 
             $.ajax({
@@ -368,7 +371,7 @@
                             text: result.msg || 'Latest terminal config fetched successfully',
                             icon: 'success'
                         });
-                        getTerminalStatus();
+                        updateTerminalUI(result.data);
                     } else {
                         swal({
                             text: result.msg || 'Failed to get latest terminal config',
@@ -491,7 +494,8 @@
                         "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
                     },
                     data: {
-                        business_id: $('#business_id').val()
+                        business_id: $('#business_id').val(),
+                        token: $('#eis_token').val()
                     },
 
                     success: function (response) {
@@ -500,7 +504,7 @@
 
                             swal(
                                 "Success",
-                                response.msg || response.message || "Latest configuration fetched successfully.",
+                                response.msg || "Latest configuration fetched successfully.",
                                 "success"
                             );
 
@@ -508,7 +512,6 @@
                                 $('#jwt_token_display').text(response.data.jwt_token ?? 'N/A');
                                 $('#secret_key_display').text(response.data.secret_key ?? 'N/A');
                             }
-                            getTerminalStatus();
 
                         } else {
 
@@ -553,7 +556,7 @@
                 dataType: 'json',
                 success: function(result) {
                     if (result.success == true) {
-                        updateTerminalUI(result.data.data || result.data);
+                        updateTerminalUI(result.data);
                     }
                 },
                 error: function(error) {
@@ -586,7 +589,6 @@
                 $('#email_address_display').text(data.email_address || 'N/A');
                 $('#phone_number_display').text(data.phone_number || 'N/A');
                 $('#activation_date_display').text(data.activation_date ? new Date(data.activation_date).toLocaleString() : 'N/A');
-                $('#branch_display').text(data.site && data.site.site_name ? data.site.site_name : 'N/A');
                 
                 // Update credentials
                 if (data.terminal_credentials) {

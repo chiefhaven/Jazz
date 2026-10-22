@@ -29,19 +29,19 @@
                     <div class="tab-pane active" id="cn_1">
                         <div class="row">
                             <div class="box-body">
-                                {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                                {!! Form::open([
                                     'url' => action([\Modules\Hms\Http\Controllers\HmsSettingController::class, 'store']),
                                     'method' => 'post',
                                     'id' => 'hms_setting',
                                     'files' => true,
-                                ]))->open() !!}
+                                ]) !!}
                                 @php
                                     $settings = json_decode($busines->hms_settings);
                                 @endphp
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        {!! html()->label(__('hms::lang.booking_prefix') . '*', 'booking_prefix')->attributes([]) !!}
-                                        {!! html()->text('booking_prefix', $settings->prefix ?? null)->attributes([
+                                        {!! Form::label('booking_prefix', __('hms::lang.booking_prefix') . '*') !!}
+                                        {!! Form::text('booking_prefix', $settings->prefix ?? null, [
                                             'class' => 'form-control',
                                             'required',
                                             'placeholder' => __('hms::lang.booking_prefix'),
@@ -49,20 +49,20 @@
                                     </div>
                                 </div>
                                 <div class="col-md-12 text-center">
-                                    {!! html()->input('submit', null, __('messages.submit'))->attributes(['class' => 'btn btn-success btn-big']) !!}
+                                    {!! Form::submit(__('messages.submit'), ['class' => 'btn btn-success btn-big']) !!}
                                 </div>
                 
-                                {!! html()->form()->close() !!}
+                                {!! Form::close() !!}
                             </div>
                         </div>
                     </div>
                     <div class="tab-pane" id="cn_2">
                         <h3>@lang('hms::lang.new_booking')</h3>
                         <div class="row">
-                            {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                            {!! Form::open([
                                 'url' => action([\Modules\Hms\Http\Controllers\HmsSettingController::class, 'store_email_template']),
                                 'method' => 'post',
-                            ]))->open() !!}
+                            ]) !!}
                             <div class="col-md-12">
                                 <strong>@lang('lang_v1.available_tags'):</strong>
                                 <p class="help-block">
@@ -71,8 +71,8 @@
                             </div>
                             <div class="col-md-12 mt-10">
                                 <div class="form-group">
-                                    {!! html()->label(__('lang_v1.email_subject') . ':', 'subject')->attributes([]) !!}
-                                    {!! html()->text('subject', empty($template->subject) ? null : $template->subject)->attributes([
+                                    {!! Form::label('subject', __('lang_v1.email_subject') . ':') !!}
+                                    {!! Form::text('subject', empty($template->subject) ? null : $template->subject, [
                                         'class' => 'form-control',
                                         'placeholder' => __('lang_v1.email_subject'),
                                         'id' => 'subject',
@@ -81,8 +81,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! html()->label('CC:', 'cc')->attributes([]) !!}
-                                    {!! html()->email('cc', empty($template->cc) ? null : $template->cc)->attributes([
+                                    {!! Form::label('cc', 'CC:') !!}
+                                    {!! Form::email('cc', empty($template->cc) ? null : $template->cc, [
                                         'class' => 'form-control',
                                         'placeholder' => 'CC',
                                         'id' => 'cc',
@@ -91,8 +91,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {!! html()->label('BCC:', 'bcc')->attributes([]) !!}
-                                    {!! html()->email('bcc', empty($template->bcc) ? null : $template->bcc)->attributes([
+                                    {!! Form::label('bcc', 'BCC:') !!}
+                                    {!! Form::email('bcc', empty($template->bcc) ? null : $template->bcc, [
                                         'class' => 'form-control',
                                         'placeholder' => 'BCC',
                                         'id' => 'bcc',
@@ -101,8 +101,8 @@
                             </div>
                             <div class="col-md-12">
                                 <div class="form-group">
-                                    {!! html()->label(__('lang_v1.email_body') . ':', 'email_body')->attributes([]) !!}
-                                    {!! html()->textarea('email_body', empty($template->email_body) ? null : $template->email_body)->attributes([
+                                    {!! Form::label('email_body', __('lang_v1.email_body') . ':') !!}
+                                    {!! Form::textarea('email_body', empty($template->email_body) ? null : $template->email_body, [
                                         'class' => 'form-control ckeditor',
                                         'placeholder' => __('lang_v1.email_body'),
                                         'id' => 'email_body',
@@ -112,7 +112,7 @@
                             </div>
                             <div class="col-md-12 mt-15">
                                 <label class="checkbox-inline">
-                                    {!! html()->checkbox('auto_send', empty($template->auto_send) ? null : $template->auto_send, 1)->attributes([
+                                    {!! Form::checkbox('auto_send', 1, empty($template->auto_send) ? null : $template->auto_send, [
                                         'class' => 'input-icheck',
                                     ]) !!} @lang('lang_v1.autosend_email')
                                 </label>
@@ -122,35 +122,35 @@
                                     <button type="submit" class="btn btn-danger btn-big">@lang('messages.save')</button>
                                 </div>
                             </div>
-                            {!! html()->form()->close() !!}
+                            {!! Form::close() !!}
                         </div>
                     </div>
                     <div class="tab-pane" id="cn_3">
                             <div class="row">
                                 <div class="box-body">
-                                    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+                                    {!! Form::open([
                                         'url' => action([\Modules\Hms\Http\Controllers\HmsSettingController::class, 'post_pdf']),
                                         'method' => 'post',
                                         'id' => 'post_pdf',
                                         'files' => true,
-                                    ]))->open() !!}
+                                    ]) !!}
                                     @php
                                         $settings = json_decode($busines->hms_settings);
                                     @endphp
                                     <div class="col-md-12">
                                         <div class="form-group">
-                                            {!! html()->label(__('hms::lang.footer_text'), 'footer_text')->attributes([]) !!}
-                                            {!! html()->textarea('footer_text', $settings->booking_pdf->footer_text ?? null)->attributes([
+                                            {!! Form::label('footer_text', __('hms::lang.footer_text')) !!}
+                                            {!! Form::textarea('footer_text', $settings->booking_pdf->footer_text ?? null, [
                                                 'class' => 'form-control',
                                                 'placeholder' => __('hms::lang.footer_text'),
                                             ]) !!}
                                         </div>
                                     </div>
                                     <div class="col-md-12 text-center">
-                                        {!! html()->input('submit', null, __('messages.submit'))->attributes(['class' => 'btn btn-success btn-big']) !!}
+                                        {!! Form::submit(__('messages.submit'), ['class' => 'btn btn-success btn-big']) !!}
                                     </div>
                     
-                                    {!! html()->form()->close() !!}
+                                    {!! Form::close() !!}
                                 </div>
                             </div>
                     </div>

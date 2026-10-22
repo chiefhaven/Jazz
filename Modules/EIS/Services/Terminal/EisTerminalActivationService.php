@@ -60,10 +60,11 @@ class EisTerminalActivationService
             if ($result['success']) {
                 $terminalId = $result['data']['terminal_id'] ?? null;
                 $secretKey = $result['terminal_credentials']['secretKey'] ?? null;
-                $jwtToken = $result['terminal_credentials']['jwtToken'] ?? null;
+                $jwtToken = $result['terminal_credentials']['jwtToken'];
+                $siteId = $result['configuration']['terminalSite']['siteId'];
                 
-                if ($terminalId && $secretKey && $jwtToken) {
-                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
+                if ($terminalId && $secretKey) {
+                    $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey, $siteId);
                 } else {
                     Log::warning('Missing terminal ID or secret key for confirmation', [
                         'terminal_id' => $terminalId,
@@ -72,16 +73,7 @@ class EisTerminalActivationService
                 }
             }
 
-            if ($result['success']) {
-                try {
-                    \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
-                } catch (\InvalidArgumentException $e) {
-                    Log::warning('EIS activation succeeded but location sync was skipped', [
-                        'business_id' => $businessId,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
+            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($businessId);
 
             return $result;
 
@@ -193,8 +185,7 @@ class EisTerminalActivationService
             $secretKey = $data->activatedTerminal->terminalCredentials->secretKey ?? null;
             $jwtToken = $data->activatedTerminal->terminalCredentials->jwtToken ?? null;
             $tpin = $data->configuration->taxpayerConfiguration->tin ?? null;
-            $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId
-                ?? EisSetting::where('business_id', $businessId)->value('branch_id');
+            $siteId = $data->configuration->terminalConfiguration->terminalSite->siteId ?? null;
 
             Log::info('Extracted EIS data for settings update', [
                 'business_id' => $businessId,
@@ -214,16 +205,12 @@ class EisTerminalActivationService
                     'device_id' => $terminalId,
                     'secret_key' => $secretKey,
                     'jwt_token' => $jwtToken,
+                    'branch_id' => $siteId,
                     'tpin' => $tpin,
                     'last_sync_at' => now(),
                     'sync_status' => 'success',
                     'sync_error' => null,
                 ]);
-
-                if ($siteId) {
-                    $setting->branch_id = $siteId;
-                    $setting->save();
-                }
                 
                 Log::info('EIS settings updated after activation', [
                     'business_id' => $businessId,
@@ -565,7 +552,7 @@ class EisTerminalActivationService
             'is_vat_registered' => $taxpayerConfig->isVATRegistered ?? false,
             'tax_office_code' => $taxpayerConfig->taxOfficeCode ?? null,
             'tax_office_name' => $taxpayerConfig->taxOffice->name ?? null,
-            'raw_response' => ['data' => $configurationData],
+            'raw_response' => json_encode(['data' => $configurationData]),
             'last_synced_at' => now()
         ];
 
@@ -743,35 +730,11 @@ class EisTerminalActivationService
             'confirmation_response' => $terminal->confirmation_response ? $terminal->confirmation_response : null,
         ];
 
-        // Read site details from this business's synchronized location.
-        $configuration = $terminal->configuration;
-        $siteData = data_get(
-            $configuration ? $configuration->decodedRawResponse() : [],
-            'data.terminalConfiguration.terminalSite',
-            []
-        );
-        $businessId = $configuration ? $configuration->business_id : null;
-        $siteIds = array_filter([
-            data_get($siteData, 'siteId'),
-            $businessId ? EisSetting::where('business_id', $businessId)->value('branch_id') : null,
-        ], function ($siteId) {
-            return filled($siteId);
-        });
-        $businessLocation = null;
-        foreach (array_unique($siteIds) as $siteId) {
-            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
-                ->where('eis_site_id', $siteId)
-                ->first();
-
-            if ($businessLocation) {
-                break;
-            }
-        }
-
-        if ($businessLocation) {
+        // Add site details
+        if ($terminal->terminalSite) {
             $details['site'] = [
-                'site_id' => $businessLocation->eis_site_id,
-                'site_name' => $businessLocation->name
+                'site_id' => $terminal->terminalSite->site_id,
+                'site_name' => $terminal->terminalSite->site_name
             ];
         } else {
             $details['site'] = null;
@@ -958,75 +921,29 @@ class EisTerminalActivationService
     }
 
     /**
-     * Fetch and sync the latest EIS configuration for one business immediately.
+     * Dispatch a job to fetch the latest EIS configuration.
+     *
+     * @param int $businessId
+     * @param string $token
+     * @param int|null $toggledBy
+     * @return array
      */
-    public function getLatestConfig(int $businessId): array
+    public function getLatestConfig(): array
     {
-        $setting = EisSetting::where('business_id', $businessId)->first();
-
-        if (! $setting) {
-            return [
-                'success' => false,
-                'message' => "EIS settings were not found for business {$businessId}.",
-                'processed' => 0,
-                'failed' => 1,
-            ];
-        }
-
-        if (blank($setting->jwt_token)) {
-            return [
-                'success' => false,
-                'message' => "No EIS JWT token is configured for business {$businessId}.",
-                'processed' => 0,
-                'failed' => 1,
-            ];
-        }
-
         try {
-            $configuration = $this->syncService->sync($businessId, $setting->jwt_token);
+            
+            $result = app(\Modules\EIS\Jobs\SyncEISConfigurationJob::class)->dispatchNow();
 
-            $setting->update([
-                'last_sync_at' => now(),
-                'sync_status' => 'success',
-                'sync_error' => null,
-                'sync_error_retry_after' => null,
-                'successful_syncs' => ($setting->successful_syncs ?? 0) + 1,
-                'global_version' => $configuration->global_version,
-                'terminal_version' => $configuration->terminal_version,
-                'taxpayer_version' => $configuration->taxpayer_version,
-            ]);
-
-            return [
-                'success' => true,
-                'message' => 'Latest configuration fetched and synced successfully.',
-                'processed' => 1,
-                'successful' => 1,
-                'failed' => 0,
-                'skipped' => 0,
-                'data' => $configuration,
-            ];
+            return $result;
 
         } catch (\Throwable $e) {
-            $setting->update([
-                'sync_status' => 'failed',
-                'sync_error' => $e->getMessage(),
-                'sync_error_retry_after' => now()->addMinutes(5),
-                'failed_syncs' => ($setting->failed_syncs ?? 0) + 1,
-                'last_sync_attempt' => now(),
-            ]);
-
-            Log::error('Failed to sync latest configuration for business', [
-                'business_id' => $businessId,
-                'error' => $e->getMessage(),
+            Log::error('Failed to sync latest configuration', [
+                'error' => $e->getMessage()
             ]);
 
             return [
                 'success' => false,
-                'message' => 'Failed to fetch latest configuration: ' . $e->getMessage(),
-                'processed' => 1,
-                'successful' => 0,
-                'failed' => 1,
-                'skipped' => 0,
+                'message' => 'Failed to fetch latest configuration: ' . $e->getMessage()
             ];
         }
     }
@@ -1060,13 +977,11 @@ class EisTerminalActivationService
                 ];
             }
 
-            $details = $this->getTerminalDetails($terminal);
-
             return [
                 'success' => true,
                 'is_active' => $terminal->is_active,
                 'is_confirmed' => $terminal->is_confirmed ?? false,
-                'data' => $details
+                'data' => $this->getTerminalDetails($terminal)
             ];
 
         } catch (\Exception $e) {
@@ -1283,7 +1198,7 @@ class EisTerminalActivationService
             $configuration = $this->syncService->sync($businessId, $token);
             
             $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)
-                ->with('offlineLimit')
+                ->with(['terminalSite', 'offlineLimit'])
                 ->first();
 
             return [

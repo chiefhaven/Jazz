@@ -72,19 +72,20 @@
                 <div class="box-body">
                     <div class="col-sm-6">
                         <div class="form-group">
-                            {!! html()->label(__('report.date_range') . ':', 'transaction_date_range')->attributes([]) !!}
+                            {!! Form::label('transaction_date_range', __('report.date_range') . ':') !!}
                             <div class="input-group">
                                 <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
-                                {!! html()->text('transaction_date_range', null)->attributes(['class' => 'form-control', 'readonly', 'placeholder' => __('report.date_range')]) !!}
+                                {!! Form::text('transaction_date_range', null, ['class' => 'form-control', 'readonly', 'placeholder' => __('report.date_range')]) !!}
                             </div>
                         </div>
                     </div>
 
                     <div class="col-sm-6">
                         <div class="form-group">
-                            {!! html()->label(__( 'accounting::lang.account' ) . ':', 'all_accounts')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('account_filter', [$account->id => $account->name], $account->id, ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
-                                'id' => 'account_filter', 'data-default' => $account->id])); !!}
+                            {!! Form::label('all_accounts', __( 'accounting::lang.account' ) . ':') !!}
+                            {!! Form::select('account_filter', [$account->id => $account->name], $account->id,
+                                ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
+                                'id' => 'account_filter', 'data-default' => $account->id]); !!}
                         </div>
                     </div>
                     

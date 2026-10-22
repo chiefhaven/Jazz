@@ -10,63 +10,63 @@
 
     <!-- Main content -->
     <section class="content no-print">
-        {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })([
+        {!! Form::open([
             'url' => action([\App\Http\Controllers\StockTransferController::class, 'store']),
             'method' => 'post',
             'id' => 'stock_transfer_form',
-        ]))->open() !!}
+        ]) !!}
 
         @component('components.widget', ['class' => 'box-solid'])
             <div class="row">
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! html()->label(__('messages.date') . ':*', 'transaction_date')->attributes([]) !!}
+                        {!! Form::label('transaction_date', __('messages.date') . ':*') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-calendar"></i>
                             </span>
-                            {!! html()->text('transaction_date', @format_datetime('now'))->attributes(['class' => 'form-control', 'readonly', 'required']) !!}
+                            {!! Form::text('transaction_date', @format_datetime('now'), ['class' => 'form-control', 'readonly', 'required']) !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! html()->label(__('purchase.ref_no') . ':', 'ref_no')->attributes([]) !!}
-                        {!! html()->text('ref_no', null)->attributes(['class' => 'form-control']) !!}
+                        {!! Form::label('ref_no', __('purchase.ref_no') . ':') !!}
+                        {!! Form::text('ref_no', null, ['class' => 'form-control']) !!}
                     </div>
                 </div>
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! html()->label(__('sale.status') . ':*', 'status')->attributes([]) !!} @show_tooltip(__('lang_v1.completed_status_help'))
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('status', $statuses, null, [
+                        {!! Form::label('status', __('sale.status') . ':*') !!} @show_tooltip(__('lang_v1.completed_status_help'))
+                        {!! Form::select('status', $statuses, null, [
                             'class' => 'form-control select2',
                             'placeholder' => __('messages.please_select'),
                             'required',
                             'id' => 'status',
-                        ])) !!}
+                        ]) !!}
                     </div>
                 </div>
                 <div class="clearfix"></div>
                 <div class="col-sm-6">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.location_from') . ':*', 'location_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, [
+                        {!! Form::label('location_id', __('lang_v1.location_from') . ':*') !!}
+                        {!! Form::select('location_id', $business_locations, null, [
                             'class' => 'form-control select2',
                             'placeholder' => __('messages.please_select'),
                             'required',
                             'id' => 'location_id',
-                        ])) !!}
+                        ]) !!}
                     </div>
                 </div>
                 <div class="col-sm-6">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.location_to') . ':*', 'transfer_location_id')->attributes([]) !!}
-                        {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('transfer_location_id', $business_locations, null, [
+                        {!! Form::label('transfer_location_id', __('lang_v1.location_to') . ':*') !!}
+                        {!! Form::select('transfer_location_id', $business_locations, null, [
                             'class' => 'form-control select2',
                             'placeholder' => __('messages.please_select'),
                             'required',
                             'id' => 'transfer_location_id',
-                        ])) !!}
+                        ]) !!}
                     </div>
                 </div>
 
@@ -82,7 +82,7 @@
                             <span class="input-group-addon">
                                 <i class="fa fa-search"></i>
                             </span>
-                            {!! html()->text('search_product', null)->attributes([
+                            {!! Form::text('search_product', null, [
                                 'class' => 'form-control',
                                 'id' => 'search_product_for_srock_adjustment',
                                 'placeholder' => __('stock_adjustment.search_product'),
@@ -137,8 +137,8 @@
             <div class="row">
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.shipping_charges') . ':', 'shipping_charges')->attributes([]) !!}
-                        {!! html()->text('shipping_charges', 0)->attributes([
+                        {!! Form::label('shipping_charges', __('lang_v1.shipping_charges') . ':') !!}
+                        {!! Form::text('shipping_charges', 0, [
                             'class' => 'form-control input_number',
                             'placeholder' => __('lang_v1.shipping_charges'),
                         ]) !!}
@@ -146,8 +146,8 @@
                 </div>
                 <div class="col-sm-4">
                     <div class="form-group">
-                        {!! html()->label(__('purchase.additional_notes'), 'additional_notes')->attributes([]) !!}
-                        {!! html()->textarea('additional_notes', null)->attributes(['class' => 'form-control', 'rows' => 3]) !!}
+                        {!! Form::label('additional_notes', __('purchase.additional_notes')) !!}
+                        {!! Form::textarea('additional_notes', null, ['class' => 'form-control', 'rows' => 3]) !!}
                     </div>
                 </div>
             </div>
@@ -163,7 +163,7 @@
             </div>
         @endcomponent
 
-        {!! html()->form()->close() !!}
+        {!! Form::close() !!}
     </section>
 @stop
 @section('javascript')

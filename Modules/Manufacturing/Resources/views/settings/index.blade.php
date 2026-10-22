@@ -10,7 +10,7 @@
 
 <!-- Main content -->
 <section class="content">
-    {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => action([\Modules\Manufacturing\Http\Controllers\SettingsController::class, 'store']), 'method' => 'post', 'id' => 'manufacturing_settings_form' ]))->open() !!}
+    {!! Form::open(['url' => action([\Modules\Manufacturing\Http\Controllers\SettingsController::class, 'store']), 'method' => 'post', 'id' => 'manufacturing_settings_form' ]) !!}
     <div class="row">
         <div class="col-xs-12">
            <!--  <pos-tab-container> -->
@@ -25,8 +25,8 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    {!! html()->label(__('manufacturing::lang.mfg_ref_no_prefix') . ':', 'ref_no_prefix')->attributes([]) !!}
-                                    {!! html()->text('ref_no_prefix', !empty($manufacturing_settings['ref_no_prefix']) ? $manufacturing_settings['ref_no_prefix'] : null)->attributes(['placeholder' => __('manufacturing::lang.mfg_ref_no_prefix'), 'class' => 'form-control']); !!}
+                                    {!! Form::label('ref_no_prefix', __('manufacturing::lang.mfg_ref_no_prefix') . ':' ) !!}
+                                    {!! Form::text('ref_no_prefix', !empty($manufacturing_settings['ref_no_prefix']) ? $manufacturing_settings['ref_no_prefix'] : null, ['placeholder' => __('manufacturing::lang.mfg_ref_no_prefix'), 'class' => 'form-control']); !!}
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -34,7 +34,7 @@
                                     <br>
                                     <div class="checkbox">
                                         <label>
-                                        {!! html()->checkbox('disable_editing_ingredient_qty', !empty($manufacturing_settings['disable_editing_ingredient_qty']), 1)->attributes(['class' => 'input-icheck', 'id' => 'disable_editing_ingredient_qty']); !!} @lang('manufacturing::lang.disable_editing_ingredient_qty')
+                                        {!! Form::checkbox('disable_editing_ingredient_qty', 1, !empty($manufacturing_settings['disable_editing_ingredient_qty']), ['class' => 'input-icheck', 'id' => 'disable_editing_ingredient_qty']); !!} @lang('manufacturing::lang.disable_editing_ingredient_qty')
                                         </label>
                                     </div>
                                 </div>
@@ -44,7 +44,7 @@
                                     <br>
                                     <div class="checkbox">
                                         <label>
-                                        {!! html()->checkbox('enable_updating_product_price', !empty($manufacturing_settings['enable_updating_product_price']), 1)->attributes(['class' => 'input-icheck', 'id' => 'enable_updating_product_price']); !!} @lang('manufacturing::lang.enable_editing_product_price_after_production')
+                                        {!! Form::checkbox('enable_updating_product_price', 1, !empty($manufacturing_settings['enable_updating_product_price']), ['class' => 'input-icheck', 'id' => 'enable_updating_product_price']); !!} @lang('manufacturing::lang.enable_editing_product_price_after_production')
                                         </label>
                                     </div>
                                 </div>
@@ -66,7 +66,7 @@
     <div class="col-xs-12">
         <p class="help-block"><i>{!! __('manufacturing::lang.version_info', ['version' => $version]) !!}</i></p>
     </div>
-    {!! html()->form()->close() !!}
+    {!! Form::close() !!}
 </section>
 @stop
 @section('javascript')

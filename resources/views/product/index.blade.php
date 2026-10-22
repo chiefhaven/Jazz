@@ -21,79 +21,89 @@
                 @component('components.filters', ['title' => __('report.filters')])
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! html()->label(__('product.product_type') . ':', 'type')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('type', ['single' => __('lang_v1.single'), 'variable' => __('lang_v1.variable'), 'combo' => __('lang_v1.combo')], null, [
+                            {!! Form::label('type', __('product.product_type') . ':') !!}
+                            {!! Form::select(
+                                'type',
+                                ['single' => __('lang_v1.single'), 'variable' => __('lang_v1.variable'), 'combo' => __('lang_v1.combo')],
+                                null,
+                                [
                                     'class' => 'form-control select2',
                                     'style' => 'width:100%',
                                     'id' => 'product_list_filter_type',
                                     'placeholder' => __('lang_v1.all'),
-                                ])) !!}
+                                ],
+                            ) !!}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! html()->label(__('product.category') . ':', 'category_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('category_id', $categories, null, [
+                            {!! Form::label('category_id', __('product.category') . ':') !!}
+                            {!! Form::select('category_id', $categories, null, [
                                 'class' => 'form-control select2',
                                 'style' => 'width:100%',
                                 'id' => 'product_list_filter_category_id',
                                 'placeholder' => __('lang_v1.all'),
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
 
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! html()->label(__('product.unit') . ':', 'unit_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('unit_id', $units, null, [
+                            {!! Form::label('unit_id', __('product.unit') . ':') !!}
+                            {!! Form::select('unit_id', $units, null, [
                                 'class' => 'form-control select2',
                                 'style' => 'width:100%',
                                 'id' => 'product_list_filter_unit_id',
                                 'placeholder' => __('lang_v1.all'),
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! html()->label(__('product.tax') . ':', 'tax_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('tax_id', $taxes, null, [
+                            {!! Form::label('tax_id', __('product.tax') . ':') !!}
+                            {!! Form::select('tax_id', $taxes, null, [
                                 'class' => 'form-control select2',
                                 'style' => 'width:100%',
                                 'id' => 'product_list_filter_tax_id',
                                 'placeholder' => __('lang_v1.all'),
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            {!! html()->label(__('product.brand') . ':', 'brand_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('brand_id', $brands, null, [
+                            {!! Form::label('brand_id', __('product.brand') . ':') !!}
+                            {!! Form::select('brand_id', $brands, null, [
                                 'class' => 'form-control select2',
                                 'style' => 'width:100%',
                                 'id' => 'product_list_filter_brand_id',
                                 'placeholder' => __('lang_v1.all'),
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
                     <div class="col-md-3" id="location_filter">
                         <div class="form-group">
-                            {!! html()->label(__('purchase.business_location') . ':', 'location_id')->attributes([]) !!}
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, [
+                            {!! Form::label('location_id', __('purchase.business_location') . ':') !!}
+                            {!! Form::select('location_id', $business_locations, null, [
                                 'class' => 'form-control select2',
                                 'style' => 'width:100%',
                                 'placeholder' => __('lang_v1.all'),
-                            ])) !!}
+                            ]) !!}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <br>
                         <div class="form-group">
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('active_state', ['active' => __('business.is_active'), 'inactive' => __('lang_v1.inactive')], null, [
+                            {!! Form::select(
+                                'active_state',
+                                ['active' => __('business.is_active'), 'inactive' => __('lang_v1.inactive')],
+                                null,
+                                [
                                     'class' => 'form-control select2',
                                     'style' => 'width:100%',
                                     'id' => 'active_state',
                                     'placeholder' => __('lang_v1.all'),
-                                ])) !!}
+                                ],
+                            ) !!}
                         </div>
                     </div>
 
@@ -110,7 +120,7 @@
                         <div class="form-group">
                             <br>
                             <label>
-                                {!! html()->checkbox('not_for_selling', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'not_for_selling']) !!} <strong>@lang('lang_v1.not_for_selling')</strong>
+                                {!! Form::checkbox('not_for_selling', 1, false, ['class' => 'input-icheck', 'id' => 'not_for_selling']) !!} <strong>@lang('lang_v1.not_for_selling')</strong>
                             </label>
                         </div>
                     </div>
@@ -119,7 +129,7 @@
                             <div class="form-group">
                                 <br>
                                 <label>
-                                    {!! html()->checkbox('woocommerce_enabled', false, 1)->attributes(['class' => 'input-icheck', 'id' => 'woocommerce_enabled']) !!} {{ __('lang_v1.woocommerce_enabled') }}
+                                    {!! Form::checkbox('woocommerce_enabled', 1, false, ['class' => 'input-icheck', 'id' => 'woocommerce_enabled']) !!} {{ __('lang_v1.woocommerce_enabled') }}
                                 </label>
                             </div>
                         </div>

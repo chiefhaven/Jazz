@@ -50,7 +50,7 @@
 	<td class="{{$hide_tax}}">
 		<input type="hidden" name="products[{{$row_count}}][item_tax]" class="form-control item_tax">
 		
-		{!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })("products[$row_count][tax_id]", $tax_dropdown['tax_rates'], $tax_id, ['placeholder' => 'Select', 'class' => 'form-control tax_id'])); !!}
+		{!! Form::select("products[$row_count][tax_id]", $tax_dropdown['tax_rates'], $tax_id, ['placeholder' => 'Select', 'class' => 'form-control tax_id'], $tax_dropdown['attributes']); !!}
 	</td>
 	<td class="{{$hide_tax}}">
 		<input type="text" name="products[{{$row_count}}][unit_price_inc_tax]" class="form-control pos_unit_price_inc_tax input_number" value="{{@num_format($unit_price_inc_tax)}}">
@@ -60,7 +60,7 @@
 	</td>
 	@if(session('business.enable_lot_number'))
         <td>
-            {!! html()->text('products[' . $row_count . '][lot_number]', null)->attributes(['class' => 'form-control input-sm']); !!}
+            {!! Form::text('products[' . $row_count . '][lot_number]', null, ['class' => 'form-control input-sm']); !!}
         </td>
     @endif
 
@@ -70,7 +70,7 @@
                 <span class="input-group-addon">
                     <i class="fa fa-calendar"></i>
                 </span>
-                {!! html()->text('products[' . $row_count . '][exp_date]', null)->attributes(['class' => 'form-control input-sm expiry_datepicker', 'readonly']); !!}
+                {!! Form::text('products[' . $row_count . '][exp_date]', null, ['class' => 'form-control input-sm expiry_datepicker', 'readonly']); !!}
             </div>
         </td>
     @endif

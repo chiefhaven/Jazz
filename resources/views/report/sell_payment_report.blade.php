@@ -13,59 +13,59 @@
     <div class="row">
         <div class="col-md-12">
            @component('components.filters', ['title' => __('report.filters')])
-              {!! ((function ($options) { $method = $options['method'] ?? 'POST'; if (isset($options['url'])) { $url = $options['url']; $action = is_array($url) ? url($url[0], array_slice($url, 1)) : url($url); } elseif (isset($options['route'])) { $route = $options['route']; if (is_array($route)) { $parameters = array_slice($route, 1); if (array_keys($route) === [0, 1]) { $parameters = $parameters[0]; } $action = route($route[0], $parameters); } else { $action = route($route); } } elseif (isset($options['action'])) { $action = action($options['action']); } else { $action = url()->current(); } $attributes = array_merge(['accept-charset' => 'UTF-8'], \Illuminate\Support\Arr::except($options, ['method', 'url', 'route', 'action', 'files'])); $form = html()->form($method, $action); if (!empty($options['files'])) { $form = $form->acceptsFiles(); } return $form->attributes($attributes); })(['url' => '#', 'method' => 'get', 'id' => 'sell_payment_report_form' ]))->open() !!}
+              {!! Form::open(['url' => '#', 'method' => 'get', 'id' => 'sell_payment_report_form' ]) !!}
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('contact.customer') . ':', 'customer_id')->attributes([]) !!}
+                        {!! Form::label('customer_id', __('contact.customer') . ':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-user"></i>
                             </span>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('customer_id', $customers, null, ['class' => 'form-control select2',  'style' => 'width:100%', 'placeholder' => __('messages.all'), 'required'])); !!}
+                            {!! Form::select('customer_id', $customers, null, ['class' => 'form-control select2',  'style' => 'width:100%', 'placeholder' => __('messages.all'), 'required']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('purchase.business_location').':', 'location_id')->attributes([]) !!}
+                        {!! Form::label('location_id', __('purchase.business_location').':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-map-marker"></i>
                             </span>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('location_id', $business_locations, null, ['class' => 'form-control select2',  'style' => 'width:100%', 'placeholder' => __('messages.all'), 'required'])); !!}
+                            {!! Form::select('location_id', $business_locations, null, ['class' => 'form-control select2',  'style' => 'width:100%', 'placeholder' => __('messages.all'), 'required']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.payment_method').':', 'payment_types')->attributes([]) !!}
+                        {!! Form::label('payment_types', __('lang_v1.payment_method').':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fas fa-money-bill-alt"></i>
                             </span>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('payment_types', $payment_types, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all'), 'required', 'style' => 'width:100%'])); !!}
+                            {!! Form::select('payment_types', $payment_types, null, ['class' => 'form-control select2', 'placeholder' => __('messages.all'), 'required', 'style' => 'width:100%']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        {!! html()->label(__('lang_v1.customer_group').':', 'customer_group_filter')->attributes([]) !!}
+                        {!! Form::label('customer_group_filter', __('lang_v1.customer_group').':') !!}
                         <div class="input-group">
                             <span class="input-group-addon">
                                 <i class="fa fa-users"></i>
                             </span>
-                            {!! ((function ($name, $options, $value, $attributes) { $selected = is_array($value) ? array_map('strval', $value) : ($value === null ? null : (string) $value); $element = html()->select($name, $options, $selected)->attributes(\Illuminate\Support\Arr::except($attributes ?? [], ['placeholder'])); return array_key_exists('placeholder', $attributes ?? []) ? $element->placeholder($attributes['placeholder']) : $element; })('customer_group_filter', $customer_groups, null, ['class' => 'form-control select2', 'style' => 'width:100%'])); !!}
+                            {!! Form::select('customer_group_filter', $customer_groups, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
 
-                        {!! html()->label(__('report.date_range') . ':', 'spr_date_filter')->attributes([]) !!}
-                        {!! html()->text('date_range', null)->attributes(['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'spr_date_filter', 'readonly']); !!}
+                        {!! Form::label('spr_date_filter', __('report.date_range') . ':') !!}
+                        {!! Form::text('date_range', null, ['placeholder' => __('lang_v1.select_a_date_range'), 'class' => 'form-control', 'id' => 'spr_date_filter', 'readonly']); !!}
                     </div>
                 </div>
-                {!! html()->form()->close() !!}
+                {!! Form::close() !!}
             @endcomponent
         </div>
     </div>

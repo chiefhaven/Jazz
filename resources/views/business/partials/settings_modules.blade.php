@@ -8,7 +8,8 @@
                     <div class="checkbox">
                     <br>
                       <label>
-                        {!! html()->checkbox('enabled_modules[]', in_array($k, $enabled_modules), $k)->attributes(['class' => 'input-icheck']); !!} {{$v['name']}}
+                        {!! Form::checkbox('enabled_modules[]', $k,  in_array($k, $enabled_modules) , 
+                        ['class' => 'input-icheck']); !!} {{$v['name']}}
                       </label>
                       @if(!empty($v['tooltip'])) @show_tooltip($v['tooltip']) @endif
                     </div>

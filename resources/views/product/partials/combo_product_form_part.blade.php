@@ -5,7 +5,7 @@
 				<span class="input-group-addon">
 					<i class="fa fa-search"></i>
 				</span>
-				{!! html()->text('search_product', null)->attributes(['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder')]); !!}
+				{!! Form::text('search_product', null, ['class' => 'form-control mousetrap', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder')]); !!}
 			</div>
 		</div>
 	</div>
@@ -70,14 +70,14 @@
 		</div>
 		<div class="col-sm-12 col-sm-offset-4">
 			<div class="col-sm-4">
-				{!! html()->label(__('product.profit_percent'), 'margin')->attributes([]) .":" !!}
-				{!! html()->text('profit_percent', @num_format($profit_percent))->attributes(['class' => 'form-control input-sm input_number mousetrap', 'id' => 'margin']) !!}
+				{!! Form::label('margin', __('product.profit_percent')) .":" !!}
+				{!! Form::text('profit_percent', @num_format($profit_percent), ['class' => 'form-control input-sm input_number mousetrap', 'id' => 'margin']) !!}
 			</div>
 			<div class="col-sm-4">
-				{!! html()->label(__('product.default_selling_price'), 'selling_price')->attributes([]). ":"!!}
-				{!! html()->text('selling_price', @num_format(0))->attributes(['class' => 'form-control input-sm input_number mousetrap']) !!}
+				{!! Form::label('selling_price', __('product.default_selling_price')). ":"!!}
+				{!! Form::text('selling_price', @num_format(0), ['class' => 'form-control input-sm input_number mousetrap']) !!}
 
-				{!! html()->hidden('selling_price_inc_tax', @num_format(0))->attributes(['class' => 'input_number mousetrap', 'id' => 'selling_price_inc_tax']) !!}
+				{!! Form::hidden('selling_price_inc_tax', @num_format(0), ['class' => 'input_number mousetrap', 'id' => 'selling_price_inc_tax']) !!}
 			</div>
 		</div>
 	</div>

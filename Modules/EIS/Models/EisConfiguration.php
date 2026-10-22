@@ -51,17 +51,6 @@ class EisConfiguration extends Model
         'last_synced_at' => 'datetime'
     ];
 
-    public function decodedRawResponse(): array
-    {
-        $response = $this->getRawOriginal('raw_response');
-
-        for ($decodeCount = 0; is_string($response) && $decodeCount < 2; $decodeCount++) {
-            $response = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
-        }
-
-        return is_array($response) ? $response : [];
-    }
-
     /**
      * Check if the configuration needs to be updated based on new version numbers.
      *
@@ -97,12 +86,11 @@ class EisConfiguration extends Model
      */
     public function getTaxRatesAttribute(): ?array
     {
-        $rawResponse = $this->decodedRawResponse();
-        if (empty($rawResponse)) {
+        if (empty($this->raw_response)) {
             return null;
         }
 
-        return $rawResponse['data']['globalConfiguration']['taxrates'] ?? null;
+        return $this->raw_response['data']['globalConfiguration']['taxrates'] ?? null;
     }
 
     /**
@@ -112,12 +100,11 @@ class EisConfiguration extends Model
      */
     public function getTerminalConfigurationAttribute(): ?array
     {
-        $rawResponse = $this->decodedRawResponse();
-        if (empty($rawResponse)) {
+        if (empty($this->raw_response)) {
             return null;
         }
 
-        return $rawResponse['data']['terminalConfiguration'] ?? null;
+        return $this->raw_response['data']['terminalConfiguration'] ?? null;
     }
 
     /**
@@ -127,12 +114,11 @@ class EisConfiguration extends Model
      */
     public function getTaxpayerConfigurationAttribute(): ?array
     {
-        $rawResponse = $this->decodedRawResponse();
-        if (empty($rawResponse)) {
+        if (empty($this->raw_response)) {
             return null;
         }
 
-        return $rawResponse['data']['taxpayerConfiguration'] ?? null;
+        return $this->raw_response['data']['taxpayerConfiguration'] ?? null;
     }
 
     public function terminalConfiguration(): HasOne
