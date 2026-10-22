@@ -1192,6 +1192,12 @@ class ConfigurationSyncService
             $defaultInvoiceScheme = \App\InvoiceScheme::getDefault($business->id);
             $saleInvoiceSchemeId = $defaultInvoiceScheme ? $defaultInvoiceScheme->id : null;
 
+            // Get or create a default invoice layout if needed
+            $defaultInvoiceLayout = \App\InvoiceLayout::where('business_id', $business->id)
+                ->where('is_default', 1)
+                ->first();
+            $invoiceLayoutId = $defaultInvoiceLayout ? $defaultInvoiceLayout->id : null;
+
             $businessLocation = \App\BusinessLocation::updateOrCreate(
                 [
                     'business_id' => $business->id,
@@ -1205,7 +1211,12 @@ class ConfigurationSyncService
                     ),
 
                     'country' => 'Malawi',
+                    'state' => 'Malawi',
+                    'city' => 'Lilongwe',
+                    'zip_code' => '00000',
 
+                    'invoice_scheme_id' => $saleInvoiceSchemeId,
+                    'invoice_layout_id' => $invoiceLayoutId,
                     'sale_invoice_scheme_id' => $saleInvoiceSchemeId,
 
                     'mobile' => data_get(
