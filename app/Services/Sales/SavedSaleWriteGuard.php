@@ -366,6 +366,28 @@ class SavedSaleWriteGuard
         }
     }
 
+    /** Token-only initialization must not save a stale sale model or edit its graph. */
+    public static function invoiceToken(Connection $db, $id, $businessId): string
+    {
+        return $db->transaction(function () use ($db, $id, $businessId) {
+            $header = $db->table('transactions')->where('business_id', $businessId)
+                ->where('id', $id)->lockForUpdate()->first();
+            if (!$header) {
+                throw (new \Illuminate\Database\Eloquent\ModelNotFoundException())->setModel(\App\Transaction::class, [$id]);
+            }
+            if (!empty($header->invoice_token)) {
+                return $header->invoice_token;
+            }
+            $token = (new \App\Utils\Util())->generateToken();
+            $updated = $db->table('transactions')->where('business_id', $businessId)->where('id', $id)
+                ->update(['invoice_token' => $token]);
+            if ($updated !== 1) {
+                throw new SavedSplitException('invoice_token_not_saved', 'The invoice token could not be initialized.');
+            }
+            return $token;
+        });
+    }
+
     public static function lock(Connection $db, $id)
     {
         if (!$id || !$db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {

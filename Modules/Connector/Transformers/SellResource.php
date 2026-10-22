@@ -71,12 +71,13 @@ class SellResource extends JsonResource
         }
 
         $commonUtil = new Util;
-        // Only legacy rows without tokens need the existing token-initialization path.
+        // Legacy token initialization is locked and writes only the token, never the sale graph.
         $token = $array['invoice_token'] ?? null;
         if (empty($token)) {
             $array['invoice_url'] = $commonUtil->getInvoiceUrl($array['id'], $array['business_id']);
             $token = \App\Transaction::where('business_id', $array['business_id'])
                 ->where('id', $array['id'])->value('invoice_token');
+            $array['invoice_token'] = $token;
         } else {
             $array['invoice_url'] = route($array['is_quotation'] == 1 ? 'show_quote' : 'show_invoice', ['token' => $token]);
         }

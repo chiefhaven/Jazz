@@ -672,8 +672,8 @@ class Util
             ->findOrFail($transaction_id);
 
         if (empty($transaction->invoice_token)) {
-            $transaction->invoice_token = $this->generateToken();
-            $transaction->save();
+            $transaction->invoice_token = \App\Services\Sales\SavedSaleWriteGuard::invoiceToken(
+                $transaction->getConnection(), $transaction_id, $business_id);
         }
 
         if ($transaction->is_quotation == 1) {
@@ -695,8 +695,8 @@ class Util
             ->findOrFail($transaction_id);
 
         if (empty($transaction->invoice_token)) {
-            $transaction->invoice_token = $this->generateToken();
-            $transaction->save();
+            $transaction->invoice_token = \App\Services\Sales\SavedSaleWriteGuard::invoiceToken(
+                $transaction->getConnection(), $transaction_id, $business_id);
         }
 
         if ($transaction->payment_status != 'paid' && $transaction->status == 'final') {
