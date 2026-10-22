@@ -2637,7 +2637,6 @@ class TransactionUtil extends Util
     public function updateSellTransactionTotals($transaction_id)
     {
         \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction_id);
-        $transaction = Transaction::findOrFail($transaction_id);
         
         $totals = TransactionSellLine::where('transaction_id', $transaction_id)
                     ->whereNull('parent_sell_line_id')
@@ -2649,10 +2648,15 @@ class TransactionUtil extends Util
                     )
                     ->first();
         
-        $transaction->total_before_tax = $totals->total_before_tax ?? 0;
-        $transaction->tax_amount = $totals->total_tax ?? 0;
-        $transaction->final_total = $totals->final_total ?? 0;
-        $transaction->save();
+        // Wrap transaction update in split-aware checkout context
+        // This ensures totals can be updated on split transactions
+        \App\Services\Sales\SavedSaleWriteGuard::checkout(DB::connection(), $transaction_id, function () use ($transaction_id, $totals) {
+            $transaction = Transaction::findOrFail($transaction_id);
+            $transaction->total_before_tax = $totals->total_before_tax ?? 0;
+            $transaction->tax_amount = $totals->total_tax ?? 0;
+            $transaction->final_total = $totals->final_total ?? 0;
+            $transaction->save();
+        });
         
         // Update payment status
         $this->updatePaymentStatus($transaction_id);
@@ -3241,13 +3245,20 @@ class TransactionUtil extends Util
         \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $transaction_id);
         $status = $this->calculatePaymentStatus($transaction_id, $final_amount);
 
-        $transaction = Transaction::find($transaction_id);
-        $transaction->payment_status = $status;
-        $transaction->save();
+        $transaction = null;
+        // Wrap transaction update in split-aware checkout context
+        // This ensures payment status can be updated on split transactions
+        \App\Services\Sales\SavedSaleWriteGuard::checkout(DB::connection(), $transaction_id, function () use ($transaction_id, $status, &$transaction) {
+            $transaction = Transaction::find($transaction_id);
+            $transaction->payment_status = $status;
+            $transaction->save();
+        });
 
         $moduleUtil = new ModuleUtil();
 
-        $moduleUtil->getModuleData('after_payment_status_updated', ['transaction' => $transaction]);
+        if ($transaction) {
+            $moduleUtil->getModuleData('after_payment_status_updated', ['transaction' => $transaction]);
+        }
 
         return $status;
     }

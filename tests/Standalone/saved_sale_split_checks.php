@@ -1006,5 +1006,13 @@ check(snapshot($db) === $before, 'numbered header, items and audit all roll back
 $db->statement('DROP TRIGGER number_rollback');
 $response = $service->split(1, $actor, $request);
 check($response['bill_b']['invoice_no'] === $candidate(1), 'failed split consumes no invoice identity');
+$second = $service->split(1, $actor, requestFor($service, $actor, [['id' => 1, 'quantity' => '1.0000']]));
+check($numbers->generateAvailableInvoiceNumber($db, 1) === $candidate(3), 'unsubmitted reservations advance daily count');
+foreach ([$response, $second] as $result) {
+    $db->table('eis_sales')->insert(['business_id' => 1, 'transaction_id' => $result['result_id'],
+        'status' => 'pending', 'fiscal_invoice_number' => $result['bill_b']['invoice_no'],
+        'created_at' => now()->format('Y-m-d H:i:s')]);
+}
+check($numbers->generateAvailableInvoiceNumber($db, 1) === $candidate(3), 'tracked split reservations are not counted twice');
 
 echo "PASS: $checks isolated saved-sale split/overselling/reconciliation checks. No application/kernel/live database boot.\n";

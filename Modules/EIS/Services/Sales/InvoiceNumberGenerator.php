@@ -30,7 +30,10 @@ class InvoiceNumberGenerator
         try {
             return $work();
         } finally {
-            $db->selectOne('SELECT RELEASE_LOCK(?) AS released', [$name], false);
+            $released = $db->selectOne('SELECT RELEASE_LOCK(?) AS released', [$name], false);
+            if ((int) ($released->released ?? 0) !== 1) {
+                throw new EisSaleException('The EIS invoice numbering lock could not be released.');
+            }
         }
     }
 
@@ -45,6 +48,18 @@ class InvoiceNumberGenerator
         }
         $count = $db->table('eis_sales')->where('business_id', $businessId)
             ->where('created_at', '>=', now()->startOfDay())->count() + 1;
+        if ($db->getSchemaBuilder()->hasTable('saved_sale_split_operations')) {
+            $rule = $db->getDriverName() === 'mysql'
+                ? "JSON_UNQUOTE(JSON_EXTRACT(allocation_json, '$.invoice_number_rule'))"
+                : "json_extract(allocation_json, '$.invoice_number_rule')";
+            // Count unpaid reservations once; paid ones already appear in eis_sales.
+            $count += $db->table('saved_sale_split_operations')->where('business_id', $businessId)
+                ->where('created_at', '>=', now()->startOfDay())->whereNotNull('result_id')
+                ->whereRaw($rule.' = ?', ['eis'])->whereNotExists(function ($q) {
+                    $q->selectRaw('1')->from('eis_sales')
+                        ->whereColumn('eis_sales.transaction_id', 'saved_sale_split_operations.result_id');
+                })->count();
+        }
         $submittedNumber = $db->getDriverName() === 'mysql'
             ? "JSON_UNQUOTE(JSON_EXTRACT(request_payload, '$.invoiceHeader.invoiceNumber'))"
             : "json_extract(request_payload, '$.invoiceHeader.invoiceNumber')";
