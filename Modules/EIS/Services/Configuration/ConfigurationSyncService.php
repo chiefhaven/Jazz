@@ -383,14 +383,30 @@ class ConfigurationSyncService
                 return;
             }
 
+            // Prepare terminal configuration data
+            // IMPORTANT: Convert isActiveTerminal to proper boolean
+            // The API may return this as string "0"/"1", int 0/1, or boolean
+            $isActiveValue = false;
+            if (isset($terminalData->isActiveTerminal)) {
+                $rawValue = $terminalData->isActiveTerminal;
+                
+                // Handle string values from API (e.g., "0", "1", "true", "false")
+                if (is_string($rawValue)) {
+                    $isActiveValue = in_array(strtolower($rawValue), ['1', 'true', 'yes'], true);
+                } else {
+                    // Handle numeric and boolean values
+                    $isActiveValue = (bool) $rawValue;
+                }
+            }
+
             Log::info('Syncing terminal configuration', [
                 'configuration_id' => $configuration->id,
                 'business_id' => $configuration->business_id,
                 'version' => $terminalData->versionNo ?? null,
-                'is_active' => $terminalData->isActiveTerminal ?? false
+                'is_active_raw' => $terminalData->isActiveTerminal ?? 'NOT PROVIDED',
+                'is_active_casted' => $isActiveValue
             ]);
-
-            // Prepare terminal configuration data
+            
             $terminalConfigData = [
                 'configuration_id' => $configuration->id,
                 'version' => $terminalData->versionNo ?? null,
@@ -406,7 +422,8 @@ class ConfigurationSyncService
                 'raw_data' => json_encode($terminalData),
                 'last_synced_at' => now(),
                 // Terminal status comes from API response or defaults to false
-                'is_active' => $terminalData->isActiveTerminal ?? false
+                // Explicitly cast to boolean to ensure correct database storage
+                'is_active' => $isActiveValue
             ];
 
             // Update or create terminal configuration
