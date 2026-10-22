@@ -79,8 +79,10 @@ class TableController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $request->validate(['allow_multiple_orders' => 'sometimes|boolean']);
         try {
             $input = $request->only(['name', 'description', 'location_id']);
+            $input['allow_multiple_orders'] = $request->boolean('allow_multiple_orders');
             $business_id = $request->session()->get('user.business_id');
             $input['business_id'] = $business_id;
             $input['created_by'] = $request->session()->get('user.id');
@@ -148,6 +150,7 @@ class TableController extends Controller
         }
 
         if (request()->ajax()) {
+            $request->validate(['allow_multiple_orders' => 'sometimes|boolean']);
             try {
                 $input = $request->only(['name', 'description']);
                 $business_id = $request->session()->get('user.business_id');
@@ -155,6 +158,7 @@ class TableController extends Controller
                 $table = ResTable::where('business_id', $business_id)->findOrFail($id);
                 $table->name = $input['name'];
                 $table->description = $input['description'];
+                $table->allow_multiple_orders = $request->boolean('allow_multiple_orders');
                 $table->save();
 
                 $output = ['success' => true,

@@ -89,7 +89,7 @@ class RestaurantBillService
                 $this->fail('Your backend role cannot access the restaurant workspace.', 403);
             }
             return ['tables' => $this->db->table('res_tables')->where('business_id', $user->business_id)
-                    ->where('location_id', $locationId)->whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+                    ->where('location_id', $locationId)->whereNull('deleted_at')->orderBy('name')->get(['id', 'name', 'allow_multiple_orders']),
                 'can_create' => $this->allows($user, 'sell.create'), 'can_edit' => $this->allows($user, 'sell.update'),
                 'can_pay' => $this->allows($user, 'sell.payments'),
                 'can_approve' => $this->allows($user, 'restaurant.approve_void') && $this->allows($user, 'sell.update'),
@@ -265,9 +265,9 @@ class RestaurantBillService
             $table = $this->db->table('res_tables')->where('id', $tableId)->where('business_id', $user->business_id)
                 ->where('location_id', $locationId)->whereNull('deleted_at')->lockForUpdate()->first();
             if (!$table) { $this->fail('Choose a table at this business location.', 422); }
-            if ($this->db->table('restaurant_bills')->where('business_id', $user->business_id)->where('table_id', $tableId)
+            if (empty($table->allow_multiple_orders) && $this->db->table('restaurant_bills')->where('business_id', $user->business_id)->where('table_id', $tableId)
                 ->where('state', '!=', 'closed')->exists()) { $this->fail('This table already has an open bill. Add the next round to that bill.'); }
-            if ($this->db->table('transactions')->where('business_id', $user->business_id)->where('location_id', $locationId)
+            if (empty($table->allow_multiple_orders) && $this->db->table('transactions')->where('business_id', $user->business_id)->where('location_id', $locationId)
                 ->where('type', 'sell')->where('res_table_id', $tableId)->whereIn('status', ['draft', 'final'])
                 ->where('payment_status', '!=', 'paid')->exists()) {
                 $this->fail('This table has an existing unpaid bill. Clear the legacy bill before opening a new restaurant bill; preparation history is not automatically imported.');
@@ -553,19 +553,20 @@ class RestaurantBillService
             $quantities = [];
             foreach ($bill['lines'] as $line) { $quantities[$line->variation_id] = bcadd($quantities[$line->variation_id] ?? '0', $line->quantity, 4); }
             $now = date('Y-m-d H:i:s');
-            $count = 0;
+            $dispatched = [];
             foreach (array_unique($input['variations']) as $variation) {
                 if (!is_int($variation) || !isset($quantities[$variation])) { $this->fail('Unknown bill variation.', 422); }
                 $delta = bcsub($quantities[$variation], $sent[$variation] ?? '0', 4);
                 if (bccomp($delta, '0', 4) <= 0) { continue; }
-                $this->db->table('restaurant_tickets')->insert(['transaction_id' => $id, 'variation_id' => $variation,
+                $dispatched[] = $this->db->table('restaurant_tickets')->insertGetId(['transaction_id' => $id, 'variation_id' => $variation,
                     'station' => $station, 'quantity' => $delta, 'original_quantity' => $delta, 'status' => 'received', 'created_by' => $user->id,
                     'created_at' => $now, 'updated_at' => $now]);
-                ++$count;
             }
-            if (!$count) { $this->fail('No new quantities to dispatch. Previous rounds were not resent.'); }
+            if (!$dispatched) { $this->fail('No new quantities to dispatch. Previous rounds were not resent.'); }
             $this->touch($id);
-            return $this->view($this->bill($user, $id));
+            $result = $this->view($this->bill($user, $id));
+            $result['dispatch_tickets'] = $this->db->table('restaurant_tickets')->whereIn('id', $dispatched)->orderBy('id')->get();
+            return $result;
         });
     }
 

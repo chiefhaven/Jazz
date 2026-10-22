@@ -10,6 +10,11 @@
 
     <div class="modal-body">
       <div class="form-group">
+        {!! Form::hidden('allow_multiple_orders', 0) !!}
+        <label>{!! Form::checkbox('allow_multiple_orders', 1, $table->allow_multiple_orders) !!} @lang('restaurant.allow_multiple_orders')</label>
+        <p class="help-block">@lang('restaurant.allow_multiple_orders_help')</p>
+      </div>
+      <div class="form-group">
         {!! Form::label('name', __( 'restaurant.table_name' ) . ':*') !!}
           {!! Form::text('name', $table->name, ['class' => 'form-control', 'required', 'placeholder' => __( 'brand.brand_name' )]); !!}
       </div>

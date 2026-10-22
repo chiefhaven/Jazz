@@ -9,6 +9,11 @@
     </div>
 
     <div class="modal-body">
+      <div class="form-group">
+        {!! Form::hidden('allow_multiple_orders', 0) !!}
+        <label>{!! Form::checkbox('allow_multiple_orders', 1, false) !!} @lang('restaurant.allow_multiple_orders')</label>
+        <p class="help-block">@lang('restaurant.allow_multiple_orders_help')</p>
+      </div>
 
       @if(count($business_locations) == 1)
         @php 

@@ -35,6 +35,7 @@ function restaurantFixture(): array
         foreach (['cash_register_id', 'amount', 'pay_method', 'type', 'transaction_type'] as $column) { $t->text($column)->nullable(); }
     });
     $schema->create('res_tables', function (Blueprint $t) {
+        $t->boolean('allow_multiple_orders')->default(false);
         $t->increments('id'); $t->integer('business_id'); $t->integer('location_id'); $t->text('name'); $t->text('deleted_at')->nullable();
     });
     foreach ([
@@ -74,6 +75,8 @@ $before = snapshot($db);
 check(count($service->config($waiter, 2)['tables']) === 1 && snapshot($db) === $before, 'restaurant config tenant-scoped and read-only');
 $request = restaurantInput($service, $waiter, ['station' => 'bar', 'variations' => [5]]);
 $response = $service->dispatch($waiter, 1, $request);
+check(count($response['dispatch_tickets']) === 1 && $response['dispatch_tickets'][0]['quantity'] === '6.0000',
+    'dispatch response identifies exact newly sent tickets for kitchen printing');
 check($db->table('restaurant_tickets')->value('quantity') === '6.0000', 'first round sends total quantity once');
 $after = snapshot($db);
 check($service->dispatch($waiter, 1, $request) === $response && snapshot($db) === $after, 'dispatch retry never duplicates preparation');
@@ -82,7 +85,9 @@ $preview = $service->preview($waiter, 1);
 $edit = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
     'restaurant_version' => $preview['restaurant_version'], 'items' => [['variation_id' => 5, 'quantity' => '8.0000']]];
 $service->edit($waiter, 1, $edit);
-$service->dispatch($waiter, 1, restaurantInput($service, $waiter, ['station' => 'kitchen', 'variations' => [5]]));
+$secondRound = $service->dispatch($waiter, 1, restaurantInput($service, $waiter, ['station' => 'kitchen', 'variations' => [5]]));
+check(count($secondRound['dispatch_tickets']) === 1 && $secondRound['dispatch_tickets'][0]['quantity'] === '2.0000',
+    'print response contains only the new kitchen round, never earlier bar quantities');
 check($db->table('restaurant_tickets')->orderBy('id', 'desc')->value('quantity') === '2.0000', 'second round dispatch only sends added quantity');
 $waiter->permissions[] = 'restaurant.bar';
 $queue = $service->queue($waiter, 2, 'bar');
@@ -162,7 +167,29 @@ check($service->create($waiter, $create) === $result && snapshot($db) === $after
 $create['operation_id'] = (string) Illuminate\Support\Str::uuid();
 rejects(fn () => $service->create($waiter, $create), 'restaurant_workflow');
 check(snapshot($db) === $after, 'occupied table rejection never creates another bill or consumes stock');
+$db->table('res_tables')->where('id', 1)->update(['allow_multiple_orders' => 1]);
+check((int) $service->config($waiter, 2)['tables'][0]->allow_multiple_orders === 1,
+    'desktop table config exposes backend multiple-open-orders flag');
+$multiple = $service->create($waiter, $create);
+check($multiple['id'] !== $result['id'] && $db->table('restaurant_bills')->count() === 2,
+    'enabled table accepts a separate bill while a managed unpaid bill remains open');
+$multiAfter = snapshot($db);
+check($service->create($waiter, $create) === $multiple && snapshot($db) === $multiAfter,
+    'multiple-order setting never bypasses operation idempotency');
+$db->table('res_tables')->where('id', 1)->update(['allow_multiple_orders' => 0]);
+$create['operation_id'] = (string) Illuminate\Support\Str::uuid();
+rejects(fn () => $service->create($waiter, $create), 'restaurant_workflow');
+check($db->table('restaurant_bills')->count() === 2, 'disabling flag preserves existing bills but rejects further open bills');
 rejects(fn () => (new App\Services\Sales\SavedSaleSplitService($db))->createRestaurantBill($waiter, 2, 3, 1, [5 => '1']), 'restaurant_requires_transaction');
+
+[$db, $service, $waiter] = restaurantFixture();
+$db->table('restaurant_bills')->delete();
+$db->table('saved_sale_split_operations')->delete();
+$db->table('res_tables')->where('id', 1)->update(['allow_multiple_orders' => 1]);
+$legacyMultiple = $service->create($waiter, ['operation_id' => (string) Illuminate\Support\Str::uuid(),
+    'location_id' => 2, 'table_id' => 1, 'contact_id' => 3, 'items' => [['variation_id' => 5, 'quantity' => '1']]]);
+check($legacyMultiple['id'] !== 1 && $db->table('transactions')->where('id', 1)->value('payment_status') !== 'paid',
+    'enabled shared table allows a new managed order alongside a legacy unpaid order without changing the old order');
 
 [$db, $service, $waiter] = restaurantFixture();
 $split = new App\Services\Sales\SavedSaleSplitService($db);
