@@ -118,7 +118,7 @@ class SavedSaleSplitService
         return $admin;
     }
 
-    private function graph($id, $user, $admin)
+    private function graph($id, $user, $admin, bool $allowKitchenFlag = false)
     {
         $header = $this->db->table('transactions')->where('id', $id)
             ->where('business_id', $user->business_id)->where('type', 'sell')->lockForUpdate()->first();
@@ -131,6 +131,7 @@ class SavedSaleSplitService
         if ($restaurantManaged && $user->can('superadmin')) { $admin = true; }
         if (!$restaurantManaged) {
             foreach (['res_table_id', 'res_waiter_id', 'is_kitchen_order', 'res_order_status'] as $field) {
+                if ($allowKitchenFlag && $field === 'is_kitchen_order') { continue; }
                 if (!self::zero($h[$field] ?? null)) {
                     $this->fail('unsupported_restaurant_history', 'Legacy restaurant preparation history must be edited through its backend workflow, not the saved retail editor.');
                 }
@@ -419,6 +420,7 @@ class SavedSaleSplitService
     {
         $h = $g['header'];
         return ['id' => (int) $h['id'], 'invoice_no' => $h['invoice_no'], 'status' => $h['status'],
+            'is_kitchen_order' => !empty($h['is_kitchen_order']),
             'payment_status' => $h['payment_status'], 'total_before_tax' => self::decimal($h['total_before_tax']),
             'tax_amount' => self::decimal($h['tax_amount']), 'final_total' => self::decimal($h['final_total']),
             'version' => self::fingerprint($g), 'lines' => array_map(function ($line) {
@@ -676,6 +678,12 @@ class SavedSaleSplitService
     private function additionsEligible(array $g)
     {
         $this->eligible($g);
+        if (!RestaurantBillService::isEditing($this->db, $g['header']['id']) &&
+            !empty($g['header']['is_kitchen_order']) &&
+            !($this->db->getSchemaBuilder()->hasTable('restaurant_bills') &&
+                $this->db->table('restaurant_bills')->where('transaction_id', $g['header']['id'])->exists())) {
+            $this->fail('order_already_sent', 'Orders already sent to the kitchen cannot be edited.');
+        }
         $business = $this->db->table('business')->where('id', $g['header']['business_id'])->lockForUpdate()->first();
         if (!empty($business->enable_product_expiry) || !empty($business->enable_rp) ||
             !in_array($business->accounting_method ?? 'fifo', ['fifo', 'lifo'], true) ||
@@ -691,7 +699,7 @@ class SavedSaleSplitService
         $admin = $this->actor($user, true);
         $this->storage(['variation_location_details', 'product_locations']);
         return $this->db->transaction(function () use ($id, $user, $admin) {
-            $g = $this->graph($id, $user, $admin);
+            $g = $this->graph($id, $user, $admin, true);
             $reason = null;
             try { $this->additionsEligible($g); }
             catch (SavedSplitException $e) { $reason = ['code' => $e->errorCode, 'message' => $e->getMessage()]; }
@@ -801,7 +809,8 @@ class SavedSaleSplitService
     {
         $admin = $this->actor($user, true);
         $this->storage(['variation_location_details', 'product_locations']);
-        if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'items']) ||
+        if (array_diff(array_keys($input), $editing ? ['operation_id', 'expected_version', 'items', 'is_kitchen_order'] : ['operation_id', 'expected_version', 'items']) ||
+            (array_key_exists('is_kitchen_order', $input) && !is_bool($input['is_kitchen_order'])) ||
             !isset($input['operation_id'], $input['expected_version'], $input['items']) ||
             !is_string($input['operation_id']) || !Str::isUuid($input['operation_id']) ||
             !is_string($input['expected_version']) || !preg_match('/^[a-f0-9]{64}$/D', $input['expected_version']) ||
@@ -821,10 +830,12 @@ class SavedSaleSplitService
         ksort($items, SORT_NUMERIC);
         $operation = strtolower($input['operation_id']);
         $kind = $editing ? 'edit_items' : 'add_items';
-        $hash = hash('sha256', json_encode([$kind, (string) $id, $input['expected_version'], $items], JSON_THROW_ON_ERROR));
+        $payload = [$kind, (string) $id, $input['expected_version'], $items];
+        if (!empty($input['is_kitchen_order'])) { $payload[] = true; }
+        $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
         try {
             return $this->db->transaction(function () use ($id, $user, $admin, $input, $items, $operation, $hash, $editing, $kind) {
-                $g = $this->graph($id, $user, $admin);
+                $g = $this->graph($id, $user, $admin, true);
                 $existing = $this->db->table(self::OPERATIONS)->where('business_id', $user->business_id)
                     ->where('operation_id', $operation)->lockForUpdate()->first();
                 if ($existing) { return $this->replay($existing, $user, $hash); }
@@ -837,6 +848,12 @@ class SavedSaleSplitService
                     $this->fail('restaurant_workflow_required', 'Use the restaurant bill editor for this order.');
                 }
                 $business = $this->additionsEligible($g);
+                if (!empty($input['is_kitchen_order'])) {
+                    $modules = json_decode($business->enabled_modules ?? '[]', true, 512, JSON_THROW_ON_ERROR);
+                    if (!in_array('kitchen', $modules, true) || $g['header']['status'] !== 'final') {
+                        $this->fail('kitchen_unavailable', 'Enable the Kitchen module and use a final unpaid sale before sending kitchen orders.', 422);
+                    }
+                }
                 $h = $g['header'];
                 $now = date('Y-m-d H:i:s');
                 $opId = $this->db->table(self::OPERATIONS)->insertGetId(['business_id' => $user->business_id,
@@ -969,6 +986,10 @@ class SavedSaleSplitService
                     count(array_unique(array_column($after['lines'], 'variation_id'))) !== count($after['lines']) ||
                     $after['header'] !== array_replace($h, ['total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now])) {
                     $this->fail('add_items_invariant_failed', 'Saving items changed unexpected order data; rolled back.');
+                }
+                if (!empty($input['is_kitchen_order'])) {
+                    $this->db->table('transactions')->where('id', $id)->update(['is_kitchen_order' => 1]);
+                    $after = $this->graph($id, $user, $admin, true);
                 }
                 $response = ['operation_id' => $operation, 'source_id' => (int) $id,
                     'bill' => $this->bill($after), 'added_line_ids' => $newIds,

@@ -145,6 +145,7 @@ class RestaurantBillService
         $status = $this->db->table('eis_sales')->where('transaction_id', $bill['header']->id)->value('status');
         if ($status === null && $this->db->table('eis_failed_transactions')->where('transaction_id', $bill['header']->id)->exists()) { $status = 'failed'; }
         return ['id' => (int) $bill['header']->id, 'invoice' => $bill['header']->invoice_no,
+            'has_been_sent' => !empty($bill['header']->is_kitchen_order) || $bill['tickets']->isNotEmpty(),
             'contact_id' => (int) $bill['header']->contact_id,
             'table_id' => (int) $bill['flow']->table_id, 'waiter_id' => (int) $bill['flow']->waiter_id,
             'state' => $bill['flow']->state, 'version' => $bill['version'],
@@ -298,12 +299,13 @@ class RestaurantBillService
         });
     }
 
-    public function preview($user, int $id): array
+    public function preview($user, int $id, bool $unsentOnly = false): array
     {
         $this->requirePermission($user, 'sell.update');
         $this->storage();
-        return $this->db->transaction(function () use ($user, $id) {
+        return $this->db->transaction(function () use ($user, $id, $unsentOnly) {
             $bill = $this->bill($user, $id);
+            if ($unsentOnly) { $this->requireUnsent($bill); }
             if ($bill['flow']->state !== 'open') { $this->fail('Only open bills can be edited. Ask the cashier to reopen the bill.'); }
             $preview = (new SavedSaleSplitService($this->db))->additionsPreview($id, $user);
             $preview['restaurant_version'] = $bill['version'];
@@ -311,15 +313,24 @@ class RestaurantBillService
         });
     }
 
-    public function edit($user, int $id, array $input): array
+    private function requireUnsent(array $bill): void
+    {
+        if (!empty($bill['header']->is_kitchen_order) || $bill['tickets']->isNotEmpty()) {
+            $this->fail('Orders already sent to a preparation station cannot be edited in the desktop.');
+        }
+    }
+
+    public function edit($user, int $id, array $input, bool $unsentOnly = false): array
     {
         $this->requirePermission($user, 'sell.update');
-        if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'restaurant_version', 'items', 'reason', 'disposition'])) {
+        if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'restaurant_version', 'items', 'reason', 'disposition', 'is_kitchen_order']) ||
+            (array_key_exists('is_kitchen_order', $input) && !is_bool($input['is_kitchen_order']))) {
             $this->fail('Unsupported restaurant edit fields.', 422);
         }
         $items = $this->quantities($input['items'] ?? []);
-        return $this->operation($user, $id, $input, function () use ($user, $id, $input, $items) {
+        return $this->operation($user, $id, $input, function () use ($user, $id, $input, $items, $unsentOnly) {
             $bill = $this->bill($user, $id);
+            if ($unsentOnly || !empty($input['is_kitchen_order'])) { $this->requireUnsent($bill); }
             $this->version($bill, ['expected_version' => $input['restaurant_version'] ?? null]);
             if ($bill['flow']->state !== 'open' || $bill['payments']->count()) { $this->fail('Only completely unpaid open bills can be edited.'); }
             $old = [];
@@ -351,7 +362,18 @@ class RestaurantBillService
                     'disposition' => $disposition, 'status' => 'pending', 'created_at' => $now, 'updated_at' => $now]);
                 return ['id' => $id, 'approval_required' => true, 'approval_id' => $approvalId];
             }
-            return $this->applyEdit($user, $id, $input, []);
+            $result = $this->applyEdit($user, $id, $input, []);
+            if (!empty($input['is_kitchen_order'])) {
+                $modules = json_decode($this->db->table('business')->where('id', $user->business_id)->value('enabled_modules') ?? '[]', true, 512, JSON_THROW_ON_ERROR);
+                if (!in_array('kitchen', $modules, true)) { $this->fail('Enable the Kitchen module in backend business settings before sending kitchen orders.', 422); }
+                $current = $this->bill($user, $id);
+                $dispatch = $this->dispatch($user, $id, [
+                    'operation_id' => (string) Str::uuid(), 'expected_version' => $current['version'],
+                    'station' => 'kitchen', 'variations' => array_keys($items)]);
+                $this->db->table('transactions')->where('id', $id)->update(['is_kitchen_order' => 1]);
+                return $dispatch;
+            }
+            return $result;
         });
     }
 

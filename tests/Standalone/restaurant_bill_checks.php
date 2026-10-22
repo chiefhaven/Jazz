@@ -485,4 +485,83 @@ $legacyOrders = (new App\Utils\RestaurantUtil())->getAllOrders(1, ['line_order_s
 check($legacyOrders->pluck('id')->map(fn ($id) => (int) $id)->all() === [$legacyId],
     'real legacy Kitchen query retains ordinary flagged orders but excludes managed merged quantities');
 
+[$db, $service, $waiter] = restaurantFixture();
+$preview = $service->preview($waiter, 1, true);
+$edit = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'restaurant_version' => $preview['restaurant_version'], 'is_kitchen_order' => true,
+    'items' => [['variation_id' => 5, 'quantity' => '7.0000']]];
+$db->table('business')->update(['enabled_modules' => '["tables"]']);
+$before = snapshot($db);
+rejects(fn () => $service->edit($waiter, 1, $edit, true), 'restaurant_workflow');
+check(snapshot($db) === $before, 'checked desktop edit rolls back items, stock and audit when Kitchen is disabled');
+$db->table('business')->update(['enabled_modules' => '["tables","kitchen"]']);
+$response = $service->edit($waiter, 1, $edit, true);
+check(count($response['dispatch_tickets']) === 1 && $response['dispatch_tickets'][0]['quantity'] === '7.0000' &&
+    (int) $db->table('transactions')->where('id', 1)->value('is_kitchen_order') === 1,
+    'checked desktop edit atomically saves quantities and dispatches exact kitchen tickets');
+$after = snapshot($db);
+check($service->edit($waiter, 1, $edit, true) === $response && snapshot($db) === $after,
+    'checked desktop edit replay never duplicates kitchen tickets or stock');
+rejects(fn () => $service->preview($waiter, 1, true), 'restaurant_workflow');
+$next = $edit;
+$next['operation_id'] = (string) Illuminate\Support\Str::uuid();
+rejects(fn () => $service->edit($waiter, 1, $next, true), 'restaurant_workflow');
+check(snapshot($db) === $after, 'desktop cannot edit a sent bill even with a direct request');
+$db->table('restaurant_tickets')->where('transaction_id', 1)->update(['status' => 'cancelled']);
+$db->table('transactions')->where('id', 1)->update(['is_kitchen_order' => 0]);
+rejects(fn () => $service->preview($waiter, 1, true), 'restaurant_workflow');
+
+[$db, $service, $waiter] = restaurantFixture();
+$preview = $service->preview($waiter, 1, true);
+$service->dispatch($waiter, 1, restaurantInput($service, $waiter, ['station' => 'bar', 'variations' => [5]]));
+$before = snapshot($db);
+rejects(fn () => $service->edit($waiter, 1, [
+    'operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'restaurant_version' => $preview['restaurant_version'], 'items' => [['variation_id' => 5, 'quantity' => '7.0000']]
+], true), 'restaurant_workflow');
+check(snapshot($db) === $before, 'dispatch between desktop preview and save prevents editing without any write');
+
+[$db, $unused, $waiter] = restaurantFixture();
+$db->table('restaurant_bills')->delete();
+$db->table('transactions')->where('id', 1)->update(['res_table_id' => null, 'res_waiter_id' => null]);
+$editor = new App\Services\Sales\SavedSaleSplitService($db);
+$preview = $editor->additionsPreview(1, $waiter);
+$edit = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'is_kitchen_order' => true, 'items' => [['variation_id' => 5, 'quantity' => '7.0000']]];
+$db->table('business')->update(['enabled_modules' => '[]']);
+$before = snapshot($db);
+rejects(fn () => $editor->editItems(1, $waiter, $edit), 'kitchen_unavailable');
+check(snapshot($db) === $before, 'ordinary checked edit with disabled Kitchen changes neither sale nor stock');
+$db->table('business')->update(['enabled_modules' => '["kitchen"]']);
+$response = $editor->editItems(1, $waiter, $edit);
+check($response['bill']['is_kitchen_order'] === true &&
+    (int) $db->table('transactions')->where('id', 1)->value('is_kitchen_order') === 1,
+    'ordinary sale editor saves and sends to legacy Kitchen atomically');
+$after = snapshot($db);
+check($editor->editItems(1, $waiter, $edit) === $response && snapshot($db) === $after,
+    'ordinary checked edit replay is safe after the order becomes locked');
+$collision = $edit;
+$collision['is_kitchen_order'] = false;
+rejects(fn () => $editor->editItems(1, $waiter, $collision), 'operation_collision');
+check(!$editor->additionsPreview(1, $waiter)['eligible'], 'sent ordinary sale is ineligible for desktop editing');
+$next = $edit;
+$next['operation_id'] = (string) Illuminate\Support\Str::uuid();
+$next['expected_version'] = $response['bill']['version'];
+rejects(fn () => $editor->editItems(1, $waiter, $next), 'order_already_sent');
+check(snapshot($db) === $after, 'ordinary sent sale rejects direct edits without changing stock or items');
+
+[$db, $unused, $waiter] = restaurantFixture();
+$db->table('restaurant_bills')->delete();
+$db->table('transaction_sell_lines_purchase_lines')->delete();
+$db->table('transactions')->where('id', 1)->update(['status' => 'draft', 'res_table_id' => null, 'res_waiter_id' => null]);
+$editor = new App\Services\Sales\SavedSaleSplitService($db);
+$preview = $editor->additionsPreview(1, $waiter);
+check($preview['eligible'], 'ordinary unsent draft remains editable without Kitchen dispatch');
+$before = snapshot($db);
+rejects(fn () => $editor->editItems(1, $waiter, [
+    'operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'is_kitchen_order' => true, 'items' => [['variation_id' => 5, 'quantity' => '7.0000']]
+]), 'kitchen_unavailable');
+check(snapshot($db) === $before, 'ordinary draft cannot claim a Kitchen dispatch from the desktop editor');
+
 echo "PASS: $checks total isolated restaurant/saved-sale checks. No live writes or fiscal requests.\n";

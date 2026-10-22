@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'allow_multiple_orders' => 'Allow multiple open orders',
+    'allow_multiple_orders' => 'Allow multiple orders',
     'allow_multiple_orders_help' => 'Allow separate bills on this table even when another bill is open or unpaid. Leave unchecked for one active bill per table.',
 
     /*
