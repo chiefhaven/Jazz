@@ -34,12 +34,16 @@ class EisSale extends Model
         'response_payload',
         'error_message',
         'submitted_at',
+        'is_fiscalized',
+        'fiscalized_at',
     ];
 
     protected $casts = [
         'request_payload' => 'array',
         'response_payload' => 'array',
         'submitted_at' => 'datetime',
+        'fiscalized_at' => 'datetime',
+        'is_fiscalized' => 'boolean',
     ];
 
     public function transaction()
@@ -254,5 +258,50 @@ class EisSale extends Model
                 ]
             ];
         }
+    }
+
+    /**
+     * Mark sale as fiscalized.
+     * 
+     * @return bool
+     */
+    public function markAsFiscalized(): bool
+    {
+        return $this->update([
+            'is_fiscalized' => true,
+            'fiscalized_at' => now(),
+        ]);
+    }
+
+    /**
+     * Check if sale has been fiscalized.
+     * 
+     * @return bool
+     */
+    public function isFiscalized(): bool
+    {
+        return $this->is_fiscalized === true;
+    }
+
+    /**
+     * Get sales that are pending fiscalization.
+     * 
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopePendingFiscalization($query)
+    {
+        return $query->where('is_fiscalized', false)
+            ->where('status', '!=', 'failed')
+            ->where('status', '!=', 'cancelled');
+    }
+
+    /**
+     * Get sales that have been fiscalized.
+     * 
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeFiscalized($query)
+    {
+        return $query->where('is_fiscalized', true);
     }
 }
