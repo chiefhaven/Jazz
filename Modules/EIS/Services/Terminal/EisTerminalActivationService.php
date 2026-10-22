@@ -955,7 +955,10 @@ class EisTerminalActivationService
             }
             
             // Sync configuration directly for this business via API
-            $result = $this->syncService->sync($businessId, $setting->jwt_token);
+            $configuration = $this->syncService->sync($businessId, $setting->jwt_token);
+            
+            // Get the updated terminal details after sync
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
             
             // Update sync status
             $setting->update([
@@ -963,9 +966,9 @@ class EisTerminalActivationService
                 'sync_status' => 'success',
                 'sync_error' => null,
                 'successful_syncs' => ($setting->successful_syncs ?? 0) + 1,
-                'global_version' => $result->global_version ?? null,
-                'terminal_version' => $result->terminal_version ?? null,
-                'taxpayer_version' => $result->taxpayer_version ?? null,
+                'global_version' => $configuration->global_version ?? null,
+                'terminal_version' => $configuration->terminal_version ?? null,
+                'taxpayer_version' => $configuration->taxpayer_version ?? null,
             ]);
             
             // Create business location if it doesn't exist
@@ -973,18 +976,20 @@ class EisTerminalActivationService
             
             Log::info('Latest configuration synced successfully', [
                 'business_id' => $businessId,
-                'global_version' => $result->global_version,
-                'terminal_version' => $result->terminal_version,
-                'taxpayer_version' => $result->taxpayer_version
+                'global_version' => $configuration->global_version,
+                'terminal_version' => $configuration->terminal_version,
+                'taxpayer_version' => $configuration->taxpayer_version,
+                'terminal_is_active' => $terminal?->is_active
             ]);
             
             return [
                 'success' => true,
                 'message' => 'Latest configuration fetched successfully',
                 'data' => [
-                    'global_version' => $result->global_version,
-                    'terminal_version' => $result->terminal_version,
-                    'taxpayer_version' => $result->taxpayer_version
+                    'global_version' => $configuration->global_version,
+                    'terminal_version' => $configuration->terminal_version,
+                    'taxpayer_version' => $configuration->taxpayer_version,
+                    'terminal_is_active' => $terminal?->is_active ?? false
                 ]
             ];
 

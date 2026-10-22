@@ -568,28 +568,60 @@
         // Update Terminal UI
         function updateTerminalUI(data) {
             if (data) {
-                // Update status
-                if (data.is_active) {
-                    $('#terminal_status_display').html('<span class="badge badge-success">Active</span>');
-                    $('#terminal_active_actions').show();
-                    $('#terminal_inactive_actions').hide();
-                    $('#activation_code_section').hide();
-                } else {
-                    $('#terminal_status_display').html('<span class="badge badge-danger">Inactive</span>');
-                    $('#terminal_active_actions').hide();
-                    $('#terminal_inactive_actions').show();
-                    $('#activation_code_section').show();
+                // Only update status if is_active is explicitly provided in the data
+                // This prevents "Get Latest Config" from overwriting the status display with undefined
+                if (typeof data.is_active !== 'undefined') {
+                    if (data.is_active) {
+                        $('#terminal_status_display').html('<span class="badge badge-success">Active</span>');
+                        $('#terminal_active_actions').show();
+                        $('#terminal_inactive_actions').hide();
+                        $('#activation_code_section').hide();
+                    } else {
+                        $('#terminal_status_display').html('<span class="badge badge-danger">Inactive</span>');
+                        $('#terminal_active_actions').hide();
+                        $('#terminal_inactive_actions').show();
+                        $('#activation_code_section').show();
+                    }
+                } else if (typeof data.terminal_is_active !== 'undefined') {
+                    // Handle response from "Get Latest Config" which returns terminal_is_active
+                    if (data.terminal_is_active) {
+                        $('#terminal_status_display').html('<span class="badge badge-success">Active</span>');
+                        $('#terminal_active_actions').show();
+                        $('#terminal_inactive_actions').hide();
+                        $('#activation_code_section').hide();
+                    } else {
+                        $('#terminal_status_display').html('<span class="badge badge-danger">Inactive</span>');
+                        $('#terminal_active_actions').hide();
+                        $('#terminal_inactive_actions').show();
+                        $('#activation_code_section').show();
+                    }
                 }
                 
-                // Update details
-                $('#terminal_label_display').text(data.terminal_label || 'N/A');
-                $('#terminal_id_display').text(data.terminal_id || 'N/A');
-                $('#trading_name_display').text(data.trading_name || 'N/A');
-                $('#activation_code').text(data.activation_code || 'N/A');
-                $('#email_address_display').text(data.email_address || 'N/A');
-                $('#phone_number_display').text(data.phone_number || 'N/A');
-                $('#activation_date_display').text(data.activation_date ? new Date(data.activation_date).toLocaleString() : 'N/A');
-                $('#branch').text(data.branch || 'N/A');
+                // Update details - only if they exist in the response
+                if (data.terminal_label) {
+                    $('#terminal_label_display').text(data.terminal_label || 'N/A');
+                }
+                if (data.terminal_id) {
+                    $('#terminal_id_display').text(data.terminal_id || 'N/A');
+                }
+                if (data.trading_name) {
+                    $('#trading_name_display').text(data.trading_name || 'N/A');
+                }
+                if (data.activation_code) {
+                    $('#activation_code').text(data.activation_code || 'N/A');
+                }
+                if (data.email_address) {
+                    $('#email_address_display').text(data.email_address || 'N/A');
+                }
+                if (data.phone_number) {
+                    $('#phone_number_display').text(data.phone_number || 'N/A');
+                }
+                if (data.activation_date) {
+                    $('#activation_date_display').text(data.activation_date ? new Date(data.activation_date).toLocaleString() : 'N/A');
+                }
+                if (data.branch) {
+                    $('#branch').text(data.branch || 'N/A');
+                }
                 
                 // Update credentials
                 if (data.terminal_credentials) {
