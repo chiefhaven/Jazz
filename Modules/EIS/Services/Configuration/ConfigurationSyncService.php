@@ -387,15 +387,17 @@ class ConfigurationSyncService
                 'configuration_id' => $configuration->id,
                 'business_id' => $configuration->business_id,
                 'version' => $terminalData->versionNo ?? null,
-                'is_active' => $terminalData->isActiveTerminal ?? false
+                'is_active' => $terminalData->isActiveTerminal ?? null
             ]);
+
+            // Get existing terminal config to preserve is_active if not provided
+            $existingTerminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
 
             // Prepare terminal configuration data
             $terminalConfigData = [
                 'configuration_id' => $configuration->id,
                 'version' => $terminalData->versionNo ?? null,
                 'terminal_label' => $terminalData->terminalLabel ?? null,
-                'is_active' => $terminalData->isActiveTerminal ?? false,
                 'email_address' => $terminalData->emailAddress ?? null,
                 'phone_number' => $terminalData->phoneNumber ?? null,
                 'trading_name' => $terminalData->tradingName ?? null,
@@ -407,6 +409,17 @@ class ConfigurationSyncService
                 'raw_data' => json_encode($terminalData),
                 'last_synced_at' => now()
             ];
+
+            // Only update is_active if it's explicitly provided in the response
+            // Otherwise, preserve the existing terminal status
+            if (isset($terminalData->isActiveTerminal)) {
+                $terminalConfigData['is_active'] = $terminalData->isActiveTerminal;
+            } elseif (!$existingTerminal) {
+                // For new terminals, default to false if not provided
+                $terminalConfigData['is_active'] = false;
+            }
+            // If existing terminal and no isActiveTerminal provided, don't include is_active
+            // so updateOrCreate preserves the existing value
 
             // Update or create terminal configuration
             $terminalConfig = EisTerminalConfiguration::updateOrCreate(
