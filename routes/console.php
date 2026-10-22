@@ -19,15 +19,3 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
-
-
-class Kernel extends ConsoleKernel
-{
-
-    protected function schedule(Schedule $schedule)
-    {
-        $schedule->command('eis:sync-config')
-            ->dailyAt('00:10');
-    }
-
-}

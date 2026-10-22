@@ -140,7 +140,7 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
         ->middleware(['auth']);
     
     Route::post('/sells/clear-all-bill', [\App\Http\Controllers\SellController::class, 'clearAllBills'])
-        ->name('sells.clear-all-bill')
+        ->name('sells.clear-all-bill-post')
         ->middleware(['auth']);
 
     Route::post('/sells/eis-submit-all-bills', [\App\Http\Controllers\SellController::class, 'eisSubmitAllBills'])

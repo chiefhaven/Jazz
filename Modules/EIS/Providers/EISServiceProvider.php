@@ -5,7 +5,7 @@ namespace Modules\EIS\Providers;
 use Illuminate\Support\ServiceProvider;
 use Modules\EIS\Services\Http\EisHttpClient;
 use Illuminate\Console\Scheduling\Schedule;
-use Modules\EIS\Console\Commands\SyncEisConfiguration;
+// use Modules\EIS\Console\Commands\SyncEisConfiguration; // Command class file not found
 use Modules\EIS\Services\Configuration\ConfigurationSyncService;
 use Modules\EIS\Services\Configuration\EisConfigurationClient;
 use Modules\EIS\Services\Configuration\Validators\ConfigurationValidator;
@@ -35,7 +35,7 @@ class EISServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
-        $this->commands([SyncEisConfiguration::class]);
+        // $this->commands([SyncEisConfiguration::class]); // Command class file not found
         $this->app->booted(function () {
 
             $schedule = app(Schedule::class);
