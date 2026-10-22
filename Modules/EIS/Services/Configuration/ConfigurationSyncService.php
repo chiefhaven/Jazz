@@ -1188,6 +1188,10 @@ class ConfigurationSyncService
             |--------------------------------------------------------------------------
             */
 
+            // Get the business's default invoice scheme for sales
+            $defaultInvoiceScheme = \App\InvoiceScheme::getDefault($business->id);
+            $saleInvoiceSchemeId = $defaultInvoiceScheme ? $defaultInvoiceScheme->id : null;
+
             $businessLocation = \App\BusinessLocation::updateOrCreate(
                 [
                     'business_id' => $business->id,
@@ -1202,7 +1206,7 @@ class ConfigurationSyncService
 
                     'country' => 'Malawi',
 
-                    'sale_invoice_scheme_id' => 1,
+                    'sale_invoice_scheme_id' => $saleInvoiceSchemeId,
 
                     'mobile' => data_get(
                         $terminalConfig,
