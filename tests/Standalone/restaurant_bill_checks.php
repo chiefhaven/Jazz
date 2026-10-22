@@ -331,8 +331,12 @@ $superadmin = clone $waiter; $superadmin->id = 8; $superadmin->permissions = ['s
 $preview = $service->preview($superadmin, 1);
 check($preview['eligible'] === true, 'tenant-scoped superadmin restaurant edit matches backend capability and ownership rules');
 $db->table('restaurant_bills')->delete();
+$before = snapshot($db);
+check((new App\Services\Sales\SavedSaleSplitService($db))->additionsPreview(1, $waiter)['eligible'],
+    'unsent ordinary table orders support table editing');
+$db->table('transactions')->where('id', 1)->update(['res_order_status' => 'cooked']);
 rejects(fn () => (new App\Services\Sales\SavedSaleSplitService($db))->additionsPreview(1, $waiter), 'unsupported_restaurant_history');
-check($db->table('transaction_sell_lines')->count() === 2, 'allowing managed table fields does not enable the saved retail editor for legacy kitchen bills');
+check($db->table('transaction_sell_lines')->count() === 2, 'legacy preparation status still prevents ordinary table edits');
 
 [$db, $service, $waiter] = restaurantFixture();
 $db->table('restaurant_bills')->delete();
@@ -563,5 +567,116 @@ rejects(fn () => $editor->editItems(1, $waiter, [
     'is_kitchen_order' => true, 'items' => [['variation_id' => 5, 'quantity' => '7.0000']]
 ]), 'kitchen_unavailable');
 check(snapshot($db) === $before, 'ordinary draft cannot claim a Kitchen dispatch from the desktop editor');
+
+[$db, $service, $waiter] = restaurantFixture();
+$db->table('res_tables')->insert([
+    ['id' => 2, 'business_id' => 1, 'location_id' => 2, 'name' => 'Patio 2'],
+    ['id' => 3, 'business_id' => 2, 'location_id' => 2, 'name' => 'Other business'],
+    ['id' => 4, 'business_id' => 1, 'location_id' => 99, 'name' => 'Other location'],
+]);
+$db->table('res_tables')->insert(['id' => 5, 'business_id' => 1, 'location_id' => 2, 'name' => 'Deleted',
+    'deleted_at' => '2026-10-23 00:00:00']);
+$preview = $service->preview($waiter, 1, true);
+check($preview['source']['table_id'] === 1, 'desktop preview includes current managed table assignment');
+$edit = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'restaurant_version' => $preview['restaurant_version'], 'table_id' => 2,
+    'items' => [['variation_id' => 5, 'quantity' => '6.0000']]];
+foreach ([null, 0, -1, '2', 3, 4, 5, 999] as $invalidTable) {
+    $invalid = $edit;
+    $invalid['table_id'] = $invalidTable;
+    $before = snapshot($db);
+    rejects(fn () => $service->edit($waiter, 1, $invalid, true), 'restaurant_workflow');
+    check(snapshot($db) === $before, 'invalid/deleted/cross-tenant/location table change is read-only');
+}
+$db->table('restaurant_bills')->insert(['transaction_id' => 999, 'business_id' => 1, 'location_id' => 2,
+    'table_id' => 2, 'waiter_id' => 7, 'state' => 'open', 'version' => 1]);
+$before = snapshot($db);
+rejects(fn () => $service->edit($waiter, 1, $edit, true), 'restaurant_workflow');
+check(snapshot($db) === $before, 'managed occupied table prevents item and table edits atomically');
+$db->table('restaurant_bills')->where('transaction_id', 999)->delete();
+$legacy = (array) $db->table('transactions')->where('id', 1)->first();
+unset($legacy['id']);
+$legacy['res_table_id'] = 2;
+$legacyId = $db->table('transactions')->insertGetId($legacy);
+$before = snapshot($db);
+rejects(fn () => $service->edit($waiter, 1, $edit, true), 'restaurant_workflow');
+check(snapshot($db) === $before, 'legacy unpaid occupancy prevents moving to a restricted table');
+$db->table('res_tables')->where('id', 2)->update(['allow_multiple_orders' => 1]);
+$response = $service->edit($waiter, 1, $edit, true);
+check((int) $db->table('transactions')->where('id', 1)->value('res_table_id') === 2 &&
+    (int) $db->table('restaurant_bills')->where('transaction_id', 1)->value('table_id') === 2 &&
+    $response['bill']['table_id'] === 2,
+    'shared table change updates header, workflow and edit response together');
+$after = snapshot($db);
+check($service->edit($waiter, 1, $edit, true) === $response && snapshot($db) === $after,
+    'table-change retry returns original result without duplicate edits');
+$collision = $edit;
+$collision['table_id'] = 1;
+rejects(fn () => $service->edit($waiter, 1, $collision, true), 'restaurant_workflow');
+$preview = $service->preview($waiter, 1, true);
+$checked = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'restaurant_version' => $preview['restaurant_version'], 'table_id' => 1, 'is_kitchen_order' => true,
+    'items' => [['variation_id' => 5, 'quantity' => '7.0000']]];
+$db->table('business')->update(['enabled_modules' => '["tables"]']);
+$before = snapshot($db);
+rejects(fn () => $service->edit($waiter, 1, $checked, true), 'restaurant_workflow');
+check(snapshot($db) === $before, 'Kitchen failure rolls back a table move as well as item changes');
+$db->table('business')->update(['enabled_modules' => '["tables","kitchen"]']);
+$response = $service->edit($waiter, 1, $checked, true);
+check($response['table_id'] === 1 && $response['dispatch_tickets'][0]['quantity'] === '7.0000' &&
+    (int) $db->table('restaurant_bills')->where('transaction_id', 1)->value('table_id') === 1,
+    'checked edit dispatches to the newly selected table in the same transaction');
+$before = snapshot($db);
+$checked['operation_id'] = (string) Illuminate\Support\Str::uuid();
+$checked['table_id'] = 2;
+rejects(fn () => $service->edit($waiter, 1, $checked, true), 'restaurant_workflow');
+check(snapshot($db) === $before, 'sent bill cannot change table through desktop');
+
+[$db, $service, $waiter] = restaurantFixture();
+$db->table('restaurant_bills')->delete();
+$db->table('transactions')->where('id', 1)->update(['res_table_id' => null, 'res_waiter_id' => null]);
+$editor = new App\Services\Sales\SavedSaleSplitService($db);
+$preview = $editor->additionsPreview(1, $waiter);
+$edit = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'expected_version' => $preview['expected_version'],
+    'table_id' => 1, 'items' => [['variation_id' => 5, 'quantity' => '6.0000']]];
+$updateOnly = clone $waiter;
+$updateOnly->permissions = ['sell.update', 'location.2'];
+check($service->config($updateOnly, 2)['can_edit'] && !$service->config($updateOnly, 2)['can_create'],
+    'update-only role can load table choices without bill creation permission');
+$before = snapshot($db);
+$missing = $edit;
+$missing['table_id'] = 999;
+rejects(fn () => $editor->editItems(1, $waiter, $missing), 'restaurant_workflow');
+check(snapshot($db) === $before, 'ordinary sale rejects invalid table assignment without changing items');
+$invalid = $edit;
+$invalid['table_id'] = '1';
+rejects(fn () => $editor->editItems(1, $waiter, $invalid), 'invalid_add_items_request');
+$response = $editor->editItems(1, $waiter, $edit);
+check($response['bill']['table_id'] === 1 &&
+    (int) $db->table('transactions')->where('id', 1)->value('res_table_id') === 1,
+    'ordinary unsent sale editor persists a selected backend table');
+$after = snapshot($db);
+check($editor->editItems(1, $waiter, $edit) === $response && snapshot($db) === $after,
+    'ordinary table edit replay is idempotent');
+$collision = $edit;
+$collision['table_id'] = null;
+rejects(fn () => $editor->editItems(1, $waiter, $collision), 'operation_collision');
+$preview = $editor->additionsPreview(1, $waiter);
+check($preview['eligible'] && $preview['source']['table_id'] === 1, 'ordinary assigned unsent sale can reopen in editor');
+$edit['operation_id'] = (string) Illuminate\Support\Str::uuid();
+$edit['expected_version'] = $preview['expected_version'];
+$edit['table_id'] = null;
+$response = $editor->editItems(1, $waiter, $edit);
+check($response['bill']['table_id'] === null &&
+    $db->table('transactions')->where('id', 1)->value('res_table_id') === null,
+    'ordinary unsent sale can explicitly return to no table');
+$preview = $editor->additionsPreview(1, $waiter);
+$edit['operation_id'] = (string) Illuminate\Support\Str::uuid();
+$edit['expected_version'] = $preview['expected_version'];
+$edit['table_id'] = 1;
+$edit['is_kitchen_order'] = true;
+$response = $editor->editItems(1, $waiter, $edit);
+check($response['bill']['table_id'] === 1 && $response['bill']['is_kitchen_order'],
+    'ordinary checked edit assigns table and Kitchen flag atomically');
 
 echo "PASS: $checks total isolated restaurant/saved-sale checks. No live writes or fiscal requests.\n";

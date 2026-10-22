@@ -118,7 +118,7 @@ class SavedSaleSplitService
         return $admin;
     }
 
-    private function graph($id, $user, $admin, bool $allowKitchenFlag = false)
+    private function graph($id, $user, $admin, bool $allowEditRestaurantFields = false)
     {
         $header = $this->db->table('transactions')->where('id', $id)
             ->where('business_id', $user->business_id)->where('type', 'sell')->lockForUpdate()->first();
@@ -131,7 +131,7 @@ class SavedSaleSplitService
         if ($restaurantManaged && $user->can('superadmin')) { $admin = true; }
         if (!$restaurantManaged) {
             foreach (['res_table_id', 'res_waiter_id', 'is_kitchen_order', 'res_order_status'] as $field) {
-                if ($allowKitchenFlag && $field === 'is_kitchen_order') { continue; }
+                if ($allowEditRestaurantFields && in_array($field, ['is_kitchen_order', 'res_table_id', 'res_waiter_id'], true)) { continue; }
                 if (!self::zero($h[$field] ?? null)) {
                     $this->fail('unsupported_restaurant_history', 'Legacy restaurant preparation history must be edited through its backend workflow, not the saved retail editor.');
                 }
@@ -421,6 +421,7 @@ class SavedSaleSplitService
         $h = $g['header'];
         return ['id' => (int) $h['id'], 'invoice_no' => $h['invoice_no'], 'status' => $h['status'],
             'is_kitchen_order' => !empty($h['is_kitchen_order']),
+            'table_id' => empty($h['res_table_id']) ? null : (int) $h['res_table_id'],
             'payment_status' => $h['payment_status'], 'total_before_tax' => self::decimal($h['total_before_tax']),
             'tax_amount' => self::decimal($h['tax_amount']), 'final_total' => self::decimal($h['final_total']),
             'version' => self::fingerprint($g), 'lines' => array_map(function ($line) {
@@ -809,7 +810,9 @@ class SavedSaleSplitService
     {
         $admin = $this->actor($user, true);
         $this->storage(['variation_location_details', 'product_locations']);
-        if (array_diff(array_keys($input), $editing ? ['operation_id', 'expected_version', 'items', 'is_kitchen_order'] : ['operation_id', 'expected_version', 'items']) ||
+        if (array_diff(array_keys($input), $editing ? ['operation_id', 'expected_version', 'items', 'is_kitchen_order', 'table_id'] : ['operation_id', 'expected_version', 'items']) ||
+            (array_key_exists('table_id', $input) && $input['table_id'] !== null &&
+                (!is_int($input['table_id']) || $input['table_id'] <= 0)) ||
             (array_key_exists('is_kitchen_order', $input) && !is_bool($input['is_kitchen_order'])) ||
             !isset($input['operation_id'], $input['expected_version'], $input['items']) ||
             !is_string($input['operation_id']) || !Str::isUuid($input['operation_id']) ||
@@ -832,6 +835,7 @@ class SavedSaleSplitService
         $kind = $editing ? 'edit_items' : 'add_items';
         $payload = [$kind, (string) $id, $input['expected_version'], $items];
         if (!empty($input['is_kitchen_order'])) { $payload[] = true; }
+        if (array_key_exists('table_id', $input)) { $payload[] = ['table_id' => $input['table_id']]; }
         $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
         try {
             return $this->db->transaction(function () use ($id, $user, $admin, $input, $items, $operation, $hash, $editing, $kind) {
@@ -848,6 +852,12 @@ class SavedSaleSplitService
                     $this->fail('restaurant_workflow_required', 'Use the restaurant bill editor for this order.');
                 }
                 $business = $this->additionsEligible($g);
+                $tableChanged = array_key_exists('table_id', $input) &&
+                    ($input['table_id'] ?? 0) !== (int) ($g['header']['res_table_id'] ?? 0);
+                if ($tableChanged && $input['table_id'] !== null) {
+                    (new RestaurantBillService($this->db))->validateTableAssignment($user,
+                        (int) $g['header']['location_id'], $input['table_id'], (int) $id);
+                }
                 if (!empty($input['is_kitchen_order'])) {
                     $modules = json_decode($business->enabled_modules ?? '[]', true, 512, JSON_THROW_ON_ERROR);
                     if (!in_array('kitchen', $modules, true) || $g['header']['status'] !== 'final') {
@@ -976,7 +986,7 @@ class SavedSaleSplitService
                 $total = self::decimal($this->total(array_merge($expectedLines, $newLines)));
                 $this->db->table('transactions')->where('id', $id)->update([
                     'total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now]);
-                $after = $this->graph($id, $user, $admin);
+                $after = $this->graph($id, $user, $admin, true);
                 $this->eligible($after);
                 $originalLines = array_values(array_filter($after['lines'], fn ($line) => !in_array($line['id'], $newIds)));
                 $mappingIds = array_column($g['mappings'], 'id');
@@ -987,8 +997,11 @@ class SavedSaleSplitService
                     $after['header'] !== array_replace($h, ['total_before_tax' => $total, 'final_total' => $total, 'updated_at' => $now])) {
                     $this->fail('add_items_invariant_failed', 'Saving items changed unexpected order data; rolled back.');
                 }
-                if (!empty($input['is_kitchen_order'])) {
-                    $this->db->table('transactions')->where('id', $id)->update(['is_kitchen_order' => 1]);
+                $restaurantChanges = [];
+                if ($tableChanged) { $restaurantChanges['res_table_id'] = $input['table_id']; }
+                if (!empty($input['is_kitchen_order'])) { $restaurantChanges['is_kitchen_order'] = 1; }
+                if ($restaurantChanges) {
+                    $this->db->table('transactions')->where('id', $id)->update($restaurantChanges);
                     $after = $this->graph($id, $user, $admin, true);
                 }
                 $response = ['operation_id' => $operation, 'source_id' => (int) $id,

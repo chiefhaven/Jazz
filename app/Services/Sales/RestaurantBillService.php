@@ -83,7 +83,7 @@ class RestaurantBillService
         $this->enabled($user);
         return $this->db->transaction(function () use ($user, $locationId) {
             $location = $this->location($user, $locationId);
-            if (!$this->admin($user) && !$user->can('access_tables') && !$user->can('sell.create') &&
+            if (!$this->admin($user) && !$user->can('access_tables') && !$user->can('sell.create') && !$user->can('sell.update') &&
                 !$user->can('sell.payments') && !$user->can('restaurant.kitchen') && !$user->can('restaurant.bar') &&
                 !$user->can('restaurant.approve_void')) {
                 $this->fail('Your backend role cannot access the restaurant workspace.', 403);
@@ -247,6 +247,27 @@ class RestaurantBillService
         $this->db->table('restaurant_bills')->where('transaction_id', $id)->update($values);
     }
 
+    public function validateTableAssignment($user, int $locationId, int $tableId, int $exceptId = 0): void
+    {
+        $this->storage();
+        $this->enabled($user);
+        $this->location($user, $locationId);
+        $table = $this->db->table('res_tables')->where('id', $tableId)->where('business_id', $user->business_id)
+            ->where('location_id', $locationId)->whereNull('deleted_at')->lockForUpdate()->first();
+        if (!$table) { $this->fail('Choose a table at this business location.', 422); }
+        if (empty($table->allow_multiple_orders) && $this->db->table('restaurant_bills')
+            ->where('business_id', $user->business_id)->where('table_id', $tableId)
+            ->where('transaction_id', '!=', $exceptId)->where('state', '!=', 'closed')->exists()) {
+            $this->fail('This table already has an open bill. Choose another table.');
+        }
+        if (empty($table->allow_multiple_orders) && $this->db->table('transactions')
+            ->where('business_id', $user->business_id)->where('location_id', $locationId)
+            ->where('id', '!=', $exceptId)->where('type', 'sell')->where('res_table_id', $tableId)
+            ->whereIn('status', ['draft', 'final'])->where('payment_status', '!=', 'paid')->exists()) {
+            $this->fail('This table has an existing unpaid bill. Choose another table.');
+        }
+    }
+
     public function create($user, array $input): array
     {
         $this->requirePermission($user, 'sell.create');
@@ -263,16 +284,7 @@ class RestaurantBillService
             }
             $locationId = (int) ($input['location_id'] ?? 0);
             $tableId = (int) ($input['table_id'] ?? 0);
-            $table = $this->db->table('res_tables')->where('id', $tableId)->where('business_id', $user->business_id)
-                ->where('location_id', $locationId)->whereNull('deleted_at')->lockForUpdate()->first();
-            if (!$table) { $this->fail('Choose a table at this business location.', 422); }
-            if (empty($table->allow_multiple_orders) && $this->db->table('restaurant_bills')->where('business_id', $user->business_id)->where('table_id', $tableId)
-                ->where('state', '!=', 'closed')->exists()) { $this->fail('This table already has an open bill. Add the next round to that bill.'); }
-            if (empty($table->allow_multiple_orders) && $this->db->table('transactions')->where('business_id', $user->business_id)->where('location_id', $locationId)
-                ->where('type', 'sell')->where('res_table_id', $tableId)->whereIn('status', ['draft', 'final'])
-                ->where('payment_status', '!=', 'paid')->exists()) {
-                $this->fail('This table has an existing unpaid bill. Clear the legacy bill before opening a new restaurant bill; preparation history is not automatically imported.');
-            }
+            $this->validateTableAssignment($user, $locationId, $tableId);
             $contact = $this->db->table('contacts')->where('id', (int) ($input['contact_id'] ?? 0))
                 ->where('business_id', $user->business_id)->whereIn('type', ['customer', 'both'])->whereNull('deleted_at')->first();
             if (!$contact || (!$this->admin($user) && !$user->can('customer.view') && !$user->can('customer.view_own') &&
@@ -323,7 +335,8 @@ class RestaurantBillService
     public function edit($user, int $id, array $input, bool $unsentOnly = false): array
     {
         $this->requirePermission($user, 'sell.update');
-        if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'restaurant_version', 'items', 'reason', 'disposition', 'is_kitchen_order']) ||
+        if (array_diff(array_keys($input), ['operation_id', 'expected_version', 'restaurant_version', 'items', 'reason', 'disposition', 'is_kitchen_order', 'table_id']) ||
+            (array_key_exists('table_id', $input) && (!is_int($input['table_id']) || $input['table_id'] <= 0)) ||
             (array_key_exists('is_kitchen_order', $input) && !is_bool($input['is_kitchen_order']))) {
             $this->fail('Unsupported restaurant edit fields.', 422);
         }
@@ -333,6 +346,11 @@ class RestaurantBillService
             if ($unsentOnly || !empty($input['is_kitchen_order'])) { $this->requireUnsent($bill); }
             $this->version($bill, ['expected_version' => $input['restaurant_version'] ?? null]);
             if ($bill['flow']->state !== 'open' || $bill['payments']->count()) { $this->fail('Only completely unpaid open bills can be edited.'); }
+            $tableChanged = isset($input['table_id']) && $input['table_id'] !== (int) $bill['flow']->table_id;
+            if ($tableChanged) {
+                $this->requireUnsent($bill);
+                $this->validateTableAssignment($user, (int) $bill['header']->location_id, $input['table_id'], $id);
+            }
             $old = [];
             foreach ($bill['lines'] as $line) { $old[$line->variation_id] = bcadd($old[$line->variation_id] ?? '0', $line->quantity, 4); }
             $dispatched = [];
@@ -363,6 +381,12 @@ class RestaurantBillService
                 return ['id' => $id, 'approval_required' => true, 'approval_id' => $approvalId];
             }
             $result = $this->applyEdit($user, $id, $input, []);
+            if ($tableChanged) {
+                $this->db->table('transactions')->where('id', $id)->update(['res_table_id' => $input['table_id']]);
+                $this->db->table('restaurant_bills')->where('transaction_id', $id)->update(['table_id' => $input['table_id']]);
+                $this->touch($id);
+                $result['bill'] = (new SavedSaleSplitService($this->db))->additionsPreview($id, $user)['source'];
+            }
             if (!empty($input['is_kitchen_order'])) {
                 $modules = json_decode($this->db->table('business')->where('id', $user->business_id)->value('enabled_modules') ?? '[]', true, 512, JSON_THROW_ON_ERROR);
                 if (!in_array('kitchen', $modules, true)) { $this->fail('Enable the Kitchen module in backend business settings before sending kitchen orders.', 422); }
