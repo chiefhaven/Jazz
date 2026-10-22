@@ -9,6 +9,8 @@ return [
     */
 
     'restaurant' => 'Restaurant',
+    'dispatch_round' => 'Dispatch round',
+    'use_round_ticket' => 'Use the kitchen round ticket or Restaurant service to update this managed bill.',
     'tables' => 'Tables',
     'table' => 'Table',
     'manage_your_tables' => 'Manage restaurant tables',

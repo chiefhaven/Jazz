@@ -336,4 +336,126 @@ $service->approve($manager, 1, $decision);
 check($db->table('restaurant_approvals')->value('status') === 'rejected' && $db->table('transaction_sell_lines')->count() === 2,
     'manager can reject a stale request without applying its changes');
 
+foreach ([false, true] as $kitchen) {
+    [$db, $service, $waiter] = restaurantFixture();
+    $db->table('restaurant_bills')->delete();
+    $db->table('saved_sale_split_operations')->delete();
+    $db->table('transactions')->where('id', 1)->update(['res_table_id' => null, 'res_waiter_id' => null]);
+    $create = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'location_id' => 2, 'table_id' => 1, 'contact_id' => 3,
+        'is_kitchen_order' => $kitchen, 'items' => [['variation_id' => 5, 'quantity' => '1.2500']]];
+    $result = $service->create($waiter, $create);
+    $id = $result['id'];
+    check($db->table('restaurant_tickets')->count() === ($kitchen ? 1 : 0), 'checkbox dispatches the initial round only when checked');
+    check($db->table('transaction_payments')->count() === 0 && $service->scheduled === 0, 'kitchen dispatch does not collect payment or fiscalize unpaid bills');
+    if ($kitchen) {
+        check((int) $db->table('transactions')->where('id', $id)->value('is_kitchen_order') === 1 &&
+            $db->table('restaurant_tickets')->value('quantity') === '1.2500', 'kitchen flag and exact quantities persist together with the bill');
+        $before = snapshot($db);
+        check($service->create($waiter, $create) === $result && snapshot($db) === $before, 'creation retry cannot duplicate kitchen tickets or stock deductions');
+        rejects(fn () => $service->dispatch($waiter, $id, restaurantInput($service, $waiter, ['station' => 'kitchen', 'variations' => [5]], $id)), 'restaurant_workflow');
+        $cook = clone $waiter; $cook->permissions = ['restaurant.kitchen', 'location.2'];
+        $queue = $service->kitchenOrders($cook);
+        check(count($queue) === 1 && (int) $queue[0]['transaction_id'] === $id && $queue[0]['quantity'] === '1.2500',
+            'existing backend Kitchen feed receives the automatically dispatched round');
+        $cook->permissions = ['restaurant.kitchen', 'location.999'];
+        check($service->kitchenOrders($cook) === [], 'backend Kitchen feed does not reveal tickets from another location');
+        $cook->permissions = ['location.2'];
+        rejects(fn () => $service->kitchenOrders($cook), 'restaurant_workflow');
+        $cook->permissions = ['restaurant.kitchen', 'location.2'];
+        $ticket = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'ticket_id' => (int) $queue[0]['id'], 'station' => 'kitchen', 'status' => 'cooked'];
+        $service->ticket($cook, $id, $ticket);
+        check($service->kitchenOrders($cook) === [], 'marking the exact round cooked removes it from received Kitchen feed');
+        $service->ticket($cook, $id, $ticket);
+        check($db->table('restaurant_tickets')->count() === 1, 'cook retry is idempotent');
+    }
+}
+[$db, $service, $waiter] = restaurantFixture();
+$db->table('restaurant_bills')->delete();
+$db->table('saved_sale_split_operations')->delete();
+$db->table('transactions')->where('id', 1)->update(['res_table_id' => null, 'res_waiter_id' => null]);
+$create = ['operation_id' => (string) Illuminate\Support\Str::uuid(), 'location_id' => 2, 'table_id' => 1, 'contact_id' => 3,
+    'is_kitchen_order' => true, 'items' => [['variation_id' => 5, 'quantity' => '1']]];
+$db->table('business')->update(['enabled_modules' => '["tables"]']);
+$before = snapshot($db);
+rejects(fn () => $service->create($waiter, $create), 'restaurant_workflow');
+check(snapshot($db) === $before, 'disabled backend Kitchen module rejects dispatch before creating a bill or deducting stock');
+$db->table('business')->update(['enabled_modules' => '["tables","kitchen"]']);
+$before = snapshot($db);
+$db->statement("CREATE TRIGGER reject_kitchen_ticket BEFORE INSERT ON restaurant_tickets BEGIN SELECT RAISE(ABORT, 'Synthetic kitchen failure'); END");
+try {
+    $service->create($waiter, $create);
+    throw new RuntimeException('Kitchen failure unexpectedly saved order');
+} catch (Illuminate\Database\QueryException $e) { check(str_contains($e->getMessage(), 'Synthetic kitchen failure'), 'test injects kitchen dispatch failure'); }
+check(snapshot($db) === $before, 'failed kitchen dispatch rolls back bill, invoice counter, stock, mappings and audit');
+
+// Exercise the Connector formatter without booting Laravel or any live configuration.
+[$db, $service, $waiter] = restaurantFixture();
+$controllerClass = new ReflectionClass(Modules\Connector\Http\Controllers\Api\SellController::class);
+$controller = $controllerClass->newInstanceWithoutConstructor();
+$contactUtil = new class extends App\Utils\ContactUtil {
+    public function getCustomerGroup($business_id, $contact_id) { return null; }
+};
+$property = $controllerClass->getProperty('contactUtil'); $property->setAccessible(true); $property->setValue($controller, $contactUtil);
+$property = $controllerClass->getProperty('transactionUtil'); $property->setAccessible(true); $property->setValue($controller, new App\Utils\TransactionUtil());
+$format = $controllerClass->getMethod('__formatSellData'); $format->setAccessible(true);
+foreach ([true, false] as $flag) {
+    $data = $format->invoke($controller, ['business_id' => 1, 'location_id' => 2, 'contact_id' => 3, 'is_kitchen_order' => $flag]);
+    check((bool) $data['is_kitchen_order'] === $flag, 'normal Connector sale formatter retains explicit kitchen checkbox value');
+}
+$db->table('business')->update(['enabled_modules' => '["tables"]']);
+try {
+    $format->invoke($controller, ['business_id' => 1, 'location_id' => 2, 'contact_id' => 3, 'is_kitchen_order' => true]);
+    throw new RuntimeException('Disabled Kitchen accepted');
+} catch (InvalidArgumentException $e) { check(str_contains($e->getMessage(), 'Kitchen module'), 'normal Connector rejects checked orders when Kitchen is disabled'); }
+
+// Render the actual Kitchen round partial without an application kernel.
+$container = Illuminate\Container\Container::getInstance();
+$container->instance('url', new class {
+    public function action($action, $parameters = [], $absolute = true) {
+        return '/kitchen/mark-ticket-as-cooked/'.reset($parameters);
+    }
+});
+$files = new Illuminate\Filesystem\Filesystem();
+$compiler = new Illuminate\View\Compilers\BladeCompiler($files, sys_get_temp_dir());
+$factory = new Illuminate\View\Factory(new Illuminate\View\Engines\EngineResolver(),
+    new Illuminate\View\FileViewFinder($files, []), $db->getEventDispatcher());
+$factory->setContainer($container);
+$compiled = $compiler->compileString(file_get_contents(dirname(__DIR__, 2).'/resources/views/restaurant/partials/kitchen_rounds.blade.php'));
+$renderKitchen = function ($kitchen_tickets) use ($factory, $compiled) {
+    $__env = $factory;
+    ob_start();
+    try { eval('?>'.$compiled); return ob_get_contents(); }
+    finally { ob_end_clean(); }
+};
+$html = $renderKitchen([['id' => 9, 'transaction_id' => 12, 'invoice_no' => 'INV-12', 'table_name' => 'Patio',
+    'product_name' => 'Food <script>unsafe</script>', 'quantity' => '1.2500']]);
+check(str_contains($html, 'INV-12') && str_contains($html, 'Patio') && str_contains($html, '1.2500') &&
+    str_contains($html, '/kitchen/mark-ticket-as-cooked/12') && str_contains($html, 'data-ticket-id="9"'),
+    'actual backend Kitchen partial shows the exact item round, table/invoice, quantity and cooked action');
+check(!str_contains($html, '<script>unsafe</script>') && str_contains($html, '&lt;script&gt;'), 'kitchen round markup escapes product names');
+check(trim($renderKitchen([])) === '', 'no kitchen round cards when nothing was dispatched');
+
+[$db, $service, $waiter] = restaurantFixture();
+$schema = $db->getSchemaBuilder();
+foreach (['contacts', 'business_locations'] as $table) {
+    if (!$schema->hasColumn($table, 'name')) {
+        $schema->table($table, function (Blueprint $t) { $t->text('name')->nullable(); });
+    }
+}
+$schema->table('transaction_sell_lines', function (Blueprint $t) { $t->text('res_line_order_status')->nullable(); });
+$db->table('transactions')->where('id', 1)->update(['is_kitchen_order' => 1]);
+$legacy = (array) $db->table('transactions')->where('id', 1)->first();
+unset($legacy['id']);
+$legacyId = $db->table('transactions')->insertGetId($legacy);
+$line = (array) $db->table('transaction_sell_lines')->where('transaction_id', 1)->first();
+unset($line['id']);
+$line['transaction_id'] = $legacyId;
+$db->table('transaction_sell_lines')->insert($line);
+Illuminate\Container\Container::getInstance()->instance(Illuminate\Contracts\Auth\Factory::class, new class {
+    public function user() { return new class { public function permitted_locations() { return 'all'; } }; }
+});
+$legacyOrders = (new App\Utils\RestaurantUtil())->getAllOrders(1, ['line_order_status' => 'received', 'is_kitchen_order' => 1]);
+check($legacyOrders->pluck('id')->map(fn ($id) => (int) $id)->all() === [$legacyId],
+    'real legacy Kitchen query retains ordinary flagged orders but excludes managed merged quantities');
+
 echo "PASS: $checks total isolated restaurant/saved-sale checks. No live writes or fiscal requests.\n";

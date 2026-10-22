@@ -1407,6 +1407,15 @@ class SellController extends ApiController
     private function __formatSellData($data, $transaction = null)
     {
         $business_id = $data['business_id'];
+        if (array_key_exists('is_kitchen_order', $data)) {
+            if (!in_array($data['is_kitchen_order'], [true, false, 0, 1, '0', '1'], true)) {
+                throw new \InvalidArgumentException('Kitchen order must be a boolean.');
+            }
+            if (!empty($data['is_kitchen_order']) &&
+                !in_array('kitchen', Business::findOrFail($business_id)->enabled_modules ?? [], true)) {
+                throw new \InvalidArgumentException('Enable the Kitchen module in backend business settings before sending kitchen orders.');
+            }
+        }
         $location = BusinessLocation::where('business_id', $business_id)
                                     ->findOrFail($data['location_id']);
 
@@ -1466,6 +1475,7 @@ class SellController extends ApiController
             'round_off_amount' => $this->__getValue('round_off_amount', $data, $transaction),
             'res_table_id' => $this->__getValue('table_id', $data, $transaction, null, 'res_table_id'),
             'res_waiter_id' => $this->__getValue('service_staff_id', $data, $transaction, null, 'res_waiter_id'),
+            'is_kitchen_order' => $this->__getValue('is_kitchen_order', $data, $transaction, 0, 'is_kitchen_order'),
             'change_return' => $this->__getValue('change_return', $data, $transaction, 0),
             'change_return_id' => $this->__getValue('change_return_id', $data, $transaction, null),
             'is_quotation' => $this->__getValue('is_quotation', $data, $transaction, 0),

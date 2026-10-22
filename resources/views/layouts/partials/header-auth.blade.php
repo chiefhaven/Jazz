@@ -10,7 +10,7 @@
             <a href="{{ url('/') }}">
                 <div
                     class="lg:tw-w-16 md:tw-h-16 tw-w-12 tw-h-12 tw-flex tw-items-center tw-justify-center tw-mx-auto tw-overflow-hidden tw-p-0.5 tw-mb-4">
-                    <img src="{{ asset('img/logo-small.png') }}" alt="lock" class="tw-object-fill opacity-50" />
+                    <img src="{{ config('branding.logo') ?: asset('img/logo-small.png') }}" alt="{{ config('app.name') }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
                 </div>
             </a>
 

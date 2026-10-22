@@ -28,6 +28,8 @@ Route::middleware('web', 'auth', 'language', 'AdminSidebarMenu', 'superadmin')->
     Route::get('/packages/{id}/destroy', [Modules\Superadmin\Http\Controllers\PackagesController::class, 'destroy']);
 
     Route::get('/settings', [Modules\Superadmin\Http\Controllers\SuperadminSettingsController::class, 'edit']);
+    Route::get('/settings/general', [Modules\Superadmin\Http\Controllers\SuperadminSettingsController::class, 'general'])->name('superadmin.settings.general');
+    Route::put('/settings/general', [Modules\Superadmin\Http\Controllers\SuperadminSettingsController::class, 'updateGeneral'])->name('superadmin.settings.general.update');
     Route::put('/settings', [Modules\Superadmin\Http\Controllers\SuperadminSettingsController::class, 'update']);
     Route::get('/edit-subscription/{id}', [Modules\Superadmin\Http\Controllers\SuperadminSubscriptionsController::class, 'editSubscription']);
     Route::post('/update-subscription', [Modules\Superadmin\Http\Controllers\SuperadminSubscriptionsController::class, 'updateSubscription']);

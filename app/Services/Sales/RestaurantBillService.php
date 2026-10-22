@@ -249,12 +249,17 @@ class RestaurantBillService
     public function create($user, array $input): array
     {
         $this->requirePermission($user, 'sell.create');
-        if (array_diff(array_keys($input), ['operation_id', 'location_id', 'table_id', 'contact_id', 'items']) ||
-            !is_int($input['location_id'] ?? null) || !is_int($input['table_id'] ?? null) || !is_int($input['contact_id'] ?? null)) {
-            $this->fail('Only table, location, customer and item quantities may be supplied.', 422);
+        if (array_diff(array_keys($input), ['operation_id', 'location_id', 'table_id', 'contact_id', 'items', 'is_kitchen_order']) ||
+            !is_int($input['location_id'] ?? null) || !is_int($input['table_id'] ?? null) || !is_int($input['contact_id'] ?? null) ||
+            (array_key_exists('is_kitchen_order', $input) && !is_bool($input['is_kitchen_order']))) {
+            $this->fail('Provide table, location, customer, item quantities and an optional boolean kitchen-order flag.', 422);
         }
         $items = $this->quantities($input['items'] ?? []);
         return $this->operation($user, 0, $input, function () use ($user, $input, $items) {
+            if (!empty($input['is_kitchen_order'])) {
+                $modules = json_decode($this->db->table('business')->where('id', $user->business_id)->value('enabled_modules') ?? '[]', true, 512, JSON_THROW_ON_ERROR);
+                if (!in_array('kitchen', $modules, true)) { $this->fail('Enable the Kitchen module in backend business settings before sending kitchen orders.', 422); }
+            }
             $locationId = (int) ($input['location_id'] ?? 0);
             $tableId = (int) ($input['table_id'] ?? 0);
             $table = $this->db->table('res_tables')->where('id', $tableId)->where('business_id', $user->business_id)
@@ -281,6 +286,14 @@ class RestaurantBillService
                 'payload_hash' => hash('sha256', json_encode($input, JSON_THROW_ON_ERROR)),
                 'expected_version' => str_repeat('0', 64), 'allocation_json' => json_encode(['kind' => 'restaurant_open'], JSON_THROW_ON_ERROR),
                 'response_json' => json_encode(['id' => $id], JSON_THROW_ON_ERROR), 'created_at' => $now, 'updated_at' => $now]);
+            if (!empty($input['is_kitchen_order'])) {
+                $this->db->table('transactions')->where('id', $id)->update(['is_kitchen_order' => 1]);
+                foreach ($items as $variation => $quantity) {
+                    $this->db->table('restaurant_tickets')->insert(['transaction_id' => $id, 'variation_id' => $variation,
+                        'station' => 'kitchen', 'quantity' => $quantity, 'original_quantity' => $quantity, 'status' => 'received',
+                        'created_by' => $user->id, 'created_at' => $now, 'updated_at' => $now]);
+                }
+            }
             return $this->view($this->bill($user, $id));
         });
     }
@@ -571,8 +584,25 @@ class RestaurantBillService
                 if (!empty($r->variation_name) && $r->variation_name !== 'DUMMY' && $r->variation_name !== $r->product_name) {
                     $r->product_name .= ' - '.$r->variation_name;
                 }
+
                 return (array) $r;
             })->all();
+    }
+
+    public function kitchenOrders($user): array
+    {
+        $this->requirePermission($user, 'restaurant.kitchen');
+        $this->storage();
+        $this->enabled($user);
+        $locations = $this->db->table('business_locations')->where('business_id', $user->business_id)->orderBy('id')->pluck('id');
+        $tickets = [];
+        foreach ($locations as $location) {
+            if (!$this->admin($user) && !$user->can('access_all_locations') && !$user->can('location.'.$location)) { continue; }
+            foreach ($this->queue($user, (int) $location, 'kitchen') as $ticket) {
+                if ($ticket['status'] === 'received') { $tickets[] = $ticket; }
+            }
+        }
+        return $tickets;
     }
 
     public function ticket($user, int $id, array $input): array

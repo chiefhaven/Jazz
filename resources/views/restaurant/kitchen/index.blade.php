@@ -44,6 +44,37 @@
 @section('javascript')
     <script type="text/javascript">
         $(document).ready(function() {
+            $(document).on('click', 'a.mark_ticket_as_cooked_btn', function(e) {
+                e.preventDefault();
+                var button = $(this);
+                if (button.data('busy')) return;
+                swal({title: LANG.sure, icon: "info", buttons: true}).then(function(confirmed) {
+                    if (!confirmed || button.data('busy')) return;
+                    button.data('busy', true);
+                    $.ajax({
+                        method: "POST",
+                        url: button.data('href'),
+                        dataType: "json",
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            ticket_id: button.data('ticket-id'),
+                            operation_id: button.data('operation-id')
+                        },
+                        success: function(result) {
+                            if (result.success) {
+                                toastr.success(result.msg);
+                                button.closest('.order_div').remove();
+                            } else {
+                                toastr.error(result.msg);
+                            }
+                        },
+                        error: function(xhr) {
+                            toastr.error((xhr.responseJSON && (xhr.responseJSON.msg || xhr.responseJSON.message)) || LANG.something_went_wrong);
+                        },
+                        complete: function() { button.data('busy', false); }
+                    });
+                });
+            });
             $(document).on('click', 'a.mark_as_cooked_btn', function(e) {
                 e.preventDefault();
                 swal({
