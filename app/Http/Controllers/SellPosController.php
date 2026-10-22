@@ -197,17 +197,29 @@ class SellPosController extends Controller
 
         $payment_lines[] = $this->dummyPaymentLine;
 
-        $default_location = !empty($register_details->location_id) ? BusinessLocation::findOrFail($register_details->location_id) : null;
-
         $business_locations = BusinessLocation::forDropdown($business_id, false, true);
         $bl_attributes = $business_locations['attributes'];
         $business_locations = $business_locations['locations'];
 
-        //set first location as default locaton
+        $register_location_id = $register_details->location_id;
+        $default_location = !empty($register_location_id) && $business_locations->has($register_location_id)
+            ? BusinessLocation::find($register_location_id)
+            : null;
+
+        if (empty($default_location) && !empty($register_location_id)) {
+            Log::warning('Open cash register references an unavailable location; using the first available POS location.', [
+                'cash_register_id' => $register_details->id,
+                'business_id' => $business_id,
+                'location_id' => $register_location_id,
+            ]);
+        }
+
         if (empty($default_location)) {
             foreach ($business_locations as $id => $name) {
-                $default_location = BusinessLocation::findOrFail($id);
-                break;
+                $default_location = BusinessLocation::find($id);
+                if (!empty($default_location)) {
+                    break;
+                }
             }
         }
 
