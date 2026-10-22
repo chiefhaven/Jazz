@@ -1225,6 +1225,7 @@ class ConfigurationSyncService
                 'business_location_id' => $businessLocation->id,
                 'eis_site_id' => $siteId,
                 'sale_invoice_scheme_id' => $saleInvoiceSchemeId,
+                'business_location_name' => $businessLocation->name,
             ]);
 
             return $businessLocation->fresh();
