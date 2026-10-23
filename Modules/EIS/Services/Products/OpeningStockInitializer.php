@@ -38,12 +38,21 @@ final class OpeningStockInitializer
             $value = $item[$field];
             if (is_float($value)) {
                 // Validate only the decoded payload, not the original JSON token's precision.
-                // A noncanonical encoder configuration could silently round; fail closed.
-                if (!is_finite($value) || $value < 0 || $value > 1e9
-                    || ini_get('serialize_precision') !== '-1') {
+                if (!is_finite($value) || $value < 0 || $value > 1e9) {
                     return ['quantity' => null, 'reason' => 'invalid_or_conflicting_stock'];
                 }
-                $value = json_encode($value, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+                // Use shortest round-trip encoding regardless of the host's PHP settings.
+                $precision = ini_get('serialize_precision');
+                if ($precision !== '-1' && ini_set('serialize_precision', '-1') === false) {
+                    throw new \RuntimeException('EIS stock parsing requires canonical PHP serialization precision.');
+                }
+                try {
+                    $value = json_encode($value, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+                } finally {
+                    if ($precision !== '-1' && ini_set('serialize_precision', $precision) === false) {
+                        throw new \RuntimeException('EIS stock parsing could not restore PHP serialization precision.');
+                    }
+                }
             }
             $next = self::decimal($value);
             if ($next === null || ($quantity !== null && $quantity !== $next)) {

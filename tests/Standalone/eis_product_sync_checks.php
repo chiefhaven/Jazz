@@ -576,5 +576,28 @@ $client->pages = [['data' => [catalogItem('6001106100551', 108977)]]];
 pullCatalog($sync);
 catalogCheck($db->table('variation_location_details')->value('qty_available') === '108977.0000',
     'Observed EIS integer quantity is accepted exactly');
+$precision = ini_get('serialize_precision');
+try {
+    foreach (['100', '4', '-1'] as $runtimePrecision) {
+        ini_set('serialize_precision', $runtimePrecision);
+        $client->pages = [['data' => [catalogItem('6001106100551', 108977.0)]]];
+        pullCatalog($sync);
+        catalogCheck($db->table('variation_location_details')->value('qty_available') === '108977.0000',
+            'Observed live float imports exactly with serialize_precision='.$runtimePrecision);
+        catalogCheck(\Modules\EIS\Services\Products\OpeningStockInitializer::stockSource(['quantity' => 0.0])['quantity'] === '0.0000',
+            'Zero float remains valid');
+        catalogCheck(\Modules\EIS\Services\Products\OpeningStockInitializer::stockSource(['quantity' => 12.3456])['quantity'] === '12.3456',
+            'Four-decimal floats remain exact under host precision settings');
+        foreach ([12.34567, -1.0, INF, NAN, 1e10] as $invalid) {
+            catalogCheck(\Modules\EIS\Services\Products\OpeningStockInitializer::stockSource(['quantity' => $invalid])['quantity'] === null,
+                'Unsafe float is not rounded into accepted stock');
+        }
+        catalogCheck(\Modules\EIS\Services\Products\OpeningStockInitializer::stockSource(['quantity' => 108977.0, 'stock' => '1'])['quantity'] === null,
+            'Conflicting aliases remain rejected');
+        catalogCheck(ini_get('serialize_precision') === $runtimePrecision, 'Parser restores host precision after accepted and rejected quantities');
+    }
+} finally {
+    ini_set('serialize_precision', $precision);
+}
 Mockery::close();
 echo "PASS: {$checks} isolated EIS catalog sync, ownership and editor checks; no live sync or network.\n";
