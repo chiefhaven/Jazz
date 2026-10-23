@@ -165,6 +165,27 @@ class Product extends Model
         return $query->where('products.is_inactive', 0);
     }
 
+    public function scopeWithStockLocationDetails($query, $businessId, $locationId, $permittedLocations)
+    {
+        $locations = \App\BusinessLocation::where('business_id', $businessId);
+        if ($permittedLocations !== 'all') {
+            $locations->whereIn('id', $permittedLocations);
+        }
+        if (!empty($locationId) && $locationId !== 'none') {
+            $locations->where('id', $locationId);
+        }
+        if (\App\Services\EisProductPolicy::configured($businessId)) {
+            $settings = \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->firstOrFail();
+            $site = \Modules\EIS\Services\Products\EisProductClient::requestSiteId($settings);
+            $locations->whereNotNull('eis_site_id')->where('eis_site_id', $site ?? '');
+        }
+
+        return $query->leftJoin('variation_location_details as vld', function ($join) use ($locations) {
+            $join->on('vld.variation_id', '=', 'v.id')
+                ->whereIn('vld.location_id', $locations->select('id'));
+        });
+    }
+
     /**
      * Scope a query to only include inactive products.
      *

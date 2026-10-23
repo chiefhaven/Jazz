@@ -32,6 +32,13 @@ The transformer `stock` field and `transformed_stock` log value use the same
 validated four-decimal string as the database writer (for example,
 `108977.0000`). Invalid or missing stock remains null, with a
 `stock_validation_reason`, rather than being replaced by a misleading zero.
+Each EIS-configured ERP business represents its configured terminal. The product
+list's Current stock sums only that terminal's mapped location, intersected with
+the selected location and the user's location permissions. Legacy quantities at
+other locations are not added to the terminal quantity or deleted. No unrelated
+location is used as a fallback when the terminal is unmapped. Ordinary businesses
+retain permitted-location totals; selecting a location limits the stock sum to
+that location, not just the list of products.
 Returning maps, products, and their single variation are restored using existing
 IDs. Repeated pulls replace quantity rather than adding to it; explicit zero is
 authoritative. DECIMAL(22,4) validation uses the existing strict source parser,

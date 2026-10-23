@@ -74,7 +74,7 @@ function catalogFixture(): array
             'eis_product_id', 'eis_last_synced_at', 'unit_id', 'expiry_period', 'deleted_at',
             'brand_id', 'category_id', 'sub_category_id', 'alert_quantity', 'image', 'product_custom_field1',
             'woocommerce_media_id', 'woocommerce_product_id'],
-        'eis_settings' => ['business_id', 'status'],
+        'eis_settings' => ['business_id', 'status', 'site_id', 'branch_id'],
         'product_variations' => ['product_id', 'variation_template_id', 'name', 'is_dummy'],
         'variations' => ['product_id', 'product_variation_id', 'name', 'default_sell_price', 'default_purchase_price',
             'dpp_inc_tax', 'sell_price_inc_tax', 'sub_sku', 'profit_percent', 'deleted_at'],
@@ -97,7 +97,7 @@ function catalogFixture(): array
         });
     }
     $db->table('business')->insert([['id' => 1], ['id' => 2]]);
-    $db->table('eis_settings')->insert(['business_id' => 1, 'status' => 0]);
+    $db->table('eis_settings')->insert(['business_id' => 1, 'status' => 0, 'branch_id' => 'SITE-A']);
     $db->table('business_locations')->insert([
         ['id' => 1, 'business_id' => 1, 'eis_site_id' => 'SITE-A'],
         ['id' => 2, 'business_id' => 2, 'eis_site_id' => 'SITE-A'],
@@ -622,5 +622,39 @@ try {
 } finally {
     ini_set('serialize_precision', $precision);
 }
+[$db, $client, $sync] = catalogFixture();
+$client->pages = [['data' => [catalogItem('TERMINAL', '108977')]]];
+pullCatalog($sync);
+$product = Product::where('business_id', 1)->firstOrFail();
+$variation = \App\Variation::where('product_id', $product->id)->firstOrFail();
+$db->table('business_locations')->insert(['id' => 3, 'business_id' => 1, 'eis_site_id' => 'SITE-B']);
+foreach ([3 => '42.0000', 2 => '999.0000'] as $location => $quantity) {
+    $db->table('variation_location_details')->insert([
+        'product_id' => $product->id, 'variation_id' => $variation->id,
+        'location_id' => $location, 'qty_available' => $quantity,
+    ]);
+}
+function listedStock(int $businessId, $locationId = null, $permitted = 'all')
+{
+    return Product::join('variations as v', 'v.product_id', '=', 'products.id')
+        ->withStockLocationDetails($businessId, $locationId, $permitted)
+        ->where('products.business_id', $businessId)->whereNull('v.deleted_at')
+        ->selectRaw('SUM(vld.qty_available) as current_stock')->value('current_stock');
+}
+catalogCheck((float) listedStock(1) === 108977.0,
+    'EIS business list displays only its terminal quantity, excluding legacy and foreign locations');
+catalogCheck((float) listedStock(1, 1) === 108977.0, 'Selected terminal displays exact EIS stock');
+catalogCheck(listedStock(1, 3) === null, 'Another location cannot display the terminal quantity');
+catalogCheck(listedStock(1, null, [3]) === null, 'Terminal stock is not exposed without location permission');
+catalogCheck((float) listedStock(1, null, [1]) === 108977.0, 'Permitted terminal quantity is included');
+$db->table('eis_settings')->where('business_id', 1)->update(['site_id' => 'SITE-B']);
+catalogCheck((float) listedStock(1) === 42.0, 'Explicit configured site takes precedence over branch');
+$db->table('eis_settings')->where('business_id', 1)->update(['site_id' => 'UNKNOWN']);
+catalogCheck(listedStock(1) === null, 'Missing terminal mapping does not fall back to unrelated stock');
+$db->table('eis_settings')->where('business_id', 1)->delete();
+catalogCheck((float) listedStock(1) === 109019.0, 'Ordinary business list sums only its own locations');
+catalogCheck((float) listedStock(1, 3) === 42.0, 'Ordinary selected-location stock excludes other locations');
+catalogCheck((float) listedStock(1, null, [3]) === 42.0, 'Ordinary total respects permitted locations');
+catalogCheck(listedStock(1, 2) === null, 'Foreign location cannot contribute to a business stock total');
 Mockery::close();
 echo "PASS: {$checks} isolated EIS catalog sync, ownership and editor checks; no live sync or network.\n";

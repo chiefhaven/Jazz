@@ -115,6 +115,10 @@ class ProductController extends Controller
             //Filter by location
             $location_id = request()->get('location_id', null);
             $permitted_locations = auth()->user()->permitted_locations();
+            if (!empty($location_id) && $location_id !== 'none' && $permitted_locations !== 'all'
+                && !in_array($location_id, $permitted_locations)) {
+                abort(403, 'Unauthorized action.');
+            }
 
             $query = Product::with(['media'])
                 ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
@@ -123,12 +127,7 @@ class ProductController extends Controller
                 ->leftJoin('categories as c2', 'products.sub_category_id', '=', 'c2.id')
                 ->leftJoin('tax_rates', 'products.tax', '=', 'tax_rates.id')
                 ->join('variations as v', 'v.product_id', '=', 'products.id')
-                ->leftJoin('variation_location_details as vld', function ($join) use ($permitted_locations) {
-                    $join->on('vld.variation_id', '=', 'v.id');
-                    if ($permitted_locations != 'all') {
-                        $join->whereIn('vld.location_id', $permitted_locations);
-                    }
-                })
+                ->withStockLocationDetails($business_id, $location_id, $permitted_locations)
                 ->whereNull('v.deleted_at')
                 ->where('products.business_id', $business_id)
                 ->where('products.type', '!=', 'modifier');
