@@ -9,6 +9,16 @@ use Modules\EIS\Services\Terminal\TerminalContext;
 
 // Exercise real activation persistence without calling the activation API.
 $app['config']['eis.base_url'] = 'https://eis.invalid';
+$baseUrlMigration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_23_171800_restore_eis_settings_base_url.php';
+$baseUrlMigration->up();
+locationCheck($schema->hasColumn('eis_settings', 'base_url')
+    && DB::table('eis_settings')->whereNull('base_url')->count() === 0, 'Compatibility migration restores missing endpoint column and backfills settings');
+DB::table('eis_settings')->where('id', 2)->update(['base_url' => 'https://custom.invalid']);
+$baseUrlMigration->up();
+locationCheck(DB::table('eis_settings')->where('id', 2)->value('base_url') === 'https://custom.invalid',
+    'Repeated endpoint migration preserves existing terminal URLs');
+$baseUrlMigration->down();
+locationCheck($schema->hasColumn('eis_settings', 'base_url'), 'Compatibility rollback retains original-schema endpoint column');
 $app->instance('cache', new class {
     private $store;
     public function __construct() { $this->store = new Illuminate\Cache\ArrayStore(); }
@@ -17,7 +27,7 @@ $app->instance('cache', new class {
 $schema->create('business', function (Blueprint $table) { $table->increments('id'); $table->string('name'); });
 DB::table('business')->insert([['id' => 1, 'name' => 'Business one'], ['id' => 2, 'name' => 'Business two']]);
 foreach ([
-    'eis_settings' => ['base_url', 'secret_key', 'last_sync_at', 'sync_status', 'sync_error', 'successful_syncs', 'failed_syncs'],
+    'eis_settings' => ['secret_key', 'last_sync_at', 'sync_status', 'sync_error', 'successful_syncs', 'failed_syncs'],
     'eis_configurations' => ['global_version', 'terminal_version', 'taxpayer_version', 'tpin', 'is_vat_registered', 'tax_office_code', 'tax_office_name', 'raw_response', 'last_synced_at'],
     'eis_terminal_configurations' => ['version', 'terminal_label', 'email_address', 'phone_number', 'trading_name',
         'max_transaction_age', 'max_cummulative_amount', 'address_lines', 'raw_data', 'last_synced_at',
@@ -125,6 +135,27 @@ locationReject(fn () => $callActivation->invoke($activation, 1, 'TEST', ['platfo
     'Unsupported explicit OS fails locally');
 locationCheck(count(Illuminate\Support\Facades\Http::recorded()) === $requestsBefore, 'Unsupported OS never reaches EIS');
 
+$app['config']['app.name'] = 'Development POS';
+$app['config']['eis.environment'] = 'development';
+$app['config']['eis.product_id'] = null;
+$app['config']['eis.product_version'] = '2.0.0';
+$callActivation->invoke($activation, 1, 'TEST', ['pos' => ['productID' => 'browser-override']]);
+$pos = Illuminate\Support\Facades\Http::recorded()->last()[0]['environment']['pos'];
+locationCheck($pos === ['productID' => 'Development POS', 'productVersion' => '2.0.0'],
+    'Development accepts null product ID but sends required configured POS fields');
+$app['config']['eis.environment'] = 'production';
+$requestsBefore = count(Illuminate\Support\Facades\Http::recorded());
+locationReject(fn () => $callActivation->invoke($activation, 1, 'TEST', ['pos' => ['productID' => 'browser-override']]),
+    'Production requires server-configured registered product ID');
+locationCheck(count(Illuminate\Support\Facades\Http::recorded()) === $requestsBefore, 'Missing production product ID blocks HTTP');
+$app['config']['eis.product_id'] = 'REGISTERED-POS';
+$callActivation->invoke($activation, 1, 'TEST', ['pos' => ['productID' => 'browser-override', 'productVersion' => 'wrong']]);
+locationCheck(Illuminate\Support\Facades\Http::recorded()->last()[0]['environment']['pos']
+    === ['productID' => 'REGISTERED-POS', 'productVersion' => '2.0.0'], 'Production sends registered product ID and version, ignoring browser overrides');
+$app['config']['eis.environment'] = 'invalid';
+locationReject(fn () => $callActivation->invoke($activation, 1, 'TEST', []), 'Unknown EIS mode is rejected');
+$app['config']['eis.environment'] = 'development';
+
 $http = new Illuminate\Http\Client\Factory();
 $http->preventStrayRequests();
 Illuminate\Support\Facades\Http::swap($http);
@@ -210,6 +241,36 @@ $anonymous = isolationRequest('eis/terminals/activate'); $anonymous->setUserReso
 isolationStatus(fn () => $middleware->handle($anonymous, fn () => true), 401, 'Anonymous session management is forbidden');
 $webhook = isolationRequest('api/v1/webhooks/configuration-update'); $webhook->setUserResolver(fn () => null);
 locationCheck($middleware->handle($webhook, fn () => true), 'Existing machine webhook authentication contract is unchanged');
+
+$http = new Illuminate\Http\Client\Factory(); $http->preventStrayRequests();
+Illuminate\Support\Facades\Http::swap($http);
+Illuminate\Support\Facades\Http::fake(fn () => Illuminate\Support\Facades\Http::response(['ok' => true]));
+$health = Mockery::mock(Modules\EIS\Services\Http\EisHealthService::class);
+$httpClient = new Modules\EIS\Services\Http\EisHttpClient(new Modules\EIS\Services\Security\EisSignatureService(), $health);
+$endpointSetting = new Modules\EIS\Models\EisSetting([
+    'base_url' => 'https://stale.invalid', 'business_id' => 1, 'jwt_token' => 'test-token',
+    'secret_key' => 'test-secret', 'tpin' => 'TIN1',
+]);
+$httpClient->get('/endpoint-check', $endpointSetting);
+locationCheck(Illuminate\Support\Facades\Http::recorded()->last()[0]->url() === 'https://eis.invalid/endpoint-check',
+    'Signed GET uses environment config rather than stored terminal endpoint');
+$authSetting = Mockery::mock(Modules\EIS\Models\EisSetting::class)->makePartial();
+$authSetting->setRawAttributes(['base_url' => 'https://stale.invalid', 'refresh_token' => 'test-refresh']);
+$authSetting->shouldReceive('update')->once()->andReturn(true);
+$http = new Illuminate\Http\Client\Factory(); $http->preventStrayRequests();
+Illuminate\Support\Facades\Http::swap($http);
+Illuminate\Support\Facades\Http::fake(fn () => Illuminate\Support\Facades\Http::response(['access_token' => 'refreshed']));
+(new Modules\EIS\Services\Auth\EisAuthService())->refresh($authSetting);
+locationCheck(Illuminate\Support\Facades\Http::recorded()->last()[0]->url() === 'https://eis.invalid/auth/refresh',
+    'Credential refresh uses environment config rather than stored terminal endpoint');
+$app['config']['eis.base_url'] = '';
+$requestCount = count(Illuminate\Support\Facades\Http::recorded());
+locationReject(fn () => new Modules\EIS\Services\Http\EisHttpClient(new Modules\EIS\Services\Security\EisSignatureService(), $health),
+    'Signed client requires configured EIS endpoint');
+locationReject(fn () => (new Modules\EIS\Services\Auth\EisAuthService())->refresh($authSetting),
+    'Credential refresh requires configured EIS endpoint');
+locationCheck(count(Illuminate\Support\Facades\Http::recorded()) === $requestCount, 'Missing endpoint never sends HTTP');
+$app['config']['eis.base_url'] = 'https://eis.invalid';
 
 $schema->table('transactions', function (Blueprint $table) {
     foreach (['type', 'status', 'payment_status', 'invoice_no', 'transaction_date'] as $column) { $table->text($column)->nullable(); }

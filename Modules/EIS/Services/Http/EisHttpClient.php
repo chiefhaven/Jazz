@@ -14,7 +14,10 @@ class EisHttpClient
         protected EisHealthService $health
 
     ) {
-        $this->baseUrl = rtrim(config('eis.base_url'), '/');
+        $this->baseUrl = rtrim(trim((string) config('eis.base_url')), '/');
+        if ($this->baseUrl === '') {
+            throw new \InvalidArgumentException('Configure EIS_BASE_URL before contacting EIS.');
+        }
     }
 
 
@@ -51,7 +54,7 @@ class EisHttpClient
 
         $signature = hash_hmac('sha256', $endpoint . $timestamp, $setting->secret_key);
 
-        return Http::baseUrl($setting->base_url)
+        return Http::baseUrl($this->baseUrl)
             ->withToken($setting->jwt_token)
             ->withHeaders([
                 'X-TPIN' => $setting->tpin,

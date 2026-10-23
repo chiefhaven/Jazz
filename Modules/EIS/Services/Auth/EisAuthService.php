@@ -8,7 +8,11 @@ class EisAuthService
 {
     public function refresh(EisSetting $setting)
     {
-        $response = Http::post($setting->base_url . '/auth/refresh', [
+        $baseUrl = rtrim(trim((string) config('eis.base_url')), '/');
+        if ($baseUrl === '') {
+            throw new \InvalidArgumentException('Configure EIS_BASE_URL before refreshing EIS credentials.');
+        }
+        $response = Http::post($baseUrl . '/auth/refresh', [
             'refresh_token' => $setting->refresh_token,
         ]);
 

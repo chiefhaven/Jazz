@@ -268,8 +268,7 @@
                 location_id: location,
                 terminal_activation_code: code,
                 environment: {
-                    platform: {osVersion: 'Unknown', osBuild: ''},
-                    pos: {productID: @json(config('app.name')), productVersion: @json(config('app.version', '1.0.0'))}
+                    platform: {osVersion: 'Unknown', osBuild: ''}
                 }
             }, true);
         });

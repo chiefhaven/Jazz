@@ -2,6 +2,19 @@
 
 ## Settings → MRA EIS terminal management
 
+### Environment and registered POS product
+
+```dotenv
+EIS_ENV=development
+EIS_BASE_URL=<EIS API base URL for the selected environment>
+EIS_PRODUCT_ID=null
+EIS_PRODUCT_VERSION=1.0.0
+```
+
+Use `EIS_ENV=production` and the MRA-registered `EIS_PRODUCT_ID` for production. Missing product IDs block production activation before HTTP; browser input cannot override the configured ID/version. In development, a null product ID uses the application name so the required `environment.pos.productID` remains nonempty. `dev` and the legacy `sandbox` mode are development aliases; other modes are rejected. Mode does not rewrite `EIS_BASE_URL`: configure the matching endpoint explicitly.
+
+The [EIS Swagger schema](https://dev-eis-api.mra.mw/swagger/index.html) requires nonempty `productID` and `productVersion` in the POS environment. Clear/rebuild Laravel's configuration cache and restart long-running queue workers after changing these environment values.
+
 Activation normalizes operating-system names before contacting EIS. Browser platform aliases such as `Win32`/`MacIntel` are not sent as OS names; the settings form lets the server identify the OS from the request user agent. Unrecognized operating systems are rejected locally with an actionable error.
 
 The settings tab lists terminals at the signed-in user's permitted locations, including restricted administrators. Multiple terminals may belong to a location; **Set default** designates the location's terminal for sales. Terminal IDs below are local `eis_settings.id` values, not EIS device IDs or configuration IDs.
@@ -43,6 +56,10 @@ The current design supersedes the historical singleton behavior described below:
 - Bulk submission from the sales screen is restricted to permitted locations. Each job resolves its own sale's location and terminal; no arbitrary business-wide token is used. The global badge shows **Multiple terminals** instead of claiming one selected terminal represents all locations.
 
 ### Migration
+
+`EIS_BASE_URL` in `.env`, accessed through Laravel's `config('eis.base_url')`, is the runtime endpoint source for EIS clients, including credential refresh and signed GET requests. The database column is retained for legacy schema compatibility, not as a per-terminal endpoint override. After changing `.env`, rebuild or clear Laravel's configuration cache as appropriate for the deployment.
+
+The follow-up `2026_10_23_171800_restore_eis_settings_base_url.php` restores the original `eis_settings.base_url` column on installations where it is missing. Empty endpoints are populated from `eis.base_url`; existing terminal endpoints are preserved. Its rollback intentionally retains this original-schema column.
 
 Back up the database and run the normal deployment migration process during a maintenance window:
 

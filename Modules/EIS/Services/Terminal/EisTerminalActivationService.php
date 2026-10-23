@@ -365,6 +365,19 @@ class EisTerminalActivationService
     private function callActivationAPI(int $businessId, string $activationCode, array $environment): object
     {
         $url = $this->apiBaseUrl . '/onboarding/activate-terminal';
+        $mode = strtolower(trim((string) config('eis.environment', 'development')));
+        if (!in_array($mode, ['development', 'dev', 'sandbox', 'production'], true)) {
+            throw new \InvalidArgumentException('EIS_ENV must be development or production.');
+        }
+        $productId = trim((string) config('eis.product_id'));
+        if ($mode === 'production' && $productId === '') {
+            throw new \InvalidArgumentException('Set the registered EIS_PRODUCT_ID before activating a production terminal.');
+        }
+        $productId = $productId !== '' ? $productId : trim((string) config('app.name', 'POS System'));
+        $productVersion = trim((string) config('eis.product_version', '1.0.0'));
+        if ($productId === '' || $productVersion === '') {
+            throw new \InvalidArgumentException('EIS activation requires a product ID and EIS_PRODUCT_VERSION.');
+        }
 
         // Build the correct payload structure
         $payload = [
@@ -377,8 +390,8 @@ class EisTerminalActivationService
                     'macAddress' => $environment['platform']['macAddress'] ?? '00:00:00:00:00:00'
                 ],
                 'pos' => [
-                    'productID' => $environment['pos']['productID'] ?? config('app.name', 'POS System'),
-                    'productVersion' => $environment['pos']['productVersion'] ?? config('app.version', '1.0.0')
+                    'productID' => $productId,
+                    'productVersion' => $productVersion
                 ]
             ]
         ];
