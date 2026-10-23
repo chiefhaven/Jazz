@@ -86,11 +86,18 @@ function fixtureSale(): Transaction {
 }
 function fixtureRelations(Transaction $transaction): Transaction {
     $transaction->setRelation('business', null)->setRelation('location', null)->setRelation('contact', null);
-    $line = new TransactionSellLine();
-    $line->setRawAttributes(['id' => 1, 'unit_price' => 100, 'quantity' => 1]);
-    $line->exists = true;
-    $line->setRelation('product', null)->setRelation('variations', null)->setRelation('modifiers', collect());
-    $transaction->setRelation('sell_lines', new Illuminate\Database\Eloquent\Collection([$line]));
+    $lines = [];
+    foreach ([
+        ['id' => 1, 'unit_price' => 10, 'unit_price_inc_tax' => 11.25, 'item_tax' => 1.25, 'quantity' => 2],
+        ['id' => 2, 'unit_price' => 20, 'unit_price_inc_tax' => 20.75, 'item_tax' => 0.75, 'quantity' => 3],
+    ] as $attributes) {
+        $line = new TransactionSellLine();
+        $line->setRawAttributes($attributes);
+        $line->exists = true;
+        $line->setRelation('product', null)->setRelation('variations', null)->setRelation('modifiers', collect());
+        $lines[] = $line;
+    }
+    $transaction->setRelation('sell_lines', new Illuminate\Database\Eloquent\Collection($lines));
     return $transaction;
 }
 // refresh() reloads relations; use a transaction subtype that keeps only fixture relations.
@@ -116,6 +123,9 @@ function failSubmission(SaleSubmissionService $service, Transaction $transaction
 $transaction = submissionFixture();
 failSubmission($service, $transaction, $settings);
 $first = $client->payloads[0];
+checkRetry(array_column($first['invoiceLineItems'], 'totalVAT') === [2.5, 2.25], 'Inline item VAT includes quantity');
+checkRetry($first['invoiceSummary']['totalVAT'] === array_sum(array_column($first['invoiceLineItems'], 'totalVAT')),
+    'Invoice VAT equals the sum of inline item VAT');
 checkRetry(! array_key_exists('offlineSignature', $first['invoiceSummary']), 'First summary omits signature key entirely');
 checkRetry(! isset($first['offlineSignatureData']) && ! isset($first['invoiceSummary']['validationURL']), 'First payload omits offline metadata');
 checkRetry($transformer->signatures === 0, 'First attempt does not generate offline signature');

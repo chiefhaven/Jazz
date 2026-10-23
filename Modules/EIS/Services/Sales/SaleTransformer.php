@@ -85,9 +85,9 @@ class SaleTransformer
             // Calculate values with proper null handling
             $unitPrice = $this->getUnitPrice($line);
             $quantity = $this->getQuantity($line);
-            $vat = $this->getVatAmount($line);
+            $vat = round($this->getVatAmount($line) * $quantity, 2);
             $discount = $this->getDiscountAmount($line);
-            $lineTotal = $unitPrice * $quantity;
+            $lineTotal = round($unitPrice * $quantity, 2);
             
             $subtotal += $lineTotal;
             $totalItems += $quantity;
