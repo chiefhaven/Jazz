@@ -358,7 +358,18 @@ class TerminalActivationController extends Controller
     }
 
     /**
-     * Check if terminal is active - No authentication required.
+     * Get terminal status for the authenticated business settings page.
+     */
+    public function getStatus(Request $request)
+    {
+        $businessId = (int) $request->user()->business_id;
+        $result = $this->activationService->getStatus($businessId);
+
+        return response()->json($result, $result['success'] ? 200 : 404);
+    }
+
+    /**
+     * Check if Terminal is Active - No authentication required.
      *
      * @param int $businessId
      * @return \Illuminate\Http\JsonResponse

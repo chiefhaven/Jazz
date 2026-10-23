@@ -548,11 +548,9 @@
 
         // Get Terminal Status
         function getTerminalStatus() {
-            var businessId = $('#business_id').val();
-            
             $.ajax({
                 method: 'get',
-                url: "{{ url('api/v1/terminal/status') }}/" + businessId,
+                url: "{{ route('eis.web.terminal.status') }}",
                 dataType: 'json',
                 success: function(result) {
                     if (result.success == true) {
@@ -597,37 +595,21 @@
                     }
                 }
                 
-                // Update details - only if they exist in the response
-                if (data.terminal_label) {
-                    $('#terminal_label_display').text(data.terminal_label || 'N/A');
-                }
-                if (data.terminal_id) {
-                    $('#terminal_id_display').text(data.terminal_id || 'N/A');
-                }
-                if (data.trading_name) {
-                    $('#trading_name_display').text(data.trading_name || 'N/A');
-                }
-                if (data.activation_code) {
-                    $('#activation_code').text(data.activation_code || 'N/A');
-                }
-                if (data.email_address) {
-                    $('#email_address_display').text(data.email_address || 'N/A');
-                }
-                if (data.phone_number) {
-                    $('#phone_number_display').text(data.phone_number || 'N/A');
-                }
-                if (data.activation_date) {
-                    $('#activation_date_display').text(data.activation_date ? new Date(data.activation_date).toLocaleString() : 'N/A');
-                }
-                if (data.branch) {
-                    $('#branch').text(data.branch || 'N/A');
-                }
+                $('#terminal_label_display').text(data.terminal_label || 'N/A');
+                $('#terminal_id_display').text(data.terminal_id || 'N/A');
+                $('#trading_name_display').text(data.trading_name || 'N/A');
+                $('#activation_code').text(data.activation_code || 'N/A');
+                $('#email_address_display').text(data.email_address || 'N/A');
+                $('#phone_number_display').text(data.phone_number || 'N/A');
+                $('#activation_date_display').text(data.activation_date
+                    ? new Date(data.activation_date).toLocaleString()
+                    : 'N/A');
+                $('#branch').text(data.branch || 'N/A');
                 
                 // Update credentials
-                if (data.terminal_credentials) {
-                    //$('#jwt_token_display').text(data.terminal_credentials.jwt_token || 'N/A');
-                    //$('#secret_key_display').text(data.terminal_credentials.secret_key || 'N/A');
-                }
+                var credentials = data.terminal_credentials || {};
+                $('#jwt_token_display').text(credentials.jwt_token || 'N/A');
+                $('#secret_key_display').text(credentials.secret_key || 'N/A');
             }
         }
 
