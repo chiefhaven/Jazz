@@ -1,5 +1,9 @@
 <div class="pos-tab-content" id="eis-terminal-management">
     <h4>MRA EIS terminals</h4>
+    <p>
+        <a class="btn btn-info" href="{{ route('eis.stock.index') }}">Compare / reconcile EIS stock levels</a>
+        <a class="btn btn-default" href="{{ route('eis.stock.outbound.index') }}">EIS outbound stock operations</a>
+    </p>
     <p>Activate a terminal using its EIS-assigned site. Its location is matched by site ID or created automatically. Then designate the default terminal for sales.</p>
     <div id="eis-management-message" role="status" aria-live="polite"></div>
     <div class="row">

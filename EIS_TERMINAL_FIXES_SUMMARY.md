@@ -1,5 +1,34 @@
 # EIS Terminal Activation and Configuration Fixes
 
+## EIS-authoritative site stock reconciliation
+
+Settings -> MRA EIS -> **Compare / reconcile stock** opens `/eis/stock`. Viewing/comparing requires `business_settings.access` or `stock_adjustment.view`; applying also requires `stock_adjustment.create`. Every operation enforces the authenticated business and permitted location, including administrators.
+
+The [official Swagger contract](https://dev-eis-api.mra.mw/swagger/v1/swagger.json) specifies POST `/utilities/get-terminal-site-products` with exactly `{tin, siteId}`. This is site inventory, not `/stock/warehouse-inventory`. No undocumented pagination fields are sent by reconciliation. Only business-mapped, stocked, single-variation products at the selected terminal's assigned site are reconciled. Import the catalog first; missing EIS products are **not** assumed to have zero stock.
+
+Comparison saves a five-minute snapshot. Applying fetches EIS again and rejects changed remote quantities, terminal/site ownership, local stock or purchase allocations. Finish outstanding fiscal sales (including credit/part-paid final sales) and stock submissions first. Negative stock, duplicate stock rows, ambiguous mappings and quantity/purchase-ledger disagreement require explicit repair rather than silent overwrites.
+
+Differences create immutable `source=eis_reconciliation` audit movements: increases add received opening-stock purchase supply; decreases create stock adjustments and purchase allocations respecting FIFO/LIFO. Existing opening supply is never rewritten. Quantity, allocation and audit writes commit atomically; replaying an applied snapshot does not duplicate movements. Reconciliation does **not** emit an outbound EIS adjustment. Opening-stock editing and adjustment deletion cannot rewrite these reconciliation records.
+
+Apply the EIS migrations before using this screen. All affected stock-ledger tables must use InnoDB; unsupported/nontransactional storage fails explicitly. No scheduled or blind quantity overwrite is enabled. Existing product catalog pulls retain their one-time opening-stock initialization behavior.
+
+### Outbound adjustments, transfers and informal receiving
+
+**EIS outbound stock operations** opens `/eis/stock/outbound`. The standard local stock-adjustment form now requires a live EIS reason at terminal-owned locations; saving creates a per-item `Decrease` outbox in the same database transaction. The normal/abnormal accounting classification remains separate from EIS Increase/Decrease. Unmapped items are recorded as explicit unsent rejections. The expired-stock shortcut is blocked at EIS sites; use the reason-backed form.
+
+The dedicated outbound screen supports Increase/Decrease, site-to-site transfers (both sites must be permitted), and informal goods receiving using the documented EIS supplier ID. These dedicated forms change EIS only; after success, reconcile affected local locations. Do not create a duplicate ordinary local transfer/purchase for the same operation. Informal purchases require EIS approval; accepted submissions do not mean stock is available yet.
+
+Run `php artisan queue:work --queue=eis-stock-operations` using the deployment's queue supervisor. The outbox pins immutable payloads to the original site/terminal and records per-line results. Only never-started `queued` operations can be dispatched again. No HTTP retry is used: timeouts, worker failures and inconclusive responses remain `unknown`; partial submissions are never replayed. Reconciliation blocks queued, submitting, partial, unknown and awaiting-approval operations at either transfer site. Fully rejected operations are settled; subsequent reconciliation may reverse their local quantity effect through a new audited movement, never by deleting history. Any local adjustment linked to an outbox record remains immutable, including fully rejected records.
+
+For final outcomes not available through the documented API, an administrator with `business_settings.access` can **Record verification; do not resend** after checking EIS directly. Required notes retain the final result/reference, actor and timestamp; this changes the header to `verified`, preserves original item results, and permits authoritative stock reconciliation. Never verify a pending approval or an in-flight operation. A worker stuck in `submitting` must first be investigated/stopped and its job failure processed; it cannot be manually marked complete while it may still be sending requests.
+
+Validation uses SQLite/fake HTTP and never sends live EIS stock writes:
+
+```powershell
+php -d error_reporting=24575 tests\Standalone\eis_stock_reconciliation_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_stock_outbound_checks.php
+```
+
 ## Settings → MRA EIS terminal management
 
 ### Environment and registered POS product
@@ -18,6 +47,8 @@ The [EIS Swagger schema](https://dev-eis-api.mra.mw/swagger/index.html) requires
 Activation normalizes operating-system names before contacting EIS. Browser platform aliases such as `Win32`/`MacIntel` are not sent as OS names; the settings form lets the server identify the OS from the request user agent. Unrecognized operating systems are rejected locally with an actionable error.
 
 The settings tab lists terminals at the signed-in user's permitted locations, including restricted administrators. Multiple terminals may belong to a location; **Set default** designates the location's terminal for sales. Terminal IDs below are local `eis_settings.id` values, not EIS device IDs or configuration IDs.
+
+**Get latest config** detects EIS site-name changes even when configuration version numbers stay unchanged. Refresh updates the stored response, terminal-site details and the assigned location name without changing the site ID, terminal assignment, defaults or historical transactions.
 
 All management routes require a session-authenticated account with `business_settings.access`; POST requests require the normal web CSRF token. Business identity comes from the account, never from a client-supplied business ID. Locations and terminals must belong to that business and be permitted for that user (`all` is honored).
 
@@ -53,6 +84,7 @@ The current design supersedes the historical singleton behavior described below:
 - Local deactivation disables both the terminal and its settings. Configuration refreshes cannot silently re-enable it; reactivation or an explicit toggle is required.
 - In `EIS_ENV=development` (aliases `dev` and `sandbox`), a configured, locally enabled terminal remains operational even when EIS reports `isActiveTerminal=false`. The remote value is preserved for diagnostics. Terminal lists, default selection, status, and sale submission use the same policy. Production still requires the remote active flag; local deactivation and missing configuration block use in every environment.
 - `eis_sales.eis_invoice_number` retains the generated invoice identity even when the confirmed receipt overwrites `fiscal_invoice_number`. Only the last invoice component changes: today's allocated invoice count for the selected terminal plus one. Pending and failed allocations count too; retries reuse the number.
+- Each terminal starts each new day at sequence 1, encoded as `B` (then `C`, `D`, etc.). The day is the application's configured timezone/Julian invoice date, not the original POS transaction date or a retry's update date. Previous-day retries retain their original invoice and do not consume the new day's sequence.
 - Terminal allocation and sale submission use atomic cache locks. Use a shared lock-capable cache across all web/queue servers (file cache is suitable only when processes share the same cache filesystem). Do not use the array/null cache driver in production.
 - Product identities/catalog mappings remain business-wide; opening-stock initialization and stock quantities are location-specific. All users, including administrators, see quantities only at permitted tenant locations. A product pull must not delete another location's stock or shared catalog.
 - New locations reuse default invoice schemes/layouts and payment settings. Configuration reconciliation updates the API-assigned location and preserves its existing invoice/address choices. Duplicate locations with the same site ID are rejected for reconciliation. Activation requires access to both the terminal's previous location and the API-assigned location; creating a new API site requires `access_all_locations`.

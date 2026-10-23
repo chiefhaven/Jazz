@@ -132,6 +132,12 @@ class ConfigurationSyncService
                 // Sync terminal configuration
                 Log::info('Starting terminal configuration sync...');
                 $this->syncTerminalConfiguration($configuration, $data);
+                $siteName = $data->terminalConfiguration->terminalSite->siteName ?? null;
+                if (is_string($siteName) && trim($siteName) !== '') {
+                    \App\BusinessLocation::where('business_id', $businessId)
+                        ->where('eis_site_id', \Modules\EIS\Services\Terminal\TerminalContext::site($settings))
+                        ->findOrFail($settings->location_id)->update(['name' => $siteName]);
+                }
 
                 Log::info('Configuration sync completed successfully', [
                     'business_id' => $businessId,
@@ -690,13 +696,21 @@ class ConfigurationSyncService
         
         // Check tax office code
         $taxOfficeChanged = $existing->tax_office_code !== ($newData->taxpayerConfiguration->taxOfficeCode ?? null);
+        $storedResponse = $existing->raw_response;
+        if (is_string($storedResponse)) {
+            $storedResponse = json_decode($storedResponse, true, 512, JSON_THROW_ON_ERROR);
+        }
+        // EIS site renames do not necessarily increment the configuration versions.
+        $siteNameChanged = data_get($storedResponse, 'data.terminalConfiguration.terminalSite.siteName')
+            !== ($newData->terminalConfiguration->terminalSite->siteName ?? null);
         
         return $globalVersionChanged || 
                $terminalVersionChanged || 
                $taxpayerVersionChanged ||
                $tinChanged ||
                $vatChanged ||
-               $taxOfficeChanged;
+               $taxOfficeChanged ||
+               $siteNameChanged;
     }
 
     /**

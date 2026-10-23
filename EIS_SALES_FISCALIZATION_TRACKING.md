@@ -423,3 +423,47 @@ EisSale::where('status', 'submitted')
 - ✅ Helper methods provided
 - ✅ Query scopes implemented
 - ✅ Documentation complete
+
+## EIS stock operations outbox
+
+The separate `eis_stock_operations` outbox records stock adjustments, site-to-site
+transfers, and informal purchases without using the sales fiscalization tables.
+Its immutable request payload and per-item rows are created before the queued job
+can submit anything. `eis_stock_operations.location_id` and `eis_setting_id` pin
+each request to its original local location and EIS terminal; the site ID is also
+saved in the request scope. Site-to-site transfers also persist
+`destination_location_id`; both locations must block reconciliation while the
+transfer is unsettled.
+
+Operation statuses are `queued`, `submitting`, `submitted`, `awaiting_approval`,
+`partial`, `rejected`, and `unknown`. Location reconciliation must wait while an
+operation is `queued`, `submitting`, `awaiting_approval`, `partial`, or `unknown`.
+`submitting` and `unknown` are potentially completed remote writes and are never
+resent automatically. An EIS-accepted informal purchase remains
+`awaiting_approval` because goods receiving is subject to EIS approval. Only a
+confirmed `submitted` or fully `rejected` operation is settled.
+
+Local stock adjustments at EIS-mapped sites require a reason returned by EIS and
+create outbound per-line `Decrease` requests after the local transaction is
+recorded. Reconciliation-sourced stock adjustments do not raise outbound
+operations. The expired-purchase shortcut is blocked at EIS-mapped sites; use
+the reason-backed stock adjustment form instead. Stock adjustment headers
+sourced by EIS reconciliation and headers with pending, submitted, or ambiguous
+outbound operations cannot be deleted or edited. Queued operations may be
+explicitly dispatched again only while still `queued`; this does not retry any
+operation that has started or received an EIS response.
+
+The outbox schema is additive in
+`Modules/EIS/Database/Migrations/2026_10_23_234000_create_eis_stock_operations.php`.
+Apply it only after coordinating deployment with the stock reconciliation work.
+After deployment, apply the EIS migrations before enabling stock operations. Verify the integration with
+`php tests/Standalone/eis_stock_outbound_checks.php`; the test uses a fake EIS
+HTTP transport and in-memory SQLite. Run the queue worker with
+`php artisan queue:work --queue=eis-stock-operations` to process the outbox.
+
+Administrators may record a final EIS portal verification for unknown, partial,
+or awaiting-approval operations, with required notes/reference and confirmation
+that no request or approval remains pending. The `verified` header keeps actor,
+time and notes; original per-line results and immutable requests remain unchanged.
+Verification sends no EIS request and allows subsequent authoritative local
+reconciliation. Submitted/verified source adjustments remain immutable.

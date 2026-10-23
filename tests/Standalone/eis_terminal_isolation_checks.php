@@ -325,12 +325,31 @@ $configurationClient->data->taxpayerConfiguration->versionNo = 1;
 DB::table('eis_configurations')->where('id', 2)->update([
     'global_version' => 1, 'terminal_version' => 1, 'taxpayer_version' => 1,
     'tpin' => 'TIN1', 'is_vat_registered' => 0,
+    'raw_response' => json_encode(['data' => $configurationClient->data]),
 ]);
+$configurationValidator = Mockery::mock(Modules\EIS\Services\Configuration\Validators\ConfigurationValidator::class);
+$configurationValidator->shouldReceive('validate')->once()->andReturnNull();
 $configService = new Modules\EIS\Services\Configuration\ConfigurationSyncService(
-    $configurationClient, Mockery::mock(Modules\EIS\Services\Configuration\Validators\ConfigurationValidator::class)
+    $configurationClient, $configurationValidator
 );
 DB::table('eis_settings')->where('id', 7)->update(['jwt_token' => 'token2']);
 locationCheck($configService->sync(1, 'token2', false, 2)->id === 2, 'Latest configuration uses explicit terminal selection even when JWTs are shared');
+$otherLocations = DB::table('business_locations')->where('id', '!=', 2)->orderBy('id')->get()->toJson();
+$configurationClient->data->terminalConfiguration->terminalSite->siteName = 'Renamed EIS site';
+$renamed = $configService->sync(1, 'token2', false, 2);
+$storedResponse = $renamed->raw_response;
+if (is_string($storedResponse)) { $storedResponse = json_decode($storedResponse, true, 512, JSON_THROW_ON_ERROR); }
+locationCheck(data_get($storedResponse, 'data.terminalConfiguration.terminalSite.siteName') === 'Renamed EIS site',
+    'Site-name-only changes refresh the stored response without an EIS version increment');
+$terminalConfigurationId = DB::table('eis_terminal_configurations')->where('configuration_id', 2)->value('id');
+locationCheck(DB::table('eis_terminal_sites')->where('terminal_configuration_id', $terminalConfigurationId)->value('site_name') === 'Renamed EIS site',
+    'Site-name-only refresh updates normalized terminal site details');
+locationCheck(DB::table('business_locations')->where('id', 2)->value('name') === 'Renamed EIS site',
+    'Site-name-only refresh updates the assigned business location');
+locationCheck(DB::table('business_locations')->where('id', '!=', 2)->orderBy('id')->get()->toJson() === $otherLocations,
+    'Site rename preserves other locations and tenants');
+locationCheck($configService->sync(1, 'token2', false, 2)->id === 2,
+    'Repeated unchanged configuration still skips validation and duplicate persistence');
 $configurationClient->data->terminalConfiguration->terminalSite->siteId = 'A';
 $snapshot = DB::table('eis_configurations')->get()->toJson();
 try {

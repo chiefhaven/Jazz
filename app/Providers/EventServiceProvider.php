@@ -31,6 +31,9 @@ class EventServiceProvider extends ServiceProvider
         \Modules\EIS\Events\SaleCompleted::class => [
             \Modules\EIS\Listeners\DispatchEisSaleJob::class,
         ],
+        \App\Events\StockAdjustmentCreatedOrModified::class => [
+            \Modules\EIS\Listeners\QueueStockAdjustmentToEis::class,
+        ],
     ];
 
     /**
