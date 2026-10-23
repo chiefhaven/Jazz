@@ -35,6 +35,7 @@ class SaleSubmissionService
         // Fence before invoice counters, MyISAM tracking or any external call.
         \App\Services\Sales\SavedSaleWriteGuard::fiscal($transaction->getConnection(), $transaction->id);
         $transaction->refresh();
+        \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, (int) $transaction->business_id);
         // ----------------------------
         // IDEMPOTENCY CHECK (BEFORE DB TX)
         // ----------------------------

@@ -175,7 +175,7 @@ class Product extends Model
             $locations->where('id', $locationId);
         }
         if (\App\Services\EisProductPolicy::configured($businessId)) {
-            $settings = \Modules\EIS\Models\EisSetting::where('business_id', $businessId)->firstOrFail();
+            $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $businessId);
             $site = \Modules\EIS\Services\Products\EisProductClient::requestSiteId($settings);
             $locations->whereNotNull('eis_site_id')->where('eis_site_id', $site ?? '');
         }

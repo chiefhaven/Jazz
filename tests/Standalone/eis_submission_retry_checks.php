@@ -229,4 +229,67 @@ $httpSettings = (object) ['business_id' => 7, 'jwt_token' => 'fixture', 'secret_
 $failure = (new EisSaleClient($health))->submit($first, $httpSettings);
 checkRetry($requests === 1, 'Client sends only one request per tracked attempt');
 checkRetry(! $failure['success'] && $failure['error_code'] === 'CONNECTION_ERROR', 'Transport failure returns for persisted retry');
+$foreignSettings = new EisSetting();
+$foreignSettings->business_id = 8;
+$beforeGenerated = $service->generated;
+$beforeRequests = count($client->payloads);
+try {
+    $service->submit(submissionFixture(), $foreignSettings);
+    throw new RuntimeException('Expected foreign business settings rejection');
+} catch (InvalidArgumentException $e) {
+    checkRetry($service->generated === $beforeGenerated && count($client->payloads) === $beforeRequests,
+        'Foreign settings fail before invoice allocation or HTTP');
+}
+$wrongPayload = $first;
+$wrongPayload['invoiceHeader']['siteId'] = 'OTHER';
+$failure = (new EisSaleClient($health))->submit($wrongPayload, $httpSettings);
+checkRetry($failure['error_code'] === 'TERMINAL_MISMATCH' && $requests === 1,
+    'HTTP client rejects wrong terminal site without sending');
+$wrongPayload = $first;
+$wrongPayload['invoiceHeader']['sellerTIN'] = 'OTHER';
+$failure = (new EisSaleClient($health))->submit($wrongPayload, $httpSettings);
+checkRetry($failure['error_code'] === 'TERMINAL_MISMATCH' && $requests === 1,
+    'HTTP client rejects wrong terminal TIN without sending');
+$callerSettings = clone $settings;
+$callerSettings->tpin = 'STALE-OR-FORGED-TIN';
+$client->response = ['success' => false, 'error' => 'Fixture offline'];
+failSubmission($service, submissionFixture(), $callerSettings);
+checkRetry(end($client->payloads)['invoiceHeader']['sellerTIN'] === 'FIXTURE',
+    'Submission uses persisted terminal credentials, not caller overrides');
+$foreignTransaction = submissionFixture();
+$beforeRequests = count($client->payloads);
+$beforeTracking = EisSale::count();
+$beforeFailures = DB::table('eis_failed_transactions')->count();
+$job = new Modules\EIS\Jobs\SubmitOfflineSalesJob($foreignTransaction->id, 8);
+$job->handle($service);
+checkRetry(count($client->payloads) === $beforeRequests && EisSale::count() === $beforeTracking
+    && DB::table('eis_failed_transactions')->count() === $beforeFailures,
+    'Queued business/transaction mismatch neither submits nor creates foreign retry tracking');
+$job->failed(new RuntimeException('Fixture mismatch'));
+checkRetry(DB::table('eis_failed_transactions')->count() === $beforeFailures,
+    'Failed callback cannot create retry tracking for a foreign business transaction');
+$schema->table('transactions', function (Blueprint $t) {
+    $t->integer('location_id')->nullable();
+});
+$schema->create('business_locations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->string('eis_site_id');
+});
+DB::table('business_locations')->insert([
+    ['id' => 1, 'business_id' => 7, 'eis_site_id' => 'OTHER-SITE'],
+    ['id' => 2, 'business_id' => 8, 'eis_site_id' => 'SITE-7'],
+]);
+foreach ([1, 2] as $locationId) {
+    $sale = submissionFixture();
+    DB::table('transactions')->where('id', $sale->id)->update(['location_id' => $locationId]);
+    $beforeGenerated = $service->generated;
+    $beforeRequests = count($client->payloads);
+    try {
+        $service->submit($sale, $settings);
+        throw new RuntimeException('Expected terminal location rejection');
+    } catch (EisSaleException $e) {
+        checkRetry(str_contains($e->getMessage(), 'terminal site') && $service->generated === $beforeGenerated
+            && count($client->payloads) === $beforeRequests && !EisSale::where('transaction_id', $sale->id)->exists(),
+            'Wrong site or foreign business location fails before tracking, counters or HTTP');
+    }
+}
 echo "PASS: {$checks} EIS submission retry checks (isolated database, no network).\n";

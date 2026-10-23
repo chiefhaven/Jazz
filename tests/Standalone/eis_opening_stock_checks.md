@@ -68,6 +68,43 @@ synthetic multi-page responses/HTTP fakes; no live product import or API calls.
 
 ## EIS-only product editing
 
+### Terminal isolation
+
+An ERP business represents one terminal. Product pulls/upserts, configuration
+responses, sale payloads and invoice submission use the same exact configured
+site (`site_id` when present, otherwise `branch_id`). A device ID or `00` is
+never substituted for a missing site. Duplicate settings records fail closed.
+Configuration sync verifies the business's stored token and the returned site,
+TIN and terminal ID (when supplied) before persisting or skipping unchanged
+versions. Forced sync preserves the existing configuration if validation fails.
+Location reconciliation targets `(business_id, eis_site_id)`, preserving other
+locations and the mapped location's identity.
+
+Sale submission reloads stored credentials for the transaction's business,
+rejects mismatched caller settings, tracking, sale location and foreign
+products/customers, and checks payload site/TIN before HTTP. Retry jobs scope
+transaction reads and tracking writes to their business. Activation cannot
+assign another business's terminal or silently replace an existing terminal.
+Health caches already include both business ID and credential/host identity.
+
+Internal module routes, including formerly public terminal/configuration
+read endpoints, now require authenticated same-business access. Body, route,
+bulk and session business targets cannot override the account's business.
+Webhooks under `api/v1/webhooks/*` retain their existing access behavior by
+explicit user direction. **Webhook signature verification and terminal
+authentication remain deferred pending the official EIS callback contract;
+this is not a claim that external webhook isolation is complete.**
+
+Isolated terminal, configuration-response, activation and location regression:
+
+```powershell
+php tests\Standalone\eis_terminal_isolation_checks.php
+php tests\Standalone\eis_submission_retry_checks.php
+```
+
+The terminal suite also runs the catalog fixture checks. No command here runs
+a live EIS sync, activation, or sale submission.
+
 Any business with an `eis_settings` row is EIS-managed, even if the integration
 is inactive or its token has expired. Other businesses retain existing behavior.
 Manual products (including quick-add, imports, duplicates and modifier products),

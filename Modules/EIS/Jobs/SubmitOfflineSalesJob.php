@@ -140,6 +140,12 @@ class SubmitOfflineSalesJob implements ShouldQueue
         ]);
 
         try {
+            if (!Transaction::where('business_id', $this->businessId)->where('id', $this->transactionId)->exists()) {
+                Log::error('Cannot mark a foreign terminal transaction as failed.', [
+                    'business_id' => $this->businessId, 'transaction_id' => $this->transactionId,
+                ]);
+                return;
+            }
             $eisSale = EisSale::where('business_id', $this->businessId)->where('transaction_id', $this->transactionId)->first();
             if ($eisSale) {
                 $eisSale->update([
@@ -169,6 +175,12 @@ class SubmitOfflineSalesJob implements ShouldQueue
     protected function markJobAsFailed(string $errorMessage): void
     {
         try {
+            if (!Transaction::where('business_id', $this->businessId)->where('id', $this->transactionId)->exists()) {
+                Log::error('Cannot create retry tracking for a foreign terminal transaction.', [
+                    'business_id' => $this->businessId, 'transaction_id' => $this->transactionId,
+                ]);
+                return;
+            }
             $eisSale = EisSale::where('business_id', $this->businessId)->where('transaction_id', $this->transactionId)->first();
             if ($eisSale) {
                 $eisSale->update([

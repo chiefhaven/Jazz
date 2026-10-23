@@ -1179,6 +1179,9 @@ class ConfigurationSyncService
             */
 
             $business = \App\Business::findOrFail($businessId);
+            if (\App\BusinessLocation::where('business_id', $businessId)->where('eis_site_id', $siteId)->count() > 1) {
+                throw new \InvalidArgumentException('EIS terminal site must map to exactly one business location.');
+            }
 
             $business->update([
                 'name' => data_get(

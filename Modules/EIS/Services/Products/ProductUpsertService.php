@@ -33,6 +33,10 @@ class ProductUpsertService {
         string $eisId
     ): Product {
 
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId);
+        if (($item['site_id'] ?? null) !== \Modules\EIS\Services\Terminal\TerminalContext::site($settings)) {
+            throw new \InvalidArgumentException('EIS product does not belong to the business terminal site.');
+        }
         return \App\Services\EisProductPolicy::duringSync($businessId, fn () => DB::transaction(function () use (
             $businessId,
             $item,

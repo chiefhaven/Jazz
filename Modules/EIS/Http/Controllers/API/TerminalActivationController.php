@@ -567,10 +567,9 @@ class TerminalActivationController extends Controller
             foreach ($request->business_ids as $businessId) {
                 $result = $this->activationService->activateTerminal(
                     $businessId,
-                    null, // No token required
                     $activationCode,
                     $environment,
-                    null // No authenticated user
+                    Auth::id()
                 );
 
                 $results[$businessId] = $result;

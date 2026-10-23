@@ -29,6 +29,12 @@ class ProductSyncService
         // Snapshot the same settings passed to every request; never query an arbitrary local site.
         $settings = clone $settings;
         $sentSite = EisProductClient::requestSiteId($settings);
+        $storedSettings = \Modules\EIS\Services\Terminal\TerminalContext::settings(
+            $businessId, isset($settings->jwt_token) ? $settings->jwt_token : null
+        );
+        if ($sentSite !== EisProductClient::requestSiteId($storedSettings)) {
+            throw new \InvalidArgumentException('EIS product request does not match the business terminal site.');
+        }
         $requestSite = OpeningStockInitializer::siteId(['siteId' => $sentSite]);
         if ($requestSite === null || $requestSite !== (string) $sentSite) {
             throw new \InvalidArgumentException('EIS product request requires an exact valid site.');

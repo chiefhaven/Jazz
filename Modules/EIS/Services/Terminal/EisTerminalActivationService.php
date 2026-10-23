@@ -483,6 +483,9 @@ class EisTerminalActivationService
                     throw new \InvalidArgumentException('EIS terminal is already assigned to another business.');
                 }
                 $currentSettings = EisSetting::where('business_id', $businessId)->first();
+                if ($currentSettings) {
+                    $currentSettings = TerminalContext::settings($businessId);
+                }
                 if ($currentSettings && !empty($currentSettings->device_id)
                     && (string) $currentSettings->device_id !== $terminalId) {
                     throw new \InvalidArgumentException('A different terminal cannot replace this business terminal.');
