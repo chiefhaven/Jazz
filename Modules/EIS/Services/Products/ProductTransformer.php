@@ -21,6 +21,8 @@ class ProductTransformer
             'product_name' => $item['productName'] ?? null
         ]);
         
+        $stockSource = OpeningStockInitializer::stockSource($item);
+
         // Initialize the transformed product array with extracted values
         $transformed = [
             'name' => $this->extractName($item, $eisId),
@@ -28,8 +30,8 @@ class ProductTransformer
             'type' => $this->extractType($item),
             'price' => $this->extractPrice($item),
             'cost' => $this->extractCost($item),
-            'stock' => $this->extractStock($item),
-            'opening_stock_source' => OpeningStockInitializer::stockSource($item),
+            'stock' => $stockSource['quantity'],
+            'opening_stock_source' => $stockSource,
             'opening_stock_site_id' => OpeningStockInitializer::scopedSiteId($item, $requestSite),
             'manage_stock' => $this->extractManageStock($item),
             'unit_of_measure' => $this->extractUnitOfMeasure($item),
@@ -51,6 +53,7 @@ class ProductTransformer
             'transformed_sku' => $transformed['sku'],
             'transformed_price' => $transformed['price'],
             'transformed_stock' => $transformed['stock'],
+            'stock_validation_reason' => $stockSource['reason'],
             'description' => $transformed['description']
         ]);
 
@@ -257,43 +260,6 @@ class ProductTransformer
         // Fallback 2: Set to 0
         Log::warning('Product cost negative and no price available, setting to 0', [
             'cost' => $cost
-        ]);
-        return 0;
-    }
-
-    /**
-     * Extract product stock with dual fallbacks.
-     *
-     * @param array $item
-     * @return float
-     */
-    private function extractStock(array $item): float
-    {
-        // Primary: Check multiple stock fields
-        $stock = (float) ($item['quantity'] ?? $item['stock'] ?? 0);
-        
-        // Secondary: Validate non-negative
-        if ($stock >= 0) {
-            return $stock;
-        }
-        
-        // Fallback 1: Check variation stock if available
-        if (isset($item['variations']) && is_array($item['variations'])) {
-            foreach ($item['variations'] as $variation) {
-                $varStock = (float) ($variation['quantity'] ?? 0);
-                if ($varStock >= 0) {
-                    Log::warning('Product stock negative, using variation stock as fallback', [
-                        'original_stock' => $stock,
-                        'variation_stock' => $varStock
-                    ]);
-                    return $varStock;
-                }
-            }
-        }
-        
-        // Fallback 2: Set to 0
-        Log::warning('Product stock negative, setting to 0', [
-            'stock' => $stock
         ]);
         return 0;
     }
@@ -634,12 +600,6 @@ class ProductTransformer
             $issues[] = 'cost';
         }
         
-        // Ensure stock is not negative
-        if ($data['stock'] < 0) {
-            $data['stock'] = 0;
-            $issues[] = 'stock';
-        }
-        
         if (!empty($issues)) {
             Log::warning('Product data fixed with fallbacks', [
                 'eis_id' => $eisId,
@@ -685,9 +645,9 @@ class ProductTransformer
             return false;
         }
 
-        if ($data['stock'] < 0) {
-            Log::warning('Validation failed: Product stock cannot be negative', [
-                'stock' => $data['stock']
+        if (OpeningStockInitializer::decimal($data['stock'] ?? null) === null) {
+            Log::warning('Validation failed: Product stock is missing or invalid', [
+                'stock' => $data['stock'] ?? null,
             ]);
             return false;
         }

@@ -595,6 +595,29 @@ try {
         catalogCheck(\Modules\EIS\Services\Products\OpeningStockInitializer::stockSource(['quantity' => 108977.0, 'stock' => '1'])['quantity'] === null,
             'Conflicting aliases remain rejected');
         catalogCheck(ini_get('serialize_precision') === $runtimePrecision, 'Parser restores host precision after accepted and rejected quantities');
+        $transformer = new ProductTransformer();
+        foreach ([
+            ['quantity', 108977.0, '108977.0000'],
+            ['quantity', '999999999999999999.9999', '999999999999999999.9999'],
+            ['quantity', 0, '0.0000'],
+            ['stock', '12.3456', '12.3456'],
+            ['stockQuantity', '7.5000', '7.5000'],
+        ] as [$field, $quantity, $expected]) {
+            $item = array_diff_key(catalogItem('6001106100551'), ['quantity' => true]);
+            $item[$field] = $quantity;
+            $data = $transformer->fromEis($item, '6001106100551', 'SITE-A');
+            catalogCheck($data['stock'] === $expected && $data['opening_stock_source']['quantity'] === $expected,
+                'Transformed stock exactly matches the writer source for '.$field);
+            $log->shouldHaveReceived('debug')->with('Product transformation completed',
+                Mockery::on(fn ($context) => $context['eis_id'] === '6001106100551'
+                    && $context['transformed_stock'] === $expected
+                    && $context['stock_validation_reason'] === null));
+        }
+        foreach ([null, 'bad', '-1', '1.12345'] as $invalid) {
+            $data = $transformer->fromEis(catalogItem('6001106100551', $invalid), '6001106100551', 'SITE-A');
+            catalogCheck($data['stock'] === null && !$transformer->validate($data),
+                'Invalid transformed stock stays null and fails validation instead of becoming zero');
+        }
     }
 } finally {
     ini_set('serialize_precision', $precision);

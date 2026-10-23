@@ -665,7 +665,7 @@ class ProductUpsertService {
     }
 
     /**
-     * Use the validated source, not the transformer's lossy stock fallbacks.
+     * Use the exact validated quantity shared with the transformer.
      */
     private function getEisStock(array $item): string
     {

@@ -28,6 +28,10 @@ Decoded floating-point quantities are encoded with canonical
 `serialize_precision=-1` inside an exception-safe scope that restores the host's
 setting. A host setting such as `100` no longer rejects valid quantities such as
 `108977.0`; low host precision cannot round an invalid quantity into acceptance.
+The transformer `stock` field and `transformed_stock` log value use the same
+validated four-decimal string as the database writer (for example,
+`108977.0000`). Invalid or missing stock remains null, with a
+`stock_validation_reason`, rather than being replaced by a misleading zero.
 Returning maps, products, and their single variation are restored using existing
 IDs. Repeated pulls replace quantity rather than adding to it; explicit zero is
 authoritative. DECIMAL(22,4) validation uses the existing strict source parser,
