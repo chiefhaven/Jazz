@@ -431,7 +431,9 @@
 							'autofocus' => is_null($default_location)? false : true,
 							]); !!}
 							<span class="input-group-btn">
+                                @if (!\App\Services\EisProductPolicy::configured(session('user.business_id')))
 								<button type="button" class="btn btn-default bg-white btn-flat pos_add_quick_product" data-href="{{action([\App\Http\Controllers\ProductController::class, 'quickAdd'])}}" data-container=".quick_add_product_modal"><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
+                                @endif
 							</span>
 						</div>
 					</div>

@@ -912,6 +912,10 @@ class ProductUtil extends Util
         $variation_details = Variation::where('id', $variation_data['variation_id'])
                                         ->with(['product', 'product.product_tax'])
                                         ->first();
+        if (\App\Services\EisProductPolicy::configured($variation_details->product->business_id)) {
+            \Log::info('Purchase retained EIS-managed catalog prices.', ['variation_id' => $variation_details->id]);
+            return;
+        }
         $tax_rate = 0;
         if (! empty($variation_details->product->product_tax->amount)) {
             $tax_rate = $variation_details->product->product_tax->amount;

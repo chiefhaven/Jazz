@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Product extends Model
 {
     use SoftDeletes;
+
+    protected static function booted()
+    {
+        static::saving(fn ($product) => \App\Services\EisProductPolicy::guard($product));
+        static::deleting(fn ($product) => \App\Services\EisProductPolicy::guard($product, true));
+    }
     /**
      * The attributes that aren't mass assignable.
      *

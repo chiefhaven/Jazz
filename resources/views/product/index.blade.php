@@ -173,6 +173,7 @@
                                         </svg> @lang('lang_v1.download_excel')
                                     </a>
                                 @endif
+                                @if (!\App\Services\EisProductPolicy::configured(session('user.business_id')))
                                 @can('product.create')
 
                                     <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right tw-m-2"
@@ -187,6 +188,7 @@
                                     </a>
                                     <br><br>
                                 @endcan
+                                @endif
                                 @include('product.partials.product_list')
                             </div>
                             @can('stock_report.view')

@@ -100,6 +100,7 @@ class ProductController extends Controller
         }
         $business_id = request()->session()->get('user.business_id');
         $selling_price_group_count = SellingPriceGroup::countSellingPriceGroups($business_id);
+        $eis_managed = \App\Services\EisProductPolicy::configured($business_id);
         $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
 
         try {
@@ -241,7 +242,7 @@ class ProductController extends Controller
                 ->editColumn('category', '{{$category}} @if(!empty($sub_category))<br/> -- {{$sub_category}}@endif')
                 ->addColumn(
                     'action',
-                    function ($row) use ($selling_price_group_count) {
+                    function ($row) use ($selling_price_group_count, $eis_managed) {
                         $html =
                         '<div class="btn-group"><button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-info tw-w-max dropdown-toggle" data-toggle="dropdown" aria-expanded="false">'.__('messages.actions').'<span class="caret"></span><span class="sr-only">Toggle Dropdown</span></button><ul class="dropdown-menu dropdown-menu-left" role="menu"><li><a href="'.action([\App\Http\Controllers\LabelsController::class, 'show']).'?product_id='.$row->id.'" data-toggle="tooltip" title="'.__('lang_v1.label_help').'"><i class="fa fa-barcode"></i> '.__('barcode.labels').'</a></li>';
 
@@ -255,19 +256,19 @@ class ProductController extends Controller
                             '<li><a href="'.action([\App\Http\Controllers\ProductController::class, 'edit'], [$row->id]).'"><i class="glyphicon glyphicon-edit"></i> '.__('messages.edit').'</a></li>';
                         }
 
-                        if (auth()->user()->can('product.delete')) {
+                        if (!$eis_managed && auth()->user()->can('product.delete')) {
                             $html .=
                             '<li><a href="'.action([\App\Http\Controllers\ProductController::class, 'destroy'], [$row->id]).'" class="delete-product"><i class="fa fa-trash"></i> '.__('messages.delete').'</a></li>';
                         }
 
-                        if ($row->is_inactive == 1) {
+                        if (!$eis_managed && $row->is_inactive == 1) {
                             $html .=
                             '<li><a href="'.action([\App\Http\Controllers\ProductController::class, 'activate'], [$row->id]).'" class="activate-product"><i class="fas fa-check-circle"></i> '.__('lang_v1.reactivate').'</a></li>';
                         }
 
                         $html .= '<li class="divider"></li>';
 
-                        if ($row->enable_stock == 1 && auth()->user()->can('product.opening_stock')) {
+                        if (!$eis_managed && $row->enable_stock == 1 && auth()->user()->can('product.opening_stock')) {
                             $html .=
                             '<li><a href="#" data-href="'.action([\App\Http\Controllers\OpeningStockController::class, 'add'], ['product_id' => $row->id]).'" class="add-opening-stock"><i class="fa fa-database"></i> '.__('lang_v1.add_edit_opening_stock').'</a></li>';
                         }
@@ -277,7 +278,7 @@ class ProductController extends Controller
                             '<li><a href="'.action([\App\Http\Controllers\ProductController::class, 'productStockHistory'], [$row->id]).'"><i class="fas fa-history"></i> '.__('lang_v1.product_stock_history').'</a></li>';
                         }
 
-                        if (auth()->user()->can('product.create')) {
+                        if (!$eis_managed && auth()->user()->can('product.create')) {
                             if ($selling_price_group_count > 0) {
                                 $html .=
                                 '<li><a href="'.action([\App\Http\Controllers\ProductController::class, 'addSellingPrices'], [$row->id]).'"><i class="fas fa-money-bill-alt"></i> '.__('lang_v1.add_selling_price_group_prices').'</a></li>';
@@ -700,7 +701,8 @@ class ProductController extends Controller
 
         $alert_quantity = ! is_null($product->alert_quantity) ? $this->productUtil->num_f($product->alert_quantity, false, null, true) : null;
 
-        return view('product.edit')
+        $edit_view = \App\Services\EisProductPolicy::configured($business_id) ? 'product.edit_eis' : 'product.edit';
+        return view($edit_view)
                 ->with(compact('categories', 'brands', 'units', 'sub_units', 'taxes', 'tax_attributes', 'barcode_types', 'product', 'sub_categories', 'default_profit_percent', 'business_locations', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data', 'alert_quantity'));
     }
 
@@ -715,6 +717,10 @@ class ProductController extends Controller
     {
         if (! auth()->user()->can('product.update')) {
             abort(403, 'Unauthorized action.');
+        }
+
+        if (\App\Services\EisProductPolicy::configured($request->session()->get('user.business_id'))) {
+            return $this->updateEisLocalDetails($request, $id);
         }
 
         try {
@@ -941,6 +947,98 @@ class ProductController extends Controller
         }
 
         return redirect('products')->with('status', $output);
+    }
+
+    private function updateEisLocalDetails(Request $request, $id)
+    {
+        $business_id = $request->session()->get('user.business_id');
+        $allowed = array_merge(\App\Services\EisProductPolicy::localFields(), [
+            '_token', '_method', 'product_locations', 'product_racks',
+        ]);
+        if (array_diff(array_keys($request->all()), $allowed)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'product' => __('product.eis_local_details'),
+            ]);
+        }
+
+        $locations = BusinessLocation::forDropdown($business_id)->keys()->all();
+        $rules = [
+            'brand_id' => ['nullable', \Illuminate\Validation\Rule::exists('brands', 'id')->where('business_id', $business_id)],
+            'category_id' => ['nullable', \Illuminate\Validation\Rule::exists('categories', 'id')->where('business_id', $business_id)],
+            'sub_category_id' => ['nullable', \Illuminate\Validation\Rule::exists('categories', 'id')
+                ->where('business_id', $business_id)->where('parent_id', $request->input('category_id'))],
+            'alert_quantity' => 'nullable|string|max:50',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:'.(config('constants.document_size_limit') / 1000),
+            'product_locations' => 'nullable|array',
+            'product_locations.*' => ['integer', \Illuminate\Validation\Rule::in($locations)],
+            'product_racks' => 'sometimes|array',
+            'product_racks.*' => 'array:rack,row,position',
+            'product_racks.*.*' => 'nullable|string|max:191',
+        ];
+        foreach (range(1, 20) as $number) {
+            $rules['product_custom_field'.$number] = 'nullable|string|max:191';
+        }
+        $request->validate($rules);
+        if (array_diff(array_keys($request->input('product_racks', [])), $locations)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'product_racks' => __('validation.in', ['attribute' => __('lang_v1.rack_details')]),
+            ]);
+        }
+        $alert = $request->input('alert_quantity');
+        if ($alert !== null && $alert !== '') {
+            $currency = $request->session()->get('currency', []);
+            $alert = str_replace($currency['thousand_separator'] ?? '', '', trim($alert));
+            $alert = str_replace($currency['decimal_separator'] ?? '.', '.', $alert);
+        } else {
+            $alert = null;
+        }
+        if ($alert !== null && !preg_match('/^\d{1,18}(?:\.\d{1,4})?$/D', $alert)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'alert_quantity' => __('validation.numeric', ['attribute' => __('product.alert_quantity')]),
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($request, $id, $business_id, $alert) {
+                $product = Product::where('business_id', $business_id)->lockForUpdate()->findOrFail($id);
+                if (!EisProductMap::where('business_id', $business_id)->where('product_id', $id)->exists()) {
+                    throw new \DomainException(__('product.eis_catalog_locked'));
+                }
+                foreach ($request->only(array_diff(\App\Services\EisProductPolicy::localFields(), ['image', 'alert_quantity'])) as $field => $value) {
+                    $product->$field = $value;
+                }
+                if ($request->exists('alert_quantity')) {
+                    $product->alert_quantity = $alert;
+                }
+                $image = $this->productUtil->uploadFile($request, 'image', config('constants.product_img_path'), 'image');
+                if ($image) {
+                    $product->image = $image;
+                    $product->woocommerce_media_id = null;
+                }
+                $product->save();
+
+                if ($request->exists('product_locations')) {
+                    $selected = $request->input('product_locations') ?? [];
+                    $permitted = auth()->user()->permitted_locations();
+                    if ($permitted !== 'all') {
+                        $selected = array_merge($selected,
+                            $product->product_locations()->whereNotIn('business_locations.id', $permitted)->pluck('business_locations.id')->all());
+                    }
+                    $product->product_locations()->sync($selected);
+                }
+                foreach ($request->input('product_racks', []) as $location => $rack) {
+                    \App\ProductRack::updateOrCreate([
+                        'business_id' => $business_id, 'product_id' => $id, 'location_id' => $location,
+                    ], ['rack' => $rack['rack'] ?? null, 'row' => $rack['row'] ?? null, 'position' => $rack['position'] ?? null]);
+                }
+                event(new ProductsCreatedOrModified($product, 'updated'));
+            });
+        } catch (\Exception $e) {
+            \Log::error('EIS product local details could not be saved.', ['exception' => $e]);
+            return back()->withInput()->with('status', ['success' => 0, 'msg' => __('messages.something_went_wrong')]);
+        }
+
+        return redirect('products')->with('status', ['success' => 1, 'msg' => __('product.product_updated_success')]);
     }
 
     /**
@@ -2324,6 +2422,17 @@ class ProductController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        if (\App\Services\EisProductPolicy::configured($request->session()->get('user.business_id'))) {
+            $request->validate([
+                'update_type' => 'required|in:add,remove',
+                'products' => 'required|string',
+                'product_location' => 'required|array',
+                'product_location.*' => ['integer', \Illuminate\Validation\Rule::in(
+                    BusinessLocation::forDropdown($request->session()->get('user.business_id'))->keys()->all()
+                )],
+            ]);
+        }
+
         try {
             $selected_products = $request->input('products');
             $update_type = $request->input('update_type');
@@ -2384,7 +2493,8 @@ class ProductController extends Controller
             $stock_history = $this->productUtil->getVariationStockHistory($business_id, $id, request()->input('location_id'));
 
             //if mismach found update stock in variation location details
-            if (isset($stock_history[0]) && (float) $stock_details['current_stock'] != (float) $stock_history[0]['stock']) {
+            if (!\App\Services\EisProductPolicy::configured($business_id)
+                && isset($stock_history[0]) && (float) $stock_details['current_stock'] != (float) $stock_history[0]['stock']) {
                 VariationLocationDetails::where('variation_id',
                                             $id)
                                     ->where('location_id', request()->input('location_id'))

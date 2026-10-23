@@ -145,7 +145,7 @@ class AdminSidebarMenu
                 auth()->user()->can('unit.create') || auth()->user()->can('category.create')) {
                 $menu->dropdown(
                     __('sale.products'),
-                    function ($sub) {
+                    function ($sub) use ($business_id) {
                         if (auth()->user()->can('product.view')) {
                             $sub->url(
                                 action([\App\Http\Controllers\ProductController::class, 'index']),
@@ -154,14 +154,14 @@ class AdminSidebarMenu
                             );
                         }
 
-                        if (auth()->user()->can('product.create')) {
+                        if (auth()->user()->can('product.create') && !\App\Services\EisProductPolicy::configured($business_id)) {
                             $sub->url(
                                 action([\App\Http\Controllers\ProductController::class, 'create']),
                                 __('product.add_product'),
                                 ['icon' => '', 'active' => request()->segment(1) == 'products' && request()->segment(2) == 'create']
                             );
                         }
-                        if (auth()->user()->can('product.create')) {
+                        if (auth()->user()->can('product.create') && !\App\Services\EisProductPolicy::configured($business_id)) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellingPriceGroupController::class, 'updateProductPrice']),
                                 __('lang_v1.update_product_price'),
@@ -175,7 +175,7 @@ class AdminSidebarMenu
                                 ['icon' => '', 'active' => request()->segment(1) == 'labels' && request()->segment(2) == 'show']
                             );
                         }
-                        if (auth()->user()->can('product.create')) {
+                        if (auth()->user()->can('product.create') && !\App\Services\EisProductPolicy::configured($business_id)) {
                             $sub->url(
                                 action([\App\Http\Controllers\VariationTemplateController::class, 'index']),
                                 __('product.variations'),
@@ -187,7 +187,7 @@ class AdminSidebarMenu
                                 ['icon' => '', 'active' => request()->segment(1) == 'import-products']
                             );
                         }
-                        if (auth()->user()->can('product.opening_stock')) {
+                        if (auth()->user()->can('product.opening_stock') && !\App\Services\EisProductPolicy::configured($business_id)) {
                             $sub->url(
                                 action([\App\Http\Controllers\ImportOpeningStockController::class, 'index']),
                                 __('lang_v1.import_opening_stock'),

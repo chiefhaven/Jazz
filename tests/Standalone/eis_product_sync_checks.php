@@ -2,6 +2,11 @@
 
 // Bare SQLite memory fixture; no kernel, persistent database, or network.
 require dirname(__DIR__, 2).'/vendor/autoload.php';
+foreach (['DB' => Illuminate\Support\Facades\DB::class, 'Log' => Illuminate\Support\Facades\Log::class] as $alias => $class) {
+    if (!class_exists($alias)) {
+        class_alias($class, $alias);
+    }
+}
 
 use App\Product;
 use Illuminate\Container\Container;
@@ -40,7 +45,12 @@ function catalogCheck(bool $condition, string $message): void
 }
 function catalogFixture(): array
 {
-    $app = new Container();
+    $app = new class extends Container {
+        public function abort($code, $message = '', array $headers = [])
+        {
+            throw new Symfony\Component\HttpKernel\Exception\HttpException($code, $message, null, $headers);
+        }
+    };
     Container::setInstance($app);
     $capsule = new Capsule($app);
     $capsule->addConnection(['driver' => 'sqlite', 'database' => ':memory:']);
@@ -50,6 +60,9 @@ function catalogFixture(): array
     Illuminate\Database\Eloquent\Model::clearBootedModels();
     $app->instance('db', $capsule->getDatabaseManager());
     $app->instance('log', new Psr\Log\NullLogger());
+    $app->instance('translator', new Illuminate\Translation\Translator(
+        new Illuminate\Translation\FileLoader(new Illuminate\Filesystem\Filesystem(), dirname(__DIR__, 2).'\lang'), 'en'
+    ));
     $app['config']['eis.system_user_id'] = 1;
     $app['config']['eis.base_url'] = 'https://fixture.invalid';
     Facade::setFacadeApplication($app);
@@ -58,7 +71,10 @@ function catalogFixture(): array
     foreach ([
         'business' => [],
         'products' => ['business_id', 'type', 'created_by', 'enable_stock', 'name', 'product_description', 'sku', 'tax',
-            'eis_product_id', 'eis_last_synced_at', 'unit_id', 'expiry_period', 'deleted_at'],
+            'eis_product_id', 'eis_last_synced_at', 'unit_id', 'expiry_period', 'deleted_at',
+            'brand_id', 'category_id', 'sub_category_id', 'alert_quantity', 'image', 'product_custom_field1',
+            'woocommerce_media_id', 'woocommerce_product_id'],
+        'eis_settings' => ['business_id', 'status'],
         'product_variations' => ['product_id', 'variation_template_id', 'name', 'is_dummy'],
         'variations' => ['product_id', 'product_variation_id', 'name', 'default_sell_price', 'default_purchase_price',
             'dpp_inc_tax', 'sell_price_inc_tax', 'sub_sku', 'profit_percent', 'deleted_at'],
@@ -81,6 +97,7 @@ function catalogFixture(): array
         });
     }
     $db->table('business')->insert([['id' => 1], ['id' => 2]]);
+    $db->table('eis_settings')->insert(['business_id' => 1, 'status' => 0]);
     $db->table('business_locations')->insert([
         ['id' => 1, 'business_id' => 1, 'eis_site_id' => 'SITE-A'],
         ['id' => 2, 'business_id' => 2, 'eis_site_id' => 'SITE-A'],
@@ -259,5 +276,277 @@ try {
     catalogCheck($e->response->status() === 500, 'HTTP errors cannot masquerade as empty successful catalogs');
 }
 
+[$db, $client, $sync] = catalogFixture();
+$client->pages = [['data' => [catalogItem('OWNED')]]];
+pullCatalog($sync);
+$owned = Product::where('business_id', 1)->firstOrFail();
+catalogCheck(\App\Services\EisProductPolicy::configured(1), 'Inactive EIS settings still enforce ownership');
+catalogCheck(!\App\Services\EisProductPolicy::configured(2), 'Ordinary businesses retain manual products');
+function rejectOwnership(callable $write, string $message): void
+{
+    try {
+        $write();
+    } catch (DomainException $e) {
+        catalogCheck(str_contains($e->getMessage(), 'managed by EIS'), $message);
+        return;
+    }
+    throw new RuntimeException($message.' should fail');
+}
+rejectOwnership(fn () => (new Product())->forceFill(['business_id' => 1, 'name' => 'Manual'])->save(), 'Manual model creation fails');
+foreach (['name' => 'Forged', 'sku' => 'LOCAL', 'enable_stock' => 0, 'unit_id' => 999,
+    'tax' => 999, 'product_description' => 'Local description', 'expiry_period' => '99', 'business_id' => 2] as $field => $value) {
+    rejectOwnership(function () use ($owned, $field, $value) {
+        $product = $owned->fresh();
+        $product->$field = $value;
+        $product->save();
+    }, 'Protected product field '.$field.' fails');
+}
+rejectOwnership(fn () => $owned->fresh()->delete(), 'Manual product deletion fails');
+$ordinary = (new Product())->forceFill(['business_id' => 2, 'name' => 'Manual allowed', 'sku' => 'LOCAL']);
+$ordinary->save();
+$ordinary->name = 'Local edited';
+$ordinary->save();
+catalogCheck($ordinary->fresh()->name === 'Local edited', 'Non-EIS creation and edits still work');
+rejectOwnership(function () use ($ordinary) {
+    $product = $ordinary->fresh();
+    $product->business_id = 1;
+    $product->save();
+}, 'Moving an ordinary product into EIS cannot bypass ownership');
+$variation = \App\Variation::where('product_id', $owned->id)->firstOrFail();
+rejectOwnership(function () use ($variation) {
+    $variation->default_sell_price = '999';
+    $variation->save();
+}, 'Manual variation price edits fail');
+rejectOwnership(fn () => $variation->fresh()->delete(), 'Manual variation deletion fails');
+rejectOwnership(fn () => \App\Variation::create(['product_id' => $owned->id, 'name' => 'Extra']),
+    'Extra variations cannot be created manually');
+$local = ['image' => 'local.jpg', 'category_id' => 5, 'sub_category_id' => 6, 'brand_id' => 7,
+    'alert_quantity' => '2.5000', 'product_custom_field1' => 'Local custom'];
+foreach ($local as $field => $value) {
+    $owned->$field = $value;
+}
+$owned->save();
+$db->table('products')->where('id', $owned->id)->update([
+    'name' => 'Stale name', 'sku' => 'STALE', 'product_description' => 'Stale description', 'expiry_period' => '99',
+]);
+$client->pages = [['data' => [array_merge(catalogItem('OWNED'), ['productName' => 'New EIS name', 'description' => 'New EIS description'])]]];
+pullCatalog($sync);
+$owned = $owned->fresh();
+catalogCheck($owned->name === 'New EIS name' && $owned->sku === 'OWNED'
+    && $owned->product_description === 'New EIS description' && $owned->expiry_period === null,
+    'Repull refreshes EIS identity, description and expiry');
+foreach ($local as $field => $value) {
+    catalogCheck((string) $owned->$field === (string) $value, 'Repull preserves local '.$field);
+}
+try {
+    \App\Services\EisProductPolicy::duringSync(1, function () {
+        catalogCheck(!\App\Services\EisProductPolicy::syncing(2), 'Trusted sync scope cannot authorize another business');
+        throw new RuntimeException('Fixture failure');
+    });
+} catch (RuntimeException $e) {
+    catalogCheck(!\App\Services\EisProductPolicy::syncing(1), 'Trusted scope is cleared after failure');
+}
+rejectOwnership(fn () => (new Product())->forceFill(['business_id' => 1, 'name' => 'After failure'])->save(),
+    'Failed sync does not leave manual writes enabled');
+
+$app = Container::getInstance();
+$session = new Illuminate\Session\Store('ownership', new Illuminate\Session\ArraySessionHandler(120));
+$session->put('user', ['business_id' => 1]);
+$app->instance('session', $session);
+$middleware = new \App\Http\Middleware\EnforceEisProductCatalog();
+foreach ([
+    'ProductController' => ['create', 'store', 'quickAdd', 'saveQuickProduct', 'destroy', 'massDestroy',
+        'bulkEdit', 'bulkUpdate', 'addSellingPrices', 'saveSellingPrices', 'massDeactivate', 'activate', 'toggleWooCommerceSync'],
+    'ImportProductsController' => ['index', 'store'],
+    'ImportOpeningStockController' => ['index', 'store'],
+    'OpeningStockController' => ['add', 'save'],
+    'SellingPriceGroupController' => ['updateProductPrice', 'import'],
+    'ModifierSetsController' => ['store', 'update', 'destroy'],
+    'StockAdjustmentController' => ['store', 'destroy'],
+] as $controller => $methods) {
+    foreach ($methods as $method) {
+        $request = Illuminate\Http\Request::create('http://localhost/fixture', 'POST');
+        $request->setLaravelSession($session);
+        $route = new Illuminate\Routing\Route('POST', 'fixture', [
+            'uses' => 'App\Http\Controllers\\'.$controller.'@'.$method,
+            'controller' => 'App\Http\Controllers\\'.$controller.'@'.$method,
+        ]);
+        $request->setRouteResolver(fn () => $route);
+        try {
+            $middleware->handle($request, fn () => true);
+            throw new RuntimeException('Expected forbidden '.$controller.'@'.$method);
+        } catch (Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            catalogCheck($e->getStatusCode() === 403, $controller.'@'.$method.' is forbidden');
+        }
+        $session->put('user.business_id', 2);
+        catalogCheck($middleware->handle($request, fn () => true) === true, 'Non-EIS endpoint stays available');
+        $session->put('user.business_id', 1);
+    }
+}
+
+// Exercise the actual local-only update endpoint with real validation and persistence.
+$db->getSchemaBuilder()->table('business_locations', function (Blueprint $table) {
+    $table->boolean('is_active')->default(true);
+    $table->string('location_id')->nullable();
+    foreach (['receipt_printer_type', 'selling_price_group_id', 'default_payment_accounts', 'invoice_scheme_id',
+        'invoice_layout_id', 'sale_invoice_scheme_id'] as $column) {
+        $table->text($column)->nullable();
+    }
+});
+$db->getPdo()->sqliteCreateFunction('IF', fn ($condition, $yes, $no) => $condition ? $yes : $no, 3);
+foreach (['brands', 'categories', 'selling_price_groups', 'product_racks'] as $tableName) {
+    $db->getSchemaBuilder()->create($tableName, function (Blueprint $table) {
+        $table->increments('id');
+        foreach (['business_id', 'parent_id', 'is_active', 'name', 'product_id', 'location_id', 'rack', 'row', 'position'] as $column) {
+            $table->text($column)->nullable();
+        }
+        $table->timestamps();
+        $table->softDeletes();
+    });
+}
+$db->table('brands')->insert([['id' => 7, 'business_id' => 1], ['id' => 8, 'business_id' => 2]]);
+$db->table('categories')->insert([
+    ['id' => 5, 'business_id' => 1, 'parent_id' => 0], ['id' => 6, 'business_id' => 1, 'parent_id' => 5],
+    ['id' => 8, 'business_id' => 2, 'parent_id' => 0],
+]);
+$db->table('business_locations')->insert(['id' => 3, 'business_id' => 1, 'eis_site_id' => 'SITE-B']);
+$db->table('product_locations')->insert(['product_id' => $owned->id, 'location_id' => 3]);
+$user = Mockery::mock();
+$user->shouldReceive('can')->andReturn(true);
+$user->shouldReceive('permitted_locations')->andReturn([1]);
+$auth = Mockery::mock(Illuminate\Contracts\Auth\Factory::class);
+$auth->shouldReceive('user')->andReturn($user);
+$app->instance(Illuminate\Contracts\Auth\Factory::class, $auth);
+$validator = new Illuminate\Validation\Factory($app['translator'], $app);
+$validator->setPresenceVerifier(new Illuminate\Validation\DatabasePresenceVerifier($app['db']));
+$app->instance('validator', $validator);
+Illuminate\Http\Request::macro('validate', function ($rules) {
+    return app('validator')->make($this->all(), $rules)->validate();
+});
+$app->instance('events', new Illuminate\Events\Dispatcher($app));
+$app->instance('redirect', new Illuminate\Routing\Redirector(new Illuminate\Routing\UrlGenerator(
+    new Illuminate\Routing\RouteCollection(), Illuminate\Http\Request::create('http://localhost')
+)));
+$app['redirect']->setSession($session);
+$app['config']['constants.document_size_limit'] = 5000000;
+$util = Mockery::mock(\App\Utils\ProductUtil::class)->makePartial();
+$uploadedImage = null;
+$util->shouldReceive('uploadFile')->andReturnUsing(function () use (&$uploadedImage) {
+    return $uploadedImage;
+});
+$controller = new \App\Http\Controllers\ProductController($util, Mockery::mock(\App\Utils\ModuleUtil::class));
+function localEditRequest(array $data): Illuminate\Http\Request
+{
+    global $app, $session;
+    $request = Illuminate\Http\Request::create('http://localhost/products/1', 'PUT', $data);
+    $request->setLaravelSession($session);
+    $app->instance('request', $request);
+    return $request;
+}
+$session->put('currency', ['thousand_separator' => ',', 'decimal_separator' => '.']);
+foreach ([
+    ['name' => 'Forged'], ['single_dsp' => '999'], ['enable_stock' => 0],
+    ['alert_quantity' => 'abc'], ['alert_quantity' => '-1'], ['alert_quantity' => '1.23456'],
+    ['brand_id' => 8], ['category_id' => 8], ['category_id' => 5, 'sub_category_id' => 8],
+    ['product_locations' => [2]], ['product_locations' => [3]], ['product_racks' => [2 => ['rack' => 'X']]],
+    ['product_racks' => [1 => ['business_id' => 2]]],
+] as $invalid) {
+    try {
+        $controller->update(localEditRequest($invalid), $owned->id);
+        throw new RuntimeException('Expected local edit validation failure: '.json_encode($invalid));
+    } catch (Illuminate\Validation\ValidationException $e) {
+        catalogCheck(count($e->errors()) > 0, 'Forged fields, malformed values and foreign references fail validation');
+    }
+}
+$response = $controller->update(localEditRequest([
+    'brand_id' => 7, 'category_id' => 5, 'sub_category_id' => 6, 'alert_quantity' => '1,234.5000',
+    'product_custom_field1' => 'Updated local', 'product_locations' => [1],
+    'product_racks' => [1 => ['rack' => 'A', 'row' => 'B', 'position' => 'C']],
+]), $owned->id);
+catalogCheck($response->getSession()->get('status.success') === 1, 'Local-only update reports success');
+catalogCheck($owned->fresh()->alert_quantity === '1234.5000'
+    && $owned->fresh()->product_custom_field1 === 'Updated local' && $owned->fresh()->name === 'New EIS name',
+    'Allowed fields persist without changing EIS identity');
+catalogCheck($db->table('product_racks')->where('product_id', $owned->id)->value('rack') === 'A',
+    'Rack details persist for an authorized location');
+catalogCheck($owned->product_locations()->count() === 2, 'Local edits preserve assignments outside user permissions');
+$controller->update(localEditRequest(['product_locations' => null]), $owned->id);
+catalogCheck($owned->product_locations()->pluck('business_locations.id')->all() === [3],
+    'Clearing selectable locations preserves inaccessible assignments');
+$uploadedImage = 'replacement.jpg';
+$controller->update(localEditRequest([]), $owned->id);
+catalogCheck($owned->fresh()->image === 'replacement.jpg' && $owned->fresh()->woocommerce_media_id === null,
+    'Local image updates persist and reset external image metadata');
+$beforePrice = \App\Variation::where('product_id', $owned->id)->value('default_purchase_price');
+$util->updateProductFromPurchase(['variation_id' => $variation->id, 'pp_without_discount' => 999, 'sell_price_inc_tax' => 999]);
+catalogCheck(\App\Variation::where('product_id', $owned->id)->value('default_purchase_price') === $beforePrice,
+    'Purchases do not overwrite EIS catalog prices');
+try {
+    $controller->updateProductLocation(localEditRequest([
+        'products' => (string) $owned->id, 'product_location' => [2], 'update_type' => 'add',
+    ]));
+    throw new RuntimeException('Expected foreign bulk location validation failure');
+} catch (Illuminate\Validation\ValidationException $e) {
+    catalogCheck(isset($e->errors()['product_location.0']), 'Bulk location edits reject foreign locations');
+}
+
+$routes = new Illuminate\Routing\RouteCollection();
+$routes->add(new Illuminate\Routing\Route('PUT', 'products/{product}', [
+    'uses' => \App\Http\Controllers\ProductController::class.'@update',
+    'controller' => \App\Http\Controllers\ProductController::class.'@update',
+]));
+$url = new Illuminate\Routing\UrlGenerator($routes, $app['request']);
+$app->instance('url', $url);
+$kernel = Mockery::mock(Illuminate\Contracts\Http\Kernel::class);
+$kernel->shouldReceive('hasMiddleware')->andReturn(false);
+$app->instance(Illuminate\Contracts\Http\Kernel::class, $kernel);
+$view = Mockery::mock(Illuminate\Contracts\View\Factory::class)->shouldIgnoreMissing();
+$parentView = Mockery::mock(Illuminate\Contracts\View\View::class);
+$parentView->shouldReceive('render')->andReturn('');
+$view->shouldReceive('make')->andReturn($parentView);
+$form = new Collective\Html\FormBuilder(new Collective\Html\HtmlBuilder($url, $view), $url, $view, $session->token());
+$form->setSessionStore($session);
+$app->instance('form', $form);
+if (!class_exists('Form')) {
+    class_alias(Collective\Html\FormFacade::class, 'Form');
+}
+$session->put('business.custom_labels', json_encode([
+    'product' => ['custom_field_1' => 'Color', 'custom_field_2' => 'Local date'],
+    'product_cf_details' => [1 => ['type' => 'dropdown', 'dropdown_options' => "Red\nBlue"], 2 => ['type' => 'date']],
+]));
+$product = $owned->fresh();
+$categories = [5 => 'Food'];
+$sub_categories = [6 => 'Prepared'];
+$brands = [7 => 'Local brand'];
+$business_locations = collect([1 => 'Main']);
+$rack_details = [1 => ['rack' => 'A', 'row' => 'B', 'position' => 'C']];
+$alert_quantity = '1,234.5000';
+$errors = new Illuminate\Support\ViewErrorBag();
+$asset_v = 'fixture';
+$__env = $view;
+$blade = new Illuminate\View\Compilers\BladeCompiler(new Illuminate\Filesystem\Filesystem(), sys_get_temp_dir());
+$compiled = $blade->compileString(file_get_contents(dirname(__DIR__, 2).'\resources\views\product\edit_eis.blade.php'));
+ob_start();
+try {
+    eval('?>'.$compiled);
+    $rendered = ob_get_contents();
+} finally {
+    ob_end_clean();
+}
+$dom = new DOMDocument();
+@$dom->loadHTML($rendered);
+$xpath = new DOMXPath($dom);
+foreach (['brand_id', 'category_id', 'sub_category_id', 'alert_quantity', 'image',
+    'product_locations[]', 'product_racks[1][rack]', 'product_custom_field1', 'product_custom_field2'] as $field) {
+    catalogCheck($xpath->query('//*[@name="'.$field.'"]')->length > 0, 'Editor renders allowed field '.$field);
+}
+foreach (['name', 'sku', 'unit_id', 'tax', 'enable_stock', 'product_description', 'single_dsp', 'expiry_period'] as $field) {
+    catalogCheck($xpath->query('//*[@name="'.$field.'"]')->length === 0, 'Editor omits EIS-owned field '.$field);
+}
+catalogCheck($xpath->query('//input[@type="date" and @name="product_custom_field2"]')->length === 1,
+    'Editor preserves custom date field type');
+catalogCheck($xpath->query('//select[@name="product_custom_field1"]/option[@value="0" or @value="1"]')->length === 2,
+    'Editor preserves custom dropdown options');
+
 Mockery::close();
-echo "PASS: {$checks} isolated EIS product reconciliation checks; no live sync or network.\n";
+echo "PASS: {$checks} isolated EIS catalog sync, ownership and editor checks; no live sync or network.\n";

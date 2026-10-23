@@ -33,7 +33,7 @@ class ProductUpsertService {
         string $eisId
     ): Product {
 
-        return DB::transaction(function () use (
+        return \App\Services\EisProductPolicy::duringSync($businessId, fn () => DB::transaction(function () use (
             $businessId,
             $item,
             $eisId
@@ -207,9 +207,9 @@ class ProductUpsertService {
             | EIS CONTROLLED FIELDS WITH DUAL FALLBACKS
             |--------------------------------------------------------------------------
             */
-            $product->name = $this->getProductName($item, $product, $eisId);
-            $product->product_description = $this->getProductDescription($item, $product);
-            $product->sku = $this->getProductSku($item, $product, $eisId);
+            $product->name = $this->getProductName($item, $eisId);
+            $product->product_description = $this->getProductDescription($item);
+            $product->sku = $this->getProductSku($item, $eisId);
             $product->tax = $this->getProductTaxRateId($item['tax_rate_id'], $businessId);
             $product->eis_product_id = $eisId;
             $product->eis_last_synced_at = now();
@@ -259,7 +259,7 @@ class ProductUpsertService {
             | EXPIRY WITH FALLBACKS
             |--------------------------------------------------------------------------
             */
-            $product->expiry_period = $this->getExpiryPeriod($item, $product);
+            $product->expiry_period = $this->getExpiryPeriod($item);
 
             $product->save();
 
@@ -295,7 +295,7 @@ class ProductUpsertService {
                 $product,
                 $item
             );
-        });
+        }));
     }
 
     /**
@@ -695,12 +695,8 @@ class ProductUpsertService {
     /**
      * Get product name with dual fallbacks.
      */
-    private function getProductName(array $item, Product $product, string $eisId): string
+    private function getProductName(array $item, string $eisId): string
     {
-        if ($product->exists && !empty($product->name)) {
-            return $product->name;
-        }
-        
         $name = $item['name'] ?? $item['productName'] ?? $item['description'] ?? null;
         if ($name && !empty(trim($name))) {
             return trim($name);
@@ -724,12 +720,8 @@ class ProductUpsertService {
     /**
      * Get product description with dual fallbacks.
      */
-    private function getProductDescription(array $item, Product $product): ?string
+    private function getProductDescription(array $item): ?string
     {
-        if ($product->exists && !empty($product->product_description)) {
-            return $product->product_description;
-        }
-        
         $desc = $item['productDescription'] ?? $item['description'] ?? null;
         if ($desc && !empty(trim($desc))) {
             return trim($desc);
@@ -762,12 +754,8 @@ class ProductUpsertService {
     /**
      * Get product SKU with dual fallbacks.
      */
-    private function getProductSku(array $item, Product $product, string $eisId): string
+    private function getProductSku(array $item, string $eisId): string
     {
-        if ($product->exists && !empty($product->sku)) {
-            return $product->sku;
-        }
-        
         $sku = $item['sku'] ?? $item['productCode'] ?? $item['code'] ?? null;
         if ($sku && !empty(trim($sku))) {
             return trim($sku);
@@ -794,12 +782,8 @@ class ProductUpsertService {
     /**
      * Get expiry period with dual fallbacks.
      */
-    private function getExpiryPeriod(array $item, Product $product): ?string
+    private function getExpiryPeriod(array $item): ?string
     {
-        if ($product->exists && !empty($product->expiry_period)) {
-            return $product->expiry_period;
-        }
-        
         $expiry = $item['expiry_period'] ?? $item['productExpiryDate'] ?? $item['expiryDate'] ?? null;
         if ($expiry && !empty(trim($expiry))) {
             return trim($expiry);

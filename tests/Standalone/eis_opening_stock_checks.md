@@ -45,6 +45,28 @@ php tests\Standalone\eis_product_sync_checks.php
 This uses real transformer/upserter/models with an isolated SQLite database and
 synthetic multi-page responses/HTTP fakes; no live product import or API calls.
 
+## EIS-only product editing
+
+Any business with an `eis_settings` row is EIS-managed, even if the integration
+is inactive or its token has expired. Other businesses retain existing behavior.
+Manual products (including quick-add, imports, duplicates and modifier products),
+deletion/deactivation, price edits/imports, opening stock and manual stock
+adjustments are forbidden for EIS-managed businesses. Normal sales/purchases
+continue moving stock; purchases do not change the EIS catalog prices. Viewing
+stock history does not overwrite EIS quantities using the local ledger.
+
+The dedicated product editor permits only image, category/subcategory, brand,
+permitted locations and rack/row/position, alert quantity and product custom
+fields 1-20. Forged protected fields and foreign or unauthorized references are
+rejected server-side. Product and variation model events also reject protected
+writes from legacy writers. The EIS upserter uses a business-bound, exception-safe
+trusted scope; do not disable model events to bypass this policy.
+
+Every pull refreshes EIS-owned name, SKU, description, expiry, unit, tax, tracking
+and prices while retaining approved local details. The current isolated suite
+also exercises these rules, endpoint denial, local edit validation/persistence,
+ordinary-business compatibility and trusted-scope cleanup.
+
 ## Historical one-time opening-stock design
 
 The remainder documents the previous initialization design and its standalone
