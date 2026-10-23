@@ -79,7 +79,11 @@ class ProductUpsertService {
                 */
                 $product = Product::withTrashed()
                     ->where('id', $map->product_id)
+                    ->where('business_id', $businessId)
                     ->first();
+                if (!$product && Product::withTrashed()->whereKey($map->product_id)->exists()) {
+                    throw new \UnexpectedValueException('EIS product map points to another business.');
+                }
 
                 /*
                 |--------------------------------------------------------------------------
@@ -195,8 +199,8 @@ class ProductUpsertService {
             if ($isNew) {
                 $product->type = $item['type'] ?? 'single';
                 $product->created_by = config('eis.system_user_id', 1);
-                $product->enable_stock = $item['manage_stock'] ?? false;
             }
+            $product->enable_stock = $item['manage_stock'] ?? false;
 
             /*
             |--------------------------------------------------------------------------
@@ -303,6 +307,10 @@ class ProductUpsertService {
         array $item
     ): Product {
 
+        if ($product->type !== 'single' || $product->variations()->withTrashed()->count() > 1
+            || $product->product_variations()->count() > 1) {
+            throw new \UnexpectedValueException('EIS stock cannot be assigned to an ambiguous product variation.');
+        }
         /*
         |--------------------------------------------------------------------------
         | PRODUCT VARIATION
@@ -336,8 +344,13 @@ class ProductUpsertService {
         |--------------------------------------------------------------------------
         */
         $variation = $product->variations()
+            ->withTrashed()
             ->where('product_variation_id', $productVariationId)
+            ->lockForUpdate()
             ->first();
+        if ($variation && $variation->trashed()) {
+            $variation->restore();
+        }
 
         if (!$variation) {
             $variation = $product->variations()->create([
@@ -398,10 +411,10 @@ class ProductUpsertService {
 
         /*
         |--------------------------------------------------------------------------
-        | LOCATION WITH FALLBACKS
+        | EXACT EIS SITE LOCATION
         |--------------------------------------------------------------------------
         */
-        $locationId = $this->getLocationWithFallbacks($businessId, $item);
+        $locationId = $this->getMappedLocation($businessId, $item);
 
         if (!$locationId) {
             Log::error('No location found for product', [
@@ -431,7 +444,7 @@ class ProductUpsertService {
         | STOCK LOCATION
         |--------------------------------------------------------------------------
         */
-        $stock = $this->getStockWithFallbacks($item);
+        $stock = $this->getEisStock($item);
         
         DB::table('variation_location_details')->updateOrInsert(
             [
@@ -652,79 +665,31 @@ class ProductUpsertService {
     }
 
     /**
-     * Get stock with dual fallbacks.
+     * Use the validated source, not the transformer's lossy stock fallbacks.
      */
-    private function getStockWithFallbacks(array $item): float
+    private function getEisStock(array $item): string
     {
-        // Primary: Extract from item
-        $stock = (float) ($item['stock'] ?? $item['quantity'] ?? 0);
-        if ($stock >= 0) {
-            return $stock;
+        $source = $item['opening_stock_source'] ?? OpeningStockInitializer::stockSource($item);
+        if (!isset($source['quantity']) || OpeningStockInitializer::decimal($source['quantity']) === null) {
+            throw new \UnexpectedValueException('EIS stock quantity is missing, invalid, or conflicting.');
         }
-        
-        // Fallback 1: Check variations
-        if (isset($item['variations']) && is_array($item['variations'])) {
-            foreach ($item['variations'] as $variation) {
-                $varStock = (float) ($variation['stock'] ?? $variation['quantity'] ?? 0);
-                if ($varStock >= 0) {
-                    Log::warning('Using variation stock as fallback', [
-                        'original_stock' => $stock,
-                        'variation_stock' => $varStock
-                    ]);
-                    return $varStock;
-                }
-            }
-        }
-        
-        // Fallback 2: Use default 0
-        Log::warning('No stock available, using 0 as final fallback');
-        return 0;
+
+        return OpeningStockInitializer::decimal($source['quantity']);
     }
 
     /**
-     * Get location with dual fallbacks.
+     * Require exactly one location for the EIS site; never fall back to another site.
      */
-    private function getLocationWithFallbacks(int $businessId, array $item): ?int
+    private function getMappedLocation(int $businessId, array $item): ?int
     {
-        $siteId = $item['site_id'] ?? $item['siteId'] ?? $item['locationId'] ?? null;
-        
-        // Primary: Use site ID
-        if ($siteId) {
-            $locationId = $this->getLocationFromSite($businessId, $siteId);
-            if ($locationId) {
-                return $locationId;
-            }
+        $siteId = OpeningStockInitializer::siteId($item);
+        if ($siteId === null) {
+            return null;
         }
-        
-        // Fallback 1: Check nested location
-        if (isset($item['location']) && is_array($item['location'])) {
-            $nestedSiteId = $item['location']['id'] ?? $item['location']['siteId'] ?? null;
-            if ($nestedSiteId) {
-                $locationId = $this->getLocationFromSite($businessId, $nestedSiteId);
-                if ($locationId) {
-                    Log::warning('Using nested location as fallback', [
-                        'site_id' => $nestedSiteId,
-                        'location_id' => $locationId
-                    ]);
-                    return $locationId;
-                }
-            }
-        }
-        
-        // Fallback 2: Get any location for business
-        $anyLocation = DB::table('business_locations')
-            ->where('business_id', $businessId)
-            ->first();
-        
-        if ($anyLocation) {
-            Log::warning('Using any available location as final fallback', [
-                'location_id' => $anyLocation->id,
-                'location_name' => $anyLocation->name
-            ]);
-            return $anyLocation->id;
-        }
-        
-        return null;
+        $locations = DB::table('business_locations')->where('business_id', $businessId)
+            ->where('eis_site_id', $siteId)->pluck('id');
+
+        return $locations->count() === 1 ? (int) $locations->first() : null;
     }
 
     /**

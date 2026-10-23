@@ -1,4 +1,54 @@
-# Safe EIS opening-stock initialization
+# EIS product stock synchronization
+
+## Current catalog reconciliation (2026-10-23)
+
+The product pull is now authoritative for the **entire business catalog**, including
+manual products, as explicitly requested. After every page has been fetched and
+validated, one database transaction imports/restores returned products and maps,
+sets `variation_location_details.qty_available` to the exact EIS quantity at the
+mapped request-site location, and soft-deletes business products with no active
+map in the returned catalog. Absent maps are soft-deleted as well. Other businesses
+are untouched. This is business-wide catalog membership, **not** site-only deletion:
+a product absent from this site's complete catalog is retired even if it was
+previously used at another location. Stock at other locations is not overwritten.
+
+Only successful, well-formed `data` lists are accepted. `has_more` controls
+pagination; an absent flag means a single/final page under the existing API contract.
+HTTP errors, missing/malformed data, explicit error responses, empty nonfinal pages,
+repeated pages/identifiers, invalid quantities or conflicting sites abort the pull.
+No partial catalog is used for deletion. An explicitly successful empty catalog
+retires all business products/maps; it is not treated as a failed response.
+Returning maps, products, and their single variation are restored using existing
+IDs. Repeated pulls replace quantity rather than adding to it; explicit zero is
+authoritative. DECIMAL(22,4) validation uses the existing strict source parser,
+not float-based catalog fallbacks. Missing/negative/conflicting quantities fail
+instead of silently becoming zero. Existing product stock tracking follows EIS.
+
+This path reconciles available quantity only. It does **not** fabricate opening-stock
+transactions or rewrite historical purchase/sale allocation and cost ledgers.
+The former one-time initialization helper remains available separately; its
+historical checks below do not describe the current product-pull behavior.
+
+All participating tables must support transactions. Migration
+`2026_10_23_040000_make_eis_product_maps_transactional` converts the legacy MyISAM
+map table to InnoDB without deleting rows; rollback deliberately retains InnoDB.
+Fresh EIS map tables also use InnoDB. The sync refuses nontransactional storage
+before writing. Run this migration before syncing. The conversion briefly locks
+the map table. No live sync is needed to validate these changes.
+
+Current regression command:
+
+```powershell
+php tests\Standalone\eis_product_sync_checks.php
+```
+
+This uses real transformer/upserter/models with an isolated SQLite database and
+synthetic multi-page responses/HTTP fakes; no live product import or API calls.
+
+## Historical one-time opening-stock design
+
+The remainder documents the previous initialization design and its standalone
+helper suite, not the current authoritative catalog sync contract.
 
 ## Changed sources
 

@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'default_table' => 'Default table',
+    'default_table_help' => 'Automatically selected for new POS orders at this location. Selecting this replaces the previous default. Existing orders are unchanged.',
     'allow_multiple_orders' => 'Allow multiple orders',
     'allow_multiple_orders_help' => 'Allow separate bills on this table even when another bill is open or unpaid. Leave unchecked for one active bill per table.',
 

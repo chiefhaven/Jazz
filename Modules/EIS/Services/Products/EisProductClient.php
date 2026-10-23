@@ -21,6 +21,7 @@ class EisProductClient
                 'siteId' => self::requestSiteId($settings),
                 'page'   => $page,
             ])
+            ->throw()
             ->json();
     }
 }

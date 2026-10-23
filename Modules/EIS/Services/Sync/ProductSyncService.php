@@ -2,7 +2,10 @@
 
 namespace Modules\EIS\Services\Sync;
 
+use App\Product;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisProductMap;
 use Modules\EIS\Services\Products\EisProductClient;
 use Modules\EIS\Services\Products\OpeningStockInitializer;
 use Modules\EIS\Services\Products\ProductTransformer;
@@ -30,56 +33,99 @@ class ProductSyncService
         if ($requestSite === null || $requestSite !== (string) $sentSite) {
             throw new \InvalidArgumentException('EIS product request requires an exact valid site.');
         }
-        $page = 1;
-
-        while (true) {
-
+        $catalog = [];
+        $pageHashes = [];
+        for ($page = 1; ; $page++) {
             $response = $this->client->fetch($settings, $page);
-
-            $items = $response['data'] ?? [];
-
+            if (!is_array($response) || !array_key_exists('data', $response)
+                || !is_array($response['data']) || !array_is_list($response['data'])
+                || (array_key_exists('success', $response) && !in_array($response['success'], [true, 1], true))
+                || !empty($response['error']) || !empty($response['errors'])
+                || (array_key_exists('has_more', $response) && !in_array($response['has_more'], [true, false, 0, 1], true))) {
+                throw new \UnexpectedValueException('EIS product pull returned an invalid or unsuccessful catalog page.');
+            }
+            $items = $response['data'];
+            $hasMore = (bool) ($response['has_more'] ?? false);
             Log::info('EIS product page fetched', [
                 'page' => $page,
-                'count' => $response
+                'count' => count($items),
             ]);
-
-            if (empty($items)) {
-                break;
+            $hash = hash('sha256', json_encode($items, JSON_THROW_ON_ERROR));
+            if (($hasMore && !$items) || isset($pageHashes[$hash])) {
+                throw new \UnexpectedValueException('EIS product pagination is incomplete or repeating.');
             }
-
+            $pageHashes[$hash] = true;
             foreach ($items as $item) {
-
+                if (!is_array($item)) {
+                    throw new \UnexpectedValueException('EIS product pull contains an invalid product.');
+                }
                 $eisId = $item['productCode']
                     ?? $item['id']
                     ?? null;
-
-                if (!$eisId) {
-                    Log::warning('Missing EIS product identifier', $item);
-                    continue;
+                if ((!is_string($eisId) && !is_int($eisId)) || trim((string) $eisId) === '') {
+                    throw new \UnexpectedValueException('EIS product pull contains a product without an identifier.');
                 }
-
-                try {
-                    $data = $this->transformer->fromEis($item, $eisId, $requestSite);
-
-                    $this->upserter->upsert(
-                        $businessId,
-                        $data,
-                        $eisId
-                    );
-
-                } catch (\Throwable $e) {
-                    Log::error('EIS product sync failed', [
-                        'error' => $e->getMessage(),
-                        'item' => $item,
-                    ]);
+                $eisId = (string) $eisId;
+                if (isset($catalog[$eisId])) {
+                    throw new \UnexpectedValueException('EIS product pull contains duplicate product identifiers.');
                 }
+                $data = $this->transformer->fromEis($item, $eisId, $requestSite);
+                if ($data['site_id'] !== $requestSite || $data['opening_stock_source']['quantity'] === null) {
+                    throw new \UnexpectedValueException('EIS product pull contains an invalid site or stock quantity: '.$eisId);
+                }
+                $catalog[$eisId] = $data;
             }
-
-            if (!($response['has_more'] ?? false)) {
+            if (!$hasMore) {
                 break;
             }
+        }
 
-            $page++;
+        $this->requireTransactionalStorage();
+        DB::transaction(function () use ($businessId, $requestSite, $catalog) {
+            if (!DB::table('business')->where('id', $businessId)->lockForUpdate()->first()) {
+                throw new \UnexpectedValueException('EIS import business does not exist.');
+            }
+            if (DB::table('business_locations')->where('business_id', $businessId)
+                ->where('eis_site_id', $requestSite)->count() !== 1) {
+                throw new \UnexpectedValueException('EIS product site must map to exactly one business location.');
+            }
+
+            foreach ($catalog as $eisId => $data) {
+                $this->upserter->upsert($businessId, $data, (string) $eisId);
+            }
+
+            // Only a complete catalog may retire products, including manual products.
+            $currentMaps = EisProductMap::where('business_id', $businessId)
+                ->whereIn('eis_product_id', array_keys($catalog));
+            $productIds = (clone $currentMaps)->pluck('product_id');
+            Product::where('business_id', $businessId)->whereNotIn('id', $productIds)->delete();
+            EisProductMap::where('business_id', $businessId)
+                ->whereNotIn('eis_product_id', array_keys($catalog))->delete();
+
+            Log::info('EIS product catalog reconciled', [
+                'business_id' => $businessId, 'site_id' => $requestSite, 'product_count' => count($catalog),
+            ]);
+        });
+    }
+
+    private function requireTransactionalStorage(): void
+    {
+        $db = DB::connection();
+        if ($db->getDriverName() === 'sqlite') {
+            return;
+        }
+        if ($db->getDriverName() !== 'mysql') {
+            throw new \RuntimeException('EIS catalog reconciliation requires MySQL InnoDB or SQLite.');
+        }
+        foreach (['business', 'products', 'eis_product_maps', 'product_variations', 'variations',
+            'business_locations', 'product_locations', 'variation_location_details'] as $table) {
+            $row = $db->selectOne(
+                'SELECT ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+                [$db->getTablePrefix().$table]
+            );
+            if (!$row || strtoupper((string) $row->engine) !== 'INNODB') {
+                throw new \RuntimeException('EIS catalog reconciliation requires InnoDB storage for '.$table.'. Run migrations before syncing.');
+            }
         }
     }
 }

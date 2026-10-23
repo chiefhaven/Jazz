@@ -55,6 +55,10 @@ class DataController extends Controller
                     $tables = ResTable::where('business_id', $business_id)
                             ->where('location_id', $location_id)
                             ->pluck('name', 'id');
+                    if (empty($transaction_id)) {
+                        $view_data['res_table_id'] = ResTable::where('business_id', $business_id)
+                            ->where('location_id', $location_id)->where('is_default', true)->value('id');
+                    }
                 }
             } else {
                 $tables = [];
