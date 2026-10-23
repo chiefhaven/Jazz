@@ -71,7 +71,27 @@ class ProductSyncService
                 }
                 $data = $this->transformer->fromEis($item, $eisId, $requestSite);
                 if ($data['site_id'] !== $requestSite || $data['opening_stock_source']['quantity'] === null) {
-                    throw new \UnexpectedValueException('EIS product pull contains an invalid site or stock quantity: '.$eisId);
+                    $reason = $data['site_id'] !== $requestSite
+                        ? 'invalid_or_mismatched_site'
+                        : $data['opening_stock_source']['reason'];
+                    $values = [];
+                    foreach (['quantity', 'stock', 'stockQuantity', 'siteId', 'site_id', 'locationId'] as $field) {
+                        if (array_key_exists($field, $item)) {
+                            $value = $item[$field];
+                            $values[$field] = [
+                                'type' => get_debug_type($value),
+                                'value' => is_scalar($value) || $value === null ? substr((string) $value, 0, 100) : null,
+                            ];
+                        }
+                    }
+                    Log::error('EIS product catalog validation failed', [
+                        'business_id' => $businessId, 'page' => $page, 'eis_id' => $eisId,
+                        'reason' => $reason, 'request_site' => $requestSite,
+                        'stock_and_site_fields' => $values,
+                        'serialize_precision' => ini_get('serialize_precision'),
+                    ]);
+                    throw new \UnexpectedValueException('EIS product pull rejected '.$eisId.': '.$reason
+                        .'. Catalog and stock were not changed. See the EIS product catalog validation failed log entry.');
                 }
                 $catalog[$eisId] = $data;
             }

@@ -18,6 +18,12 @@ HTTP errors, missing/malformed data, explicit error responses, empty nonfinal pa
 repeated pages/identifiers, invalid quantities or conflicting sites abort the pull.
 No partial catalog is used for deletion. An explicitly successful empty catalog
 retires all business products/maps; it is not treated as a failed response.
+Rejected product quantities/sites produce an `EIS product catalog validation failed`
+log entry with the product identifier, reason, page, request site, stock/site field
+types and bounded values, and PHP serialization precision. Credentials and the
+complete product payload are not logged. The exception distinguishes missing or
+invalid/conflicting stock from an invalid/mismatched site; neither failure changes
+the local catalog or stock.
 Returning maps, products, and their single variation are restored using existing
 IDs. Repeated pulls replace quantity rather than adding to it; explicit zero is
 authoritative. DECIMAL(22,4) validation uses the existing strict source parser,

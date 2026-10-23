@@ -548,5 +548,33 @@ catalogCheck($xpath->query('//input[@type="date" and @name="product_custom_field
 catalogCheck($xpath->query('//select[@name="product_custom_field1"]/option[@value="0" or @value="1"]')->length === 2,
     'Editor preserves custom dropdown options');
 
+[$db, $client, $sync] = catalogFixture();
+$log = Mockery::mock(Psr\Log\LoggerInterface::class)->shouldIgnoreMissing();
+Illuminate\Support\Facades\Log::swap($log);
+foreach ([
+    [array_merge(catalogItem('6001106100551'), ['quantity' => null]), 'invalid_or_conflicting_stock'],
+    [array_diff_key(catalogItem('6001106100551'), ['quantity' => true]), 'missing_stock'],
+    [array_merge(catalogItem('6001106100551'), ['stock' => '999']), 'invalid_or_conflicting_stock'],
+    [array_merge(catalogItem('6001106100551'), ['siteId' => 'OTHER']), 'invalid_or_mismatched_site'],
+] as [$item, $reason]) {
+    $client->pages = [['data' => [$item]]];
+    $before = catalogSnapshot($db);
+    try {
+        pullCatalog($sync);
+        throw new RuntimeException('Expected precise catalog rejection');
+    } catch (UnexpectedValueException $e) {
+        catalogCheck(str_contains($e->getMessage(), '6001106100551: '.$reason),
+            'Catalog failure identifies the exact item and reason');
+        catalogCheck(catalogSnapshot($db) === $before, 'Diagnostic rejection does not change catalog or stock');
+    }
+    $log->shouldHaveReceived('error')->with('EIS product catalog validation failed',
+        Mockery::on(fn ($context) => $context['eis_id'] === '6001106100551'
+            && $context['reason'] === $reason && $context['request_site'] === 'SITE-A'
+            && !array_key_exists('productName', $context['stock_and_site_fields'])));
+}
+$client->pages = [['data' => [catalogItem('6001106100551', 108977)]]];
+pullCatalog($sync);
+catalogCheck($db->table('variation_location_details')->value('qty_available') === '108977.0000',
+    'Observed EIS integer quantity is accepted exactly');
 Mockery::close();
 echo "PASS: {$checks} isolated EIS catalog sync, ownership and editor checks; no live sync or network.\n";
