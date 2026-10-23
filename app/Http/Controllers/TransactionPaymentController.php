@@ -114,7 +114,7 @@ class TransactionPaymentController extends Controller
 
                 DB::beginTransaction();
 
-                $payment_result = \App\Services\Sales\SavedSaleWriteGuard::splitPayment(
+                $paymentWork = fn () => \App\Services\Sales\SavedSaleWriteGuard::splitPayment(
                     DB::connection(),
                     $transaction_id,
                     $business_id,
@@ -208,6 +208,9 @@ class TransactionPaymentController extends Controller
                             'payment_status' => $payment_status,
                         ];
                     }
+                );
+                $payment_result = (new \App\Services\Sales\RestaurantBillService(DB::connection()))->backendPayment(
+                    auth()->user(), (int) $transaction_id, $paymentWork
                 );
 
                 DB::commit();

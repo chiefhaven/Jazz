@@ -99,7 +99,15 @@ $container->instance('request', $request); $container->instance('session', $sess
 $redirector = new Illuminate\Routing\Redirector(new Illuminate\Routing\UrlGenerator(new Illuminate\Routing\RouteCollection(), $request));
 $redirector->setSession($session); $container->instance('redirect', $redirector);
 $user = Mockery::mock(App\User::class)->makePartial();
-$user->id = 1; $user->business_id = 7; $user->shouldReceive('can')->andReturn(true);
+$paymentPermission = true; $permittedLocation = true;
+$user->id = 1; $user->business_id = 7;
+$user->shouldReceive('hasRole')->andReturn(false);
+$user->shouldReceive('can')->andReturnUsing(function ($permission) use (&$paymentPermission, &$permittedLocation) {
+    if ($permission === 'superadmin') { return false; }
+    if ($permission === 'sell.payments') { return $paymentPermission; }
+    if (in_array($permission, ['access_all_locations', 'location.2'], true)) { return $permittedLocation; }
+    return true;
+});
 $authGuard = Mockery::mock();
 $authGuard->shouldReceive('user')->andReturn($user);
 $auth = Mockery::mock(Illuminate\Auth\AuthManager::class);
@@ -300,5 +308,95 @@ DB::beginTransaction();
 try { $util->payAtOnce($parent, 'sell'); throw new RuntimeException('Expected allocation failure'); }
 catch (Illuminate\Database\QueryException $e) { DB::rollBack(); }
 paymentCheck(count($submitted) === $before && $sale->fresh()->payment_status === 'due', 'Failed allocation cannot dispatch fiscal event');
+DB::statement('DROP TRIGGER reject_allocation');
+
+$schema->create('restaurant_bills', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('transaction_id'); $t->integer('business_id');
+    $t->integer('location_id'); $t->integer('waiter_id'); $t->string('state');
+    $t->integer('version')->default(1); $t->timestamps();
+});
+$schema->create('transaction_sell_lines', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('transaction_id'); $t->string('quantity');
+});
+$schema->create('restaurant_tickets', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('transaction_id'); $t->string('status');
+});
+foreach (['eis_sales', 'eis_failed_transactions'] as $table) {
+    $schema->create($table, function (Blueprint $t) { $t->increments('id'); $t->integer('transaction_id'); });
+}
+function restaurantPaymentFixture(string $state = 'open'): Transaction {
+    $sale = saleFixture();
+    trackSplit($sale);
+    DB::table('restaurant_bills')->insert(['transaction_id' => $sale->id, 'business_id' => 7,
+        'location_id' => 2, 'waiter_id' => 99, 'state' => $state, 'version' => 1]);
+    DB::table('transaction_sell_lines')->insert(['transaction_id' => $sale->id, 'quantity' => '2.0000']);
+    DB::table('restaurant_tickets')->insert(['transaction_id' => $sale->id, 'status' => 'received']);
+    return $sale;
+}
+foreach (['open', 'ready'] as $state) {
+    $sale = restaurantPaymentFixture($state);
+    $lines = DB::table('transaction_sell_lines')->where('transaction_id', $sale->id)->get()->toJson();
+    $tickets = DB::table('restaurant_tickets')->where('transaction_id', $sale->id)->get()->toJson();
+    $operation = (string) Illuminate\Support\Str::uuid();
+    $before = count($submitted);
+    addPayment($sale, 60, 'cash', $operation);
+    paymentCheck($sale->fresh()->payment_status === 'partial' &&
+        DB::table('restaurant_bills')->where('transaction_id', $sale->id)->value('state') === 'partial' &&
+        count($submitted) === $before, 'Normal backend payment accepts '.$state.' restaurant bill and syncs partial state');
+    $version = DB::table('restaurant_bills')->where('transaction_id', $sale->id)->value('version');
+    addPayment($sale, 60, 'cash', $operation);
+    paymentCheck(TransactionPayment::where('transaction_id', $sale->id)->count() === 1 &&
+        DB::table('restaurant_bills')->where('transaction_id', $sale->id)->value('version') === $version,
+        'Restaurant backend payment retry does not duplicate tender or workflow version');
+    paymentCheck(postPayment($sale, 50, 'cash', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+        TransactionPayment::where('transaction_id', $sale->id)->count() === 1 &&
+        $sale->fresh()->payment_status === 'partial' && count($submitted) === $before,
+        'Restaurant backend overpayment rolls back payment, state and fiscal callback');
+    addPayment($sale, 40, 'card', (string) Illuminate\Support\Str::uuid());
+    paymentCheck($sale->fresh()->payment_status === 'paid' &&
+        DB::table('restaurant_bills')->where('transaction_id', $sale->id)->value('state') === 'closed' &&
+        array_slice($submitted, $before) === [$sale->id],
+        'Normal backend final payment closes restaurant bill and submits EIS once after commit');
+    paymentCheck(DB::table('transaction_sell_lines')->where('transaction_id', $sale->id)->get()->toJson() === $lines &&
+        DB::table('restaurant_tickets')->where('transaction_id', $sale->id)->get()->toJson() === $tickets,
+        'Backend clearing preserves restaurant quantities and preparation status');
+    addPayment($sale, 40, 'card', (string) Illuminate\Support\Str::uuid());
+    paymentCheck(TransactionPayment::where('transaction_id', $sale->id)->count() === 2 &&
+        count($submitted) === $before + 1, 'Paid restaurant bill retry cannot add payments or resubmit EIS');
+    $payment = TransactionPayment::where('transaction_id', $sale->id)->firstOrFail();
+    paymentCheck(deletePayment($payment)['success'] === false && TransactionPayment::whereKey($payment->id)->exists(),
+        'Backend clearing does not relax direct restaurant tender deletion');
+}
+$sale = restaurantPaymentFixture();
+$paymentPermission = false;
+paymentCheck(postPayment($sale, 100, 'cash', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Other payment permissions cannot substitute for sell.payments on a restaurant bill');
+$paymentPermission = true; $permittedLocation = false;
+paymentCheck(postPayment($sale, 100, 'cash', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Backend restaurant clearing checks actor location access');
+$permittedLocation = true;
+paymentCheck(postPayment($sale, 100)['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Restaurant backend payments require the operation UUID from the normal payment form');
+paymentCheck(postPayment($sale, 0, 'cash', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Restaurant backend payment rejects zero amounts');
+paymentCheck(postPayment($sale, 100, 'disabled_method', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Restaurant backend payment validates location-enabled tender methods');
+DB::table('eis_failed_transactions')->insert(['transaction_id' => $sale->id]);
+paymentCheck(postPayment($sale, 100, 'cash', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0,
+    'Existing fiscal tracking blocks additional restaurant payments');
+DB::table('eis_failed_transactions')->where('transaction_id', $sale->id)->delete();
+$before = count($submitted);
+DB::statement("CREATE TRIGGER reject_restaurant_close BEFORE UPDATE ON restaurant_bills WHEN NEW.state = 'closed' BEGIN SELECT RAISE(ABORT, 'fixture close failure'); END");
+paymentCheck(postPayment($sale, 100, 'cash', (string) Illuminate\Support\Str::uuid())['success'] === false &&
+    TransactionPayment::where('transaction_id', $sale->id)->count() === 0 &&
+    $sale->fresh()->payment_status === 'due' && count($submitted) === $before,
+    'Restaurant workflow close failure rolls back backend payment and pending EIS event');
+DB::statement('DROP TRIGGER reject_restaurant_close');
 Mockery::close();
 echo "PASS: {$checks} EIS added-payment checks (SQLite memory and local events only).\n";

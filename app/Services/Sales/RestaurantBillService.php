@@ -675,6 +675,43 @@ class RestaurantBillService
         });
     }
 
+    public function backendPayment($user, int $id, callable $work): array
+    {
+        if (!$this->db->getSchemaBuilder()->hasTable('restaurant_bills') ||
+            !$this->db->table('restaurant_bills')->where('transaction_id', $id)->exists()) {
+            return $work();
+        }
+        if ($this->db->transactionLevel() < 1) { $this->fail('Backend clearing requires a locked payment transaction.'); }
+        $this->requirePermission($user, 'sell.payments');
+        $before = $this->bill($user, $id, false);
+        if ($before['header']->status !== 'final') { $this->fail('Only final bills accept backend payments.'); }
+        if ($before['header']->payment_status !== 'paid' &&
+            ($this->db->table('eis_sales')->where('transaction_id', $id)->exists() ||
+                $this->db->table('eis_failed_transactions')->where('transaction_id', $id)->exists())) {
+            $this->fail('Existing fiscal tracking prevents additional payments. Investigate in the backend.');
+        }
+        $key = spl_object_id($this->db).':'.$id;
+        if (isset(self::$clearing[$key])) { $this->fail('Nested restaurant clearing is not allowed.'); }
+        self::$clearing[$key] = true;
+        try { $result = $work(); }
+        finally { unset(self::$clearing[$key]); }
+        $after = $this->bill($user, $id, false);
+        if (bccomp($after['paid'], $before['paid'], 4) < 0 ||
+            bccomp($after['balance'], '0', 4) < 0 || $after['lines'] != $before['lines'] ||
+            $after['tickets'] != $before['tickets']) {
+            $this->fail('Backend payment must preserve bill items and preparation tickets and cannot exceed the outstanding balance.', 422);
+        }
+        if (bccomp($after['paid'], $before['paid'], 4) > 0) {
+            $paid = bccomp($after['balance'], '0', 4) === 0;
+            $status = $paid ? 'paid' : 'partial';
+            if ($after['header']->payment_status !== $status) {
+                $this->fail('Payment status does not reconcile with the saved payment ledger.');
+            }
+            $this->touch($id, $paid ? 'closed' : 'partial');
+        }
+        return $result;
+    }
+
     public function pay($user, int $id, array $input): array
     {
         $this->requirePermission($user, 'sell.payments');
