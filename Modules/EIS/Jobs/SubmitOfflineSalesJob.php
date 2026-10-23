@@ -49,7 +49,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
                 'sell_lines.product',
                 'sell_lines.variations',
                 'sell_lines.modifiers',
-            ])->find($this->transactionId);
+            ])->where('business_id', $this->businessId)->find($this->transactionId);
 
             if (!$transaction) {
                 Log::error('Transaction not found', [
@@ -59,7 +59,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
                 return;
             }
 
-            $existingSale = EisSale::where('transaction_id', $this->transactionId)->first();
+            $existingSale = EisSale::where('business_id', $this->businessId)->where('transaction_id', $this->transactionId)->first();
             
             if ($existingSale && $existingSale->status === 'submitted') {
                 Log::info('Transaction already submitted to EIS', [
@@ -140,7 +140,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
         ]);
 
         try {
-            $eisSale = EisSale::where('transaction_id', $this->transactionId)->first();
+            $eisSale = EisSale::where('business_id', $this->businessId)->where('transaction_id', $this->transactionId)->first();
             if ($eisSale) {
                 $eisSale->update([
                     'status' => 'failed',
@@ -169,7 +169,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
     protected function markJobAsFailed(string $errorMessage): void
     {
         try {
-            $eisSale = EisSale::where('transaction_id', $this->transactionId)->first();
+            $eisSale = EisSale::where('business_id', $this->businessId)->where('transaction_id', $this->transactionId)->first();
             if ($eisSale) {
                 $eisSale->update([
                     'status' => 'failed',

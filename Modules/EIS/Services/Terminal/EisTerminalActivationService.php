@@ -64,7 +64,7 @@ class EisTerminalActivationService
                 
                 if ($terminalId && $secretKey && $jwtToken) {
                     // Send activation confirmation to EIS API
-                    $confirmationSuccess = $this->sendActivationConfirmation($terminalId, $activationCode, $jwtToken, $secretKey);
+                    $confirmationSuccess = $this->sendActivationConfirmation($businessId, $terminalId, $activationCode, $jwtToken, $secretKey);
                     
                     if (!$confirmationSuccess) {
                         Log::warning('Activation confirmation could not be sent to EIS', [
@@ -110,7 +110,7 @@ class EisTerminalActivationService
      * @param string $secretKey
      * @return bool
      */
-    private function sendActivationConfirmation(string $terminalId, string $activationCode, string $jwtToken, string $secretKey): bool
+    private function sendActivationConfirmation(int $businessId, string $terminalId, string $activationCode, string $jwtToken, string $secretKey): bool
     {
         try {
             $url = $this->apiBaseUrl . '/onboarding/terminal-activated-confirmation';
@@ -157,7 +157,8 @@ class EisTerminalActivationService
             ]);
 
             // Update terminal as confirmed
-            $terminal = EisTerminalConfiguration::where('terminal_id', $terminalId)->first();
+            $terminal = EisTerminalConfiguration::whereHas('configuration', fn ($query) => $query->where('business_id', $businessId))
+                ->where('terminal_id', $terminalId)->first();
             if ($terminal) {
                 $terminal->update([
                     'is_confirmed' => true,
@@ -267,6 +268,7 @@ class EisTerminalActivationService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+            throw $e;
         }
     }
 
@@ -470,6 +472,24 @@ class EisTerminalActivationService
                     'taxpayer_id' => $activatedTerminal->taxpayerId ?? null,
                     'has_credentials' => isset($activatedTerminal->terminalCredentials)
                 ]);
+
+                $terminalId = $activatedTerminal->terminalId ?? null;
+                if (!is_string($terminalId) || trim($terminalId) === '') {
+                    throw new \InvalidArgumentException('EIS activation requires a terminal identifier.');
+                }
+                if (EisSetting::where('device_id', $terminalId)->where('business_id', '!=', $businessId)->exists()
+                    || EisTerminalConfiguration::where('terminal_id', $terminalId)
+                        ->whereHas('configuration', fn ($query) => $query->where('business_id', '!=', $businessId))->exists()) {
+                    throw new \InvalidArgumentException('EIS terminal is already assigned to another business.');
+                }
+                $currentSettings = EisSetting::where('business_id', $businessId)->first();
+                if ($currentSettings && !empty($currentSettings->device_id)
+                    && (string) $currentSettings->device_id !== $terminalId) {
+                    throw new \InvalidArgumentException('A different terminal cannot replace this business terminal.');
+                }
+                if ($currentSettings && !empty($currentSettings->branch_id) && !empty($currentSettings->tpin)) {
+                    TerminalContext::assertConfiguration($currentSettings, $configurationData);
+                }
 
                 // Save or update main configuration
                 $configuration = $this->saveConfiguration($businessId, $configurationData);
@@ -741,7 +761,8 @@ class EisTerminalActivationService
 
         // Add business location branch if businessId is provided
         if ($businessId) {
-            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)->first();
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
+                ->where('eis_site_id', TerminalContext::site(TerminalContext::settings($businessId)))->first();
             $details['branch'] = $businessLocation?->name ?? null;
         }
 
@@ -867,6 +888,7 @@ class EisTerminalActivationService
     public function toggle(int $businessId, string $token, ?int $toggledBy = null): array
     {
         try {
+            TerminalContext::settings($businessId, $token);
             Log::info('Terminal activation toggle requested', [
                 'business_id' => $businessId
             ]);
@@ -1145,6 +1167,7 @@ class EisTerminalActivationService
     public function regenerateCredentials(int $businessId, string $token): array
     {
         try {
+            TerminalContext::settings($businessId, $token);
             Log::info('Regenerating terminal credentials', [
                 'business_id' => $businessId
             ]);

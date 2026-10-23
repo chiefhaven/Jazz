@@ -12,6 +12,11 @@ class TerminalConfigurationService
 
     public function sync(EisConfiguration $configuration,  array $data){
 
+        \Modules\EIS\Services\Terminal\TerminalContext::assertConfiguration(
+            \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $configuration->business_id),
+            json_decode(json_encode($data, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR)
+        );
+
         $terminal = $data['terminalConfiguration'];
 
 

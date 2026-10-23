@@ -47,7 +47,7 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function mapWebRoutes()
     {
-        Route::middleware('web')
+        Route::middleware(['web', \Modules\EIS\Http\Middleware\EnforceTerminalBusiness::class])
             ->namespace($this->moduleNamespace)
             ->group(module_path('EIS', '/Routes/web.php'));
     }
@@ -62,7 +62,7 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapApiRoutes()
     {
         Route::prefix('api')
-            ->middleware('api')
+            ->middleware(['api', \Modules\EIS\Http\Middleware\EnforceTerminalBusiness::class])
             ->namespace($this->moduleNamespace)
             ->group(module_path('EIS', '/Routes/api.php'));
     }

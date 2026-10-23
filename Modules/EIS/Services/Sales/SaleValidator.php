@@ -15,6 +15,7 @@ class SaleValidator
      */
     public function validate(Transaction $transaction, object $settings): void
     {
+        \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, (int) $transaction->business_id);
         $transaction->loadMissing([
             'sell_lines.product',
             'contact',
@@ -25,6 +26,9 @@ class SaleValidator
         // -------------------------
         if (empty($transaction->contact)) {
             throw new EisSaleException("Customer is required for EIS invoice.");
+        }
+        if ((int) $transaction->contact->business_id !== (int) $transaction->business_id) {
+            throw new EisSaleException('Sale customer belongs to another business terminal.');
         }
 
         if (empty($transaction->contact->name)) {
@@ -48,6 +52,9 @@ class SaleValidator
             // Product existence
             if (!$line->product) {
                 throw new EisSaleException("Missing product in invoice line.");
+            }
+            if ((int) $line->product->business_id !== (int) $transaction->business_id) {
+                throw new EisSaleException('Sale product belongs to another business terminal.');
             }
 
             // SKU / mapping check

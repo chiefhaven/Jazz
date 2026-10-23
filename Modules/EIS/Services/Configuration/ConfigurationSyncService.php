@@ -55,7 +55,8 @@ class ConfigurationSyncService
      */
     public function sync(
         int $businessId,
-        string $token
+        string $token,
+        bool $force = false
     ): EisConfiguration {
         $this->validateBusinessId($businessId);
         $this->validateToken($token);
@@ -65,7 +66,8 @@ class ConfigurationSyncService
         ]);
 
         try {
-            return DB::transaction(function () use ($businessId, $token) {
+            return DB::transaction(function () use ($businessId, $token, $force) {
+                $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, $token);
                 // Fetch configuration from EIS
                 $response = $this->client->latest($token);
 
@@ -85,10 +87,11 @@ class ConfigurationSyncService
                 // Get and validate data
                 $data = $response->getData();
                 $this->validateResponseData($data);
+                \Modules\EIS\Services\Terminal\TerminalContext::assertConfiguration($settings, $data);
 
                 // Check if data has changed before syncing
                 $existingConfig = EisConfiguration::where('business_id', $businessId)->first();
-                if ($existingConfig && !$this->hasConfigurationChanged($existingConfig, $data)) {
+                if (!$force && $existingConfig && !$this->hasConfigurationChanged($existingConfig, $data)) {
                     Log::info('Configuration unchanged, skipping sync', [
                         'business_id' => $businessId,
                         'global_version' => $existingConfig->global_version,
@@ -164,6 +167,9 @@ class ConfigurationSyncService
     public function getLatestConfig(array $settings): array
     {
         try {
+            $terminalSettings = \Modules\EIS\Services\Terminal\TerminalContext::settings(
+                (int) ($settings['business_id'] ?? 0), $settings['jwt_token'] ?? ''
+            );
             Log::info('Requesting latest EIS configuration');
 
             if (empty($settings['jwt_token'])) {
@@ -183,6 +189,7 @@ class ConfigurationSyncService
                 ];
             }
 
+            \Modules\EIS\Services\Terminal\TerminalContext::assertConfiguration($terminalSettings, $response->getData());
             return [
                 'success' => true,
                 'message' => 'Latest configuration retrieved successfully',
@@ -915,17 +922,7 @@ class ConfigurationSyncService
             'business_id' => $businessId
         ]);
 
-        // Delete existing configuration to force full sync
-        $existing = EisConfiguration::where('business_id', $businessId)->first();
-        if ($existing) {
-            Log::info('Deleting existing configuration for force sync', [
-                'business_id' => $businessId,
-                'configuration_id' => $existing->id
-            ]);
-            $existing->delete();
-        }
-
-        return $this->sync($businessId, $token);
+        return $this->sync($businessId, $token, true);
     }
 
     /**
@@ -1126,12 +1123,13 @@ class ConfigurationSyncService
             ->firstOrFail();
 
         // Decode the stored EIS API response
-        $response = json_decode(
-            $eisConfiguration->raw_response,
-            true,
-            512,
-            JSON_THROW_ON_ERROR
-        );
+        $response = $eisConfiguration->raw_response;
+        if (is_string($response)) {
+            $response = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+        }
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId);
+        \Modules\EIS\Services\Terminal\TerminalContext::assertConfiguration($settings,
+            json_decode(json_encode(data_get($response, 'data', []), JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR));
 
         // Extract EIS configurations
         $terminalConfig = data_get(
@@ -1249,6 +1247,7 @@ class ConfigurationSyncService
             $businessLocation = \App\BusinessLocation::updateOrCreate(
                 [
                     'business_id' => $business->id,
+                    'eis_site_id' => $siteId,
                 ],
                 [
                     'eis_site_id' => $siteId,

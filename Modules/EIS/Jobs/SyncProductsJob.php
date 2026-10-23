@@ -24,6 +24,7 @@ class SyncProductsJob implements ShouldQueue
             return;
         }
 
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($this->businessId);
         $service->sync($settings, $this->businessId);
     }
 }

@@ -43,13 +43,10 @@ class RetryFailedSaleJob implements ShouldQueue
             }
 
             try {
-                $transaction = Transaction::find($row->transaction_id);
+                $transaction = Transaction::where('business_id', $row->business_id)->find($row->transaction_id);
 
                 if (!$transaction) {
-                    DB::table('eis_failed_transactions')
-                        ->where('id', $row->id)
-                        ->delete();
-                    continue;
+                    throw new \InvalidArgumentException('Retry transaction does not belong to the business terminal.');
                 }
 
                 $settings = EisSetting::where('business_id', $row->business_id)->first();

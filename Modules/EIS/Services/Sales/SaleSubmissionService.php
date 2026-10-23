@@ -31,6 +31,7 @@ class SaleSubmissionService
      */
     public function submit(Transaction $transaction, object $settings): EisSale
     {
+        \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, (int) $transaction->business_id);
         // Fence before invoice counters, MyISAM tracking or any external call.
         \App\Services\Sales\SavedSaleWriteGuard::fiscal($transaction->getConnection(), $transaction->id);
         $transaction->refresh();
@@ -38,6 +39,9 @@ class SaleSubmissionService
         // IDEMPOTENCY CHECK (BEFORE DB TX)
         // ----------------------------
         $existing = EisSale::where('transaction_id', $transaction->id)->first();
+        if ($existing && (int) $existing->business_id !== (int) $transaction->business_id) {
+            throw new EisSaleException('EIS sale tracking belongs to a different business terminal.');
+        }
 
         if ($existing && $existing->status === 'submitted') {
             return $existing;
@@ -46,9 +50,13 @@ class SaleSubmissionService
         // ----------------------------
         // GET EIS SETTINGS
         // ----------------------------
-        $eisSetting = EisSetting::where('business_id', $transaction->business_id)->first();
-        if (!$eisSetting) {
-            throw new EisSaleException('EIS settings not found for business: ' . $transaction->business_id);
+        $eisSetting = \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $transaction->business_id);
+        $settings = $eisSetting;
+        if ($transaction->location_id) {
+            $location = \App\BusinessLocation::where('business_id', $transaction->business_id)->find($transaction->location_id);
+            if (!$location || (string) $location->eis_site_id !== \Modules\EIS\Services\Terminal\TerminalContext::site($settings)) {
+                throw new EisSaleException('Sale location does not match the business terminal site.');
+            }
         }
 
         // ----------------------------
@@ -352,7 +360,7 @@ class SaleSubmissionService
                 ];
             }
 
-            $transaction = Transaction::find($transactionId);
+            $transaction = Transaction::where('business_id', $businessId)->find($transactionId);
             if (!$transaction) {
                 return [
                     'success' => false,

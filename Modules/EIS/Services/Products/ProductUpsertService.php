@@ -230,8 +230,7 @@ class ProductUpsertService {
                 // Fallback: Try to find default unit
                 $defaultUnit = DB::table('units')
                     ->where('business_id', $businessId)
-                    ->where('short_name', 'pcs')
-                    ->orWhere('short_name', 'pc')
+                    ->whereIn('short_name', ['pcs', 'pc'])
                     ->first();
                 
                 if ($defaultUnit) {

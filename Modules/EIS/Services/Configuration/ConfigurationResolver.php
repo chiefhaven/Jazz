@@ -27,9 +27,9 @@ class ConfigurationResolver
 
     public function siteId(int $businessId)
     {
-        return $this->get($businessId)
-            ?->terminal
-            ?->site_id;
+        return \Modules\EIS\Services\Terminal\TerminalContext::site(
+            \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId)
+        );
     }
 
 

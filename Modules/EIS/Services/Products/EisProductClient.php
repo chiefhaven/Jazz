@@ -9,7 +9,7 @@ class EisProductClient
     /** Shared with sync scoping: this is the exact value sent, with null-only fallback. */
     public static function requestSiteId($settings)
     {
-        return $settings->site_id ?? $settings->branch_id;
+        return \Modules\EIS\Services\Terminal\TerminalContext::site($settings);
     }
 
     public function fetch($settings, int $page = 1)

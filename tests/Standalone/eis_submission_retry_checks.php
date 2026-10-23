@@ -40,7 +40,7 @@ $schema->create('transactions', function (Blueprint $t) {
     $t->timestamps();
 });
 $schema->create('eis_settings', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('business_id'); $t->string('tpin'); $t->timestamps();
+    $t->increments('id'); $t->integer('business_id'); $t->string('tpin'); $t->string('branch_id'); $t->timestamps();
 });
 $container->instance('db.schema', $schema);
 (require dirname(__DIR__, 2).'/Modules/EIS/Database/Migrations/2026_07_05_000001_create_eis_sales_table.php')->up();
@@ -49,7 +49,7 @@ $schema->create('eis_failed_transactions', function (Blueprint $t) {
     $t->text('payload')->nullable(); $t->text('error_message')->nullable();
     $t->integer('attempts'); $t->dateTime('next_retry_at')->nullable(); $t->timestamps();
 });
-DB::table('eis_settings')->insert(['business_id' => 7, 'tpin' => 'FIXTURE']);
+DB::table('eis_settings')->insert(['business_id' => 7, 'tpin' => 'FIXTURE', 'branch_id' => 'SITE-7']);
 $settings = EisSetting::first();
 $transformer = new class(new EisTaxRate(), new OfflineSignatureService(), new InvoiceNumberGenerator()) extends SaleTransformer {
     public int $signatures = 0;
@@ -225,7 +225,7 @@ Illuminate\Support\Facades\Http::fake(function () use (&$requests) {
 $health = new class extends Modules\EIS\Services\Http\EisHealthService {
     public function isOnline(int $businessId, string $token): bool { return true; }
 };
-$httpSettings = (object) ['business_id' => 7, 'jwt_token' => 'fixture', 'secret_key' => 'fixture', 'branch_id' => '00', 'tpin' => 'fixture'];
+$httpSettings = (object) ['business_id' => 7, 'jwt_token' => 'fixture', 'secret_key' => 'fixture', 'branch_id' => 'SITE-7', 'tpin' => 'FIXTURE'];
 $failure = (new EisSaleClient($health))->submit($first, $httpSettings);
 checkRetry($requests === 1, 'Client sends only one request per tracked attempt');
 checkRetry(! $failure['success'] && $failure['error_code'] === 'CONNECTION_ERROR', 'Transport failure returns for persisted retry');

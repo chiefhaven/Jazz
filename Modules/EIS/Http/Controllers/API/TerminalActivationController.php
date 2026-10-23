@@ -64,7 +64,7 @@ class TerminalActivationController extends Controller
                 $businessId,
                 $activationCode,
                 $environment,
-                Auth::user()->name ?? null
+                Auth::id()
             );
 
             if ($result['success']) {
@@ -267,6 +267,7 @@ class TerminalActivationController extends Controller
 
             $result = $this->activationService->toggle(
                 $user->business_id,
+                \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $user->business_id)->jwt_token,
                 $user->id
             );
 
@@ -705,7 +706,10 @@ class TerminalActivationController extends Controller
             }
 
             // Get business location for branch information
-            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)->first();
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
+                ->where('eis_site_id', \Modules\EIS\Services\Terminal\TerminalContext::site(
+                    \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId)
+                ))->first();
             $branch = $businessLocation?->name ?? null;
 
             return response()->json([

@@ -43,6 +43,16 @@ class EisSaleClient
      */
     public function submit(array $payload, object $settings): array
     {
+        try {
+            $site = \Modules\EIS\Services\Terminal\TerminalContext::site($settings);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResult($e->getMessage(), 'INVALID_SETTINGS', null, false);
+        }
+        if (($payload['invoiceHeader']['siteId'] ?? null) !== $site
+            || (string) ($payload['invoiceHeader']['sellerTIN'] ?? '') !== (string) ($settings->tpin ?? '')) {
+            Log::error('EIS sale payload does not match its terminal credentials.', ['business_id' => $settings->business_id ?? null]);
+            return $this->errorResult('Sale payload does not match its business terminal.', 'TERMINAL_MISMATCH', null, false);
+        }
 
         // Check if EIS server is online
         if (! $this->health->isOnline($settings->business_id, $settings->jwt_token)) {
@@ -179,7 +189,7 @@ class EisSaleClient
             return ['valid' => false, 'error' => 'Missing EIS Secret Key.'];
         }
 
-        if (empty($settings->branch_id)) {
+        if (empty($settings->site_id ?? $settings->branch_id ?? null)) {
             return ['valid' => false, 'error' => 'Missing EIS Site ID.'];
         }
 

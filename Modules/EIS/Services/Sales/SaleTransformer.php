@@ -15,7 +15,6 @@ class SaleTransformer
 {
     private const DEFAULT_TAX_RATE_ID = 'A';
     private const DEFAULT_CUSTOMER_NAME = 'Walk-in Customer';
-    private const DEFAULT_SITE_ID = '00';
     
     /**
      * Cache for tax rate lookups
@@ -39,6 +38,7 @@ class SaleTransformer
      */
     public function transform(Transaction $transaction, EisSetting $settings, string $eisInvoiceNumber, bool $includeOfflineSignature = false): array
     {
+        \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, (int) $transaction->business_id);
         $this->validateTransaction($transaction);
         $this->validateSettings($settings);
 
@@ -51,6 +51,9 @@ class SaleTransformer
                 $query->with(['product', 'variations', 'modifiers']);
             },
         ]);
+        if ($transaction->contact && (int) $transaction->contact->business_id !== (int) $transaction->business_id) {
+            throw new \InvalidArgumentException('Sale customer belongs to another business terminal.');
+        }
 
         // Validate sell lines exist
         if ($transaction->sell_lines->isEmpty()) {
@@ -64,6 +67,9 @@ class SaleTransformer
         $totalItems = 0;
 
         foreach ($transaction->sell_lines as $index => $line) {
+            if ($line->product && (int) $line->product->business_id !== (int) $transaction->business_id) {
+                throw new \InvalidArgumentException('Sale product belongs to another business terminal.');
+            }
             // Skip invalid lines
             if (!$this->isValidSellLine($line)) {
                 Log::warning('Skipping invalid sell line', [
@@ -278,10 +284,7 @@ class SaleTransformer
      */
     private function getSiteId(EisSetting $settings): string
     {
-        return (string) ($settings->branch_id ?? 
-                        $settings->site_id ?? 
-                        $settings->device_id ?? 
-                        self::DEFAULT_SITE_ID);
+        return \Modules\EIS\Services\Terminal\TerminalContext::site($settings);
     }
 
     /**
