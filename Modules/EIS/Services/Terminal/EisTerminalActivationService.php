@@ -38,7 +38,6 @@ class EisTerminalActivationService
         ?int $locationId = null
     ): array {
         try {
-            $location = \App\BusinessLocation::where('business_id', $businessId)->findOrFail($locationId);
             Log::info('Terminal activation started', [
                 'business_id' => $businessId,
                 'activation_code' => $activationCode
@@ -54,7 +53,7 @@ class EisTerminalActivationService
                 $activationCode,
                 $environment,
                 $activatedBy,
-                (int) $location->id
+                $locationId
             );
 
             Log::info('Result: ', [$result]);
@@ -245,9 +244,8 @@ class EisTerminalActivationService
 
             } else {
                 // Create new record if not exists
-                $setting = EisSetting::create([
+                $attributes = [
                     'business_id' => $businessId,
-                    'base_url' => $this->apiBaseUrl,
                     'location_id' => $locationId,
                     'device_id' => $terminalId,
                     'secret_key' => $secretKey,
@@ -259,7 +257,12 @@ class EisTerminalActivationService
                     'last_sync_at' => now(),
                     'successful_syncs' => 1,
                     'failed_syncs' => 0,
-                ]);
+                ];
+                // Older schemas require this column; newer deployments may omit it.
+                if ((new EisSetting())->getConnection()->getSchemaBuilder()->hasColumn('eis_settings', 'base_url')) {
+                    $attributes['base_url'] = $this->apiBaseUrl;
+                }
+                $setting = EisSetting::create($attributes);
                 
                 Log::info('EIS settings created after activation', [
                     'business_id' => $businessId,
@@ -497,8 +500,6 @@ class EisTerminalActivationService
             return \Illuminate\Support\Facades\Cache::lock('eis-activate-'.hash('sha256', $identity), 60)
                 ->block(10, fn () => DB::transaction(function () use ($businessId, $response, $activationCode, $environment, $activatedBy, $locationId) {
                 DB::table('business')->where('id', $businessId)->lockForUpdate()->first();
-                $location = \App\BusinessLocation::where('business_id', $businessId)
-                    ->lockForUpdate()->findOrFail($locationId);
 
                 // Get activated terminal data
                 $activatedTerminal = $response->data->activatedTerminal ?? null;
@@ -542,19 +543,21 @@ class EisTerminalActivationService
                     throw new \InvalidArgumentException('EIS terminal is already assigned to another business.');
                 }
                 $currentSettings = EisSetting::where('business_id', $businessId)->where('device_id', $terminalId)->lockForUpdate()->first();
-                if ($currentSettings && (int) $currentSettings->location_id !== (int) $location->id) {
-                    throw new \InvalidArgumentException('This terminal is already assigned to a different location.');
+                if ($currentSettings && $activatedBy !== null) {
+                    $permitted = \App\User::where('business_id', $businessId)->findOrFail($activatedBy)->permitted_locations($businessId);
+                    if ($permitted !== 'all' && !in_array((int) $currentSettings->location_id, array_map('intval', $permitted), true)) {
+                        throw new \InvalidArgumentException('You do not have access to the terminal current location.');
+                    }
                 }
                 $configurationTerminalId = $configurationData->terminalConfiguration->terminalId ?? null;
                 if ($configurationTerminalId !== null && (string) $configurationTerminalId !== $terminalId) {
                     throw new \InvalidArgumentException('EIS activation response contains mismatched terminal identities.');
                 }
-                $siteId = $configurationData->terminalConfiguration->terminalSite->siteId ?? null;
-                if (!$siteId || ($location->eis_site_id && (string) $location->eis_site_id !== (string) $siteId)) {
-                    throw new \InvalidArgumentException('The activated terminal site does not match the selected location.');
-                }
-                if (!$location->eis_site_id) {
-                    $location->update(['eis_site_id' => $siteId]);
+                $location = $this->syncService->locationForActivation($businessId, $configurationData, $activatedBy);
+                if ($currentSettings && (int) $currentSettings->location_id !== (int) $location->id) {
+                    \App\BusinessLocation::where('business_id', $businessId)
+                        ->where('default_eis_setting_id', $currentSettings->id)
+                        ->update(['default_eis_setting_id' => null]);
                 }
 
                 $setting = $this->updateEisSettings($response->data, $businessId, (int) $location->id);

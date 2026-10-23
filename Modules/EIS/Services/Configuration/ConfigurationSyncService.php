@@ -1122,6 +1122,61 @@ class ConfigurationSyncService
         ];
     }
 
+    public function locationForActivation(int $businessId, object $data, ?int $activatedBy = null): \App\BusinessLocation
+    {
+        $site = $data->terminalConfiguration->terminalSite ?? null;
+        $siteId = $site->siteId ?? null;
+        $siteName = $site->siteName ?? null;
+        if ((!is_string($siteId) && !is_int($siteId)) || trim((string) $siteId) === ''
+            || !is_string($siteName) || trim($siteName) === '') {
+            throw new \InvalidArgumentException('EIS activation requires a site ID and site name.');
+        }
+        $locations = \App\BusinessLocation::where('business_id', $businessId)
+            ->where('eis_site_id', (string) $siteId)->lockForUpdate()->get()
+            ->filter(fn ($location) => (string) $location->eis_site_id === (string) $siteId);
+        if ($locations->count() > 1) {
+            throw new \InvalidArgumentException('Multiple business locations have this EIS site ID; reconcile duplicates before activation.');
+        }
+        $location = $locations->first();
+        if ($activatedBy !== null) {
+            $user = \App\User::where('business_id', $businessId)->findOrFail($activatedBy);
+            $permitted = $user->permitted_locations($businessId);
+            if ($permitted !== 'all' && (!$location || !in_array((int) $location->id, array_map('intval', $permitted), true))) {
+                throw new \InvalidArgumentException('You do not have access to the API-assigned location. An account with all-location access must activate a new site.');
+            }
+        }
+        if ($location) {
+            $location->update(['name' => $siteName]);
+            return $location;
+        }
+        \App\Business::findOrFail($businessId);
+        $template = \App\BusinessLocation::where('business_id', $businessId)->orderBy('id')->first();
+        $scheme = \App\InvoiceScheme::getDefault($businessId);
+        if (!$scheme) {
+            $scheme = \App\InvoiceScheme::create([
+                'business_id' => $businessId, 'name' => 'Default Invoice Scheme', 'scheme_type' => 'blank',
+                'prefix' => 'INV-', 'start_number' => 1, 'total_digits' => 6, 'is_default' => true,
+            ]);
+        }
+        $layout = \App\InvoiceLayout::where('business_id', $businessId)->where('is_default', 1)->first();
+        if (!$layout) {
+            $layout = \App\InvoiceLayout::create(['business_id' => $businessId, 'name' => 'Default Invoice Layout', 'is_default' => true]);
+        }
+        $location = \App\BusinessLocation::create([
+            'business_id' => $businessId, 'eis_site_id' => (string) $siteId, 'name' => $siteName,
+            'location_id' => (string) $siteId,
+            'country' => $template?->country ?: 'Malawi', 'state' => $template?->state ?: 'Malawi',
+            'city' => $template?->city ?: 'Lilongwe', 'zip_code' => $template?->zip_code ?: '00000',
+            'invoice_scheme_id' => $scheme->id, 'sale_invoice_scheme_id' => $scheme->id,
+            'invoice_layout_id' => $layout->id, 'sale_invoice_layout_id' => $layout->id,
+            'default_payment_accounts' => $template?->default_payment_accounts,
+            'mobile' => $data->terminalConfiguration->phoneNumber ?? null,
+            'email' => $data->terminalConfiguration->emailAddress ?? null,
+        ]);
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'location.'.$location->id, 'guard_name' => 'web']);
+        return $location;
+    }
+
     public static function businessLocation(int $businessId, ?int $terminalId = null)
     {
         $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, null, $terminalId);

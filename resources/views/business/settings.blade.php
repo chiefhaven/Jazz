@@ -173,8 +173,6 @@
 
         function eisControls() {
             $('#eis-terminal-management button').prop('disabled', eisBusy);
-            $('#eis-activation-location').prop('disabled', eisBusy || !$('#eis-activation-location option[value!=""]').length);
-            $('#eis-activate-terminal').prop('disabled', eisBusy || !$('#eis-activation-location').val());
             $('#eis-terminal-rows button[data-is-default="true"]').prop('disabled', true);
         }
 
@@ -189,13 +187,6 @@
                     eisMessage(result.msg || result.message || 'Unable to load terminals.', true);
                     return;
                 }
-                var selected = $('#eis-activation-location').val();
-                var locations = $('#eis-activation-location').empty();
-                $('<option>').val('').text('Select a location').appendTo(locations);
-                $.each(result.data.locations, function(_, location) {
-                    $('<option>').val(location.id).text(location.name).appendTo(locations);
-                });
-                if (selected) locations.val(selected);
                 var rows = $('#eis-terminal-rows').empty();
                 $.each(result.data.terminals, function(_, terminal) {
                     var row = $('<tr>').appendTo(rows);
@@ -252,20 +243,17 @@
             });
         }
 
-        $('#eis-activation-location').change(eisControls);
         $('#eis-refresh-terminals').click(function() {
             if (!eisBusy) loadEisTerminals();
         });
         $('#eis-activate-terminal').click(function() {
             if (eisBusy) return;
-            var location = $('#eis-activation-location').val();
             var code = $('#eis-activation-code').val().trim();
-            if (!location || !code) {
-                eisMessage('Select a location and enter an activation code.', true);
+            if (!code) {
+                eisMessage('Enter an activation code.', true);
                 return;
             }
             eisAction(eisUrls.activate, {
-                location_id: location,
                 terminal_activation_code: code,
                 environment: {
                     platform: {osVersion: 'Unknown', osBuild: ''}

@@ -60,20 +60,17 @@ class TerminalManagementController extends Controller
     {
         $businessId = $this->businessId($request);
         $input = $request->validate([
-            'location_id' => 'required|integer|min:1',
             'terminal_activation_code' => 'required|string|max:255',
             'environment' => 'sometimes|array',
             'environment.platform' => 'sometimes|array',
             'environment.pos' => 'sometimes|array',
         ]);
-        $location = $this->locations($request, $businessId)->findOrFail($input['location_id']);
 
         return $this->result($this->activationService->activateTerminal(
             $businessId,
             $input['terminal_activation_code'],
             $input['environment'] ?? [],
-            (int) $request->user()->id,
-            (int) $location->id
+            (int) $request->user()->id
         ));
     }
 

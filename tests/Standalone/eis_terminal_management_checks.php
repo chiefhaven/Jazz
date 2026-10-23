@@ -171,11 +171,6 @@ foreach (['latestConfig', 'deactivate', 'renewTokens', 'setDefault'] as $action)
         managementReject(fn () => $controller->$action(managementRequest(), $id), 404, $action.' rejects inaccessible terminal '.$id);
     }
 }
-foreach ([11, 20, 999] as $location) {
-    managementReject(fn () => $controller->activate(managementRequest([
-        'location_id' => $location, 'terminal_activation_code' => 'FIXTURE',
-    ])), 404, 'Activation rejects forbidden location '.$location);
-}
 foreach ([
     [],
     ['location_id' => 10],
@@ -189,10 +184,10 @@ foreach ([
         managementCheck(true, 'Invalid activation is rejected before service calls');
     }
 }
-$service->shouldReceive('activateTerminal')->once()->with(1, 'FIXTURE', ['pos' => ['productID' => 'Fixture']], 7, 10)
+$service->shouldReceive('activateTerminal')->once()->with(1, 'FIXTURE', ['pos' => ['productID' => 'Fixture']], 7)
     ->andReturn(['success' => true, 'message' => 'Activated', 'terminal_credentials' => ['secret_key' => 'not-for-browser']]);
 $result = $controller->activate(managementRequest([
-    'business_id' => 2, 'location_id' => 10, 'terminal_activation_code' => 'FIXTURE',
+    'business_id' => 2, 'terminal_activation_code' => 'FIXTURE',
     'environment' => ['pos' => ['productID' => 'Fixture']],
 ]))->getData(true);
 managementCheck($result === ['success' => true, 'message' => 'Activated', 'msg' => 'Activated'],

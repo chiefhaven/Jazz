@@ -29,7 +29,6 @@ class TerminalActivationController extends Controller
         try {
             $request->validate([
                 'terminal_activation_code' => 'required|string',
-                'location_id' => 'required|integer|exists:business_locations,id',
             ]);
 
             // Get business_id from request
@@ -555,7 +554,6 @@ class TerminalActivationController extends Controller
                 'business_ids' => 'required|array',
                 'business_ids.*' => 'integer|exists:eis_configurations,business_id',
                 'terminal_activation_code' => 'required|string',
-                'location_id' => 'required|integer|exists:business_locations,id',
                 'environment' => 'sometimes|array',
                 'environment.platform' => 'sometimes|array',
                 'environment.pos' => 'sometimes|array'

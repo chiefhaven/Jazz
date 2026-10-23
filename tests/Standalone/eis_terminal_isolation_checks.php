@@ -26,6 +26,44 @@ $app->instance('cache', new class {
 });
 $schema->create('business', function (Blueprint $table) { $table->increments('id'); $table->string('name'); });
 DB::table('business')->insert([['id' => 1, 'name' => 'Business one'], ['id' => 2, 'name' => 'Business two']]);
+$schema->create('users', function (Blueprint $table) {
+    $table->increments('id'); $table->integer('business_id'); $table->softDeletes();
+});
+DB::table('users')->insert(['id' => 1, 'business_id' => 1]);
+$gate = Mockery::mock(Illuminate\Contracts\Auth\Access\Gate::class);
+$gate->shouldReceive('forUser')->andReturnSelf();
+$allLocations = true;
+$gate->shouldReceive('check')->andReturnUsing(function () use (&$allLocations) { return $allLocations; });
+$app->instance(Illuminate\Contracts\Auth\Access\Gate::class, $gate);
+$schema->table('business_locations', function (Blueprint $table) {
+    foreach (['location_id', 'country', 'state', 'city', 'zip_code', 'invoice_scheme_id', 'sale_invoice_scheme_id',
+        'invoice_layout_id', 'sale_invoice_layout_id', 'default_payment_accounts', 'mobile', 'email'] as $column) {
+        $table->text($column)->nullable();
+    }
+});
+foreach (['invoice_schemes', 'invoice_layouts'] as $name) {
+    $schema->create($name, function (Blueprint $table) {
+        $table->increments('id'); $table->integer('business_id'); $table->string('name');
+        $table->boolean('is_default'); $table->timestamps();
+    });
+    DB::table($name)->insert(['business_id' => 1, 'name' => 'Default', 'is_default' => true]);
+}
+$schema->table('invoice_schemes', function (Blueprint $table) {
+    foreach (['scheme_type', 'prefix', 'start_number', 'total_digits'] as $column) { $table->text($column)->nullable(); }
+});
+$schema->create('permissions', function (Blueprint $table) {
+    $table->increments('id'); $table->string('name'); $table->string('guard_name'); $table->timestamps();
+});
+$schema->create('model_has_permissions', function (Blueprint $table) {
+    $table->integer('permission_id'); $table->integer('model_id'); $table->string('model_type');
+});
+$app['config']['permission.models.permission'] = Spatie\Permission\Models\Permission::class;
+$app['config']['permission.table_names.model_has_permissions'] = 'model_has_permissions';
+$app['config']['permission.column_names.model_morph_key'] = 'model_id';
+Spatie\Permission\PermissionRegistrar::$pivotPermission = 'permission_id';
+DB::table('business_locations')->where('id', 1)->update([
+    'default_payment_accounts' => '{"cash":{"is_enabled":1,"account":null}}', 'country' => 'Malawi',
+]);
 foreach ([
     'eis_settings' => ['secret_key', 'last_sync_at', 'sync_status', 'sync_error', 'successful_syncs', 'failed_syncs'],
     'eis_configurations' => ['global_version', 'terminal_version', 'taxpayer_version', 'tpin', 'is_vat_registered', 'tax_office_code', 'tax_office_name', 'raw_response', 'last_synced_at'],
@@ -73,15 +111,78 @@ $newId = $result['terminal_setting_id'];
 locationCheck($result['success'] && DB::table('eis_settings')->count() === $beforeSettings + 1, 'New terminal adds rather than replaces another device');
 locationCheck(TerminalContext::settings(1, null, 1)->device_id === 'A1', 'Old device identity and historical sale ownership survive activation');
 locationCheck((int) TerminalContext::settings(1, null, $newId)->location_id === 1, 'New terminal belongs to the chosen existing location');
-locationCheck(DB::table('business_locations')->get()->toJson() === $beforeLocations, 'Activation does not create or overwrite business locations');
+locationCheck(DB::table('business_locations')->count() === 5
+    && DB::table('business_locations')->where('id', 1)->value('name') === 'Site A',
+    'Activation reuses the exact business/site location and syncs its name');
 locationCheck(DB::table('eis_terminal_sites')->count() === 1 && DB::table('eis_offline_limits')->count() === 1, 'Activation persists site and offline configuration');
 locationCheck(DB::table('eis_settings')->where('id', $newId)->value('base_url') === 'https://eis.invalid', 'New settings include required base URL');
 $again = $process->invoke($activation, 1, activationResponse('A2', 'A', 3), 'CODE', [], 1, 1);
 locationCheck($again['terminal_setting_id'] === $newId && DB::table('eis_settings')->count() === $beforeSettings + 1, 'Reactivation updates the same terminal without duplicating settings');
+// Activation must also support installations that use only the environment endpoint.
+DB::beginTransaction();
+$schema->table('eis_settings', fn (Blueprint $table) => $table->dropColumn('base_url'));
+$withoutEndpoint = $process->invoke($activation, 1, activationResponse('NO-DB-URL', 'A', 9), 'CODE', [], 1, 1);
+locationCheck($withoutEndpoint['success']
+    && TerminalContext::settings(1, null, $withoutEndpoint['terminal_setting_id'])->device_id === 'NO-DB-URL',
+    'Activation creates settings successfully when legacy base_url column is absent');
+DB::rollBack();
 locationCheck(DB::table('eis_configurations')->where('eis_setting_id', $newId)->count() === 1, 'Each terminal has exactly one configuration');
-locationReject(fn () => $process->invoke($activation, 1, activationResponse('A2', 'B', 3), 'CODE', [], 1, 2), 'Existing terminal cannot move to another location');
+DB::beginTransaction();
+DB::table('business_locations')->where('id', 1)->update(['default_eis_setting_id' => $newId]);
+$moved = $process->invoke($activation, 1, activationResponse('A2', 'B', 3), 'CODE', [], 1);
+locationCheck($moved['terminal_setting_id'] === $newId && (int) TerminalContext::settings(1, null, $newId)->location_id === 2,
+    'API reassignment moves the existing terminal to its assigned site without duplicating identity');
+locationCheck(DB::table('business_locations')->where('id', 1)->value('default_eis_setting_id') === null,
+    'Moving a default terminal clears its old location default rather than pointing across sites');
+locationCheck((int) DB::table('eis_sales')->where('id', 1)->value('location_id') === 1,
+    'Terminal reassignment does not rewrite historical fiscal location');
+DB::rollBack();
+DB::beginTransaction();
+$process->invoke($activation, 1, activationResponse('A1', 'B', 1), 'CODE', [], 1);
+$historical = new App\Transaction();
+$historical->setRawAttributes(['id' => 1, 'business_id' => 1, 'location_id' => 1]);
+locationCheck((int) DB::table('eis_sales')->where('id', 1)->value('location_id') === 1
+    && (int) DB::table('eis_sales')->where('id', 1)->value('eis_setting_id') === 1,
+    'Moving a terminal with fiscal history preserves its original sale ownership');
+locationReject(fn () => TerminalContext::forSale($historical),
+    'Historical retry cannot silently submit using its moved terminal new site');
+DB::rollBack();
 locationReject(fn () => $process->invoke($activation, 2, activationResponse('A2', 'A', 3), 'CODE', [], 1, 3), 'A terminal cannot be stolen by another business');
-locationReject(fn () => $process->invoke($activation, 1, activationResponse('NEW', 'WRONG', 4), 'CODE', [], 1, 1), 'Activation rejects a site belonging to another location');
+DB::beginTransaction();
+$created = $process->invoke($activation, 1, activationResponse('NEW', 'NEW-SITE', 4), 'CODE', [], 1);
+$createdLocation = TerminalContext::settings(1, null, $created['terminal_setting_id'])->location;
+locationCheck($createdLocation->eis_site_id === 'NEW-SITE' && $createdLocation->name === 'Site NEW-SITE',
+    'Unknown API site creates the assigned business location automatically');
+locationCheck((int) $createdLocation->invoice_scheme_id === 1 && (int) $createdLocation->invoice_layout_id === 1
+    && $createdLocation->default_payment_accounts === DB::table('business_locations')->where('id', 1)->value('default_payment_accounts'),
+    'API-created location inherits business invoice and payment defaults');
+locationCheck(DB::table('permissions')->where('name', 'location.'.$createdLocation->id)->exists(),
+    'API-created location has a corresponding role permission');
+$process->invoke($activation, 1, activationResponse('NEW-SECOND', 'NEW-SITE', 5), 'CODE', [], 1);
+locationCheck(DB::table('business_locations')->where('business_id', 1)->where('eis_site_id', 'NEW-SITE')->count() === 1,
+    'Another terminal at the same API site reuses its location');
+DB::rollBack();
+$allLocations = false;
+$beforePermissionCheck = DB::table('business_locations')->count();
+locationReject(fn () => $process->invoke($activation, 1, activationResponse('FORBIDDEN', 'NEW-SITE', 6), 'CODE', [], 1),
+    'Restricted users cannot create a new API location without all-location access');
+locationReject(fn () => $process->invoke($activation, 1, activationResponse('FORBIDDEN', 'B', 6), 'CODE', [], 1),
+    'Restricted users cannot attach terminals to an unpermitted API site');
+locationCheck(DB::table('business_locations')->count() === $beforePermissionCheck,
+    'Forbidden API site activation creates no partial location');
+$allLocations = true;
+DB::beginTransaction();
+$freshLocation = $sync->locationForActivation(2, activationResponse('FRESH', 'FIRST', 1)->data->configuration);
+locationCheck($freshLocation->business_id === 2 && $freshLocation->invoice_scheme_id && $freshLocation->invoice_layout_id,
+    'Businesses without invoice defaults receive usable default schemes and layouts');
+DB::rollBack();
+$missingSite = activationResponse('MISSING', 'A', 6);
+$missingSite->data->configuration->terminalConfiguration->terminalSite->siteName = '';
+locationReject(fn () => $process->invoke($activation, 1, $missingSite, 'CODE', [], 1),
+    'Missing API site name is rejected before location creation');
+$duplicateSite = activationResponse('DUPLICATE', 'D', 6);
+locationReject(fn () => $process->invoke($activation, 3, $duplicateSite, 'CODE', [], null),
+    'Duplicate business locations with one API site ID are not resolved arbitrarily');
 $mismatch = activationResponse('NEW', 'A', 4);
 $mismatch->data->configuration->terminalConfiguration->terminalId = 'OTHER';
 locationReject(fn () => $process->invoke($activation, 1, $mismatch, 'CODE', [], 1, 1), 'Activation response must consistently identify one terminal');

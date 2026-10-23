@@ -24,7 +24,7 @@ All management routes require a session-authenticated account with `business_set
 | Method | Path | Route name | Input |
 | --- | --- | --- | --- |
 | GET | `/eis/terminals` | `eis.terminals.index` | None |
-| POST | `/eis/terminals/activate` | `eis.terminals.activate` | Required `location_id`, `terminal_activation_code`; optional `environment` object |
+| POST | `/eis/terminals/activate` | `eis.terminals.activate` | Required `terminal_activation_code`; optional `environment` object. Location comes from EIS. |
 | POST | `/eis/terminals/{terminalId}/latest-config` | `eis.terminals.latest-config` | None |
 | POST | `/eis/terminals/{terminalId}/deactivate` | `eis.terminals.deactivate` | Optional `reason` |
 | POST | `/eis/terminals/{terminalId}/renew-tokens` | `eis.terminals.renew-tokens` | None; uses this terminal's stored JWT |
@@ -44,7 +44,9 @@ php -d error_reporting=8191 tests\Standalone\eis_terminal_management_checks.php
 
 The current design supersedes the historical singleton behavior described below:
 
-- A business owns many locations. A location owns many terminals; a terminal cannot be moved to another location or business by activation.
+- A business owns many locations. A location owns many terminals. Activation uses EIS `terminalSite.siteId` and `siteName` to match an existing location in that business, or creates one with default invoice/layout/payment settings and a location permission. A manually selected location is not required.
+- Reactivating a terminal assigned to another site moves that same terminal and configuration to the API-assigned location. Cross-business terminal theft is rejected. The old location's default is cleared if it pointed to the moved terminal; choose a default for the destination explicitly.
+- Historical sales, retry records, and stock are not moved or rewritten. Retries for a terminal that has moved away from the sale's original site fail explicitly for reconciliation rather than submitting with another site's identity.
 - `eis_settings.id` is the terminal identity. Settings store `location_id`; configurations, sales, and retry records store both `location_id` and `eis_setting_id`. A terminal has one configuration.
 - `business_locations.default_eis_setting_id` explicitly chooses the terminal for new sales. Activation does not silently replace a different terminal or switch the default. Missing/inactive defaults block submission; choose **Set default** after activation.
 - Existing fiscal sales remain pinned to their recorded terminal, even after the location default changes. Unreconciled historical sales fail explicitly rather than being reassigned.
@@ -52,12 +54,14 @@ The current design supersedes the historical singleton behavior described below:
 - `eis_sales.eis_invoice_number` retains the generated invoice identity even when the confirmed receipt overwrites `fiscal_invoice_number`. Only the last invoice component changes: today's allocated invoice count for the selected terminal plus one. Pending and failed allocations count too; retries reuse the number.
 - Terminal allocation and sale submission use atomic cache locks. Use a shared lock-capable cache across all web/queue servers (file cache is suitable only when processes share the same cache filesystem). Do not use the array/null cache driver in production.
 - Product identities/catalog mappings remain business-wide; opening-stock initialization and stock quantities are location-specific. All users, including administrators, see quantities only at permitted tenant locations. A product pull must not delete another location's stock or shared catalog.
-- New locations reuse default invoice schemes/layouts and payment settings. Configuration reconciliation updates the selected existing location and preserves its existing invoice/address choices.
+- New locations reuse default invoice schemes/layouts and payment settings. Configuration reconciliation updates the API-assigned location and preserves its existing invoice/address choices. Duplicate locations with the same site ID are rejected for reconciliation. Activation requires access to both the terminal's previous location and the API-assigned location; creating a new API site requires `access_all_locations`.
 - Bulk submission from the sales screen is restricted to permitted locations. Each job resolves its own sale's location and terminal; no arbitrary business-wide token is used. The global badge shows **Multiple terminals** instead of claiming one selected terminal represents all locations.
 
 ### Migration
 
 `EIS_BASE_URL` in `.env`, accessed through Laravel's `config('eis.base_url')`, is the runtime endpoint source for EIS clients, including credential refresh and signed GET requests. The database column is retained for legacy schema compatibility, not as a per-terminal endpoint override. After changing `.env`, rebuild or clear Laravel's configuration cache as appropriate for the deployment.
+
+Activation supports schemas with or without the legacy `eis_settings.base_url` column. It populates that field only when present (for older schemas where it is required); the endpoint is always taken from configuration.
 
 The follow-up `2026_10_23_171800_restore_eis_settings_base_url.php` restores the original `eis_settings.base_url` column on installations where it is missing. Empty endpoints are populated from `eis.base_url`; existing terminal endpoints are preserved. Its rollback intentionally retains this original-schema column.
 
@@ -81,7 +85,7 @@ php -d error_reporting=24575 tests\Standalone\eis_submission_retry_checks.php
 php -d error_reporting=24575 tests\Standalone\eis_pos_validation_checks.php
 ```
 
-Legacy API terminal/configuration/tax-rate actions accept `terminal_id` (local settings ID); token-driven actions validate token ownership. Omitted selection works only for an unambiguous single-terminal business and still enforces location permissions. Activation also requires an existing permitted `location_id`.
+Legacy API terminal/configuration/tax-rate actions accept `terminal_id` (local settings ID); token-driven actions validate token ownership. Omitted selection works only for an unambiguous single-terminal business and still enforces location permissions. Activation resolves the location from the API site rather than requiring `location_id`.
 
 ## Historical fixes (ownership behavior superseded above)
 Fixed three critical issues in the Jazz POS EIS integration system related to terminal activation, configuration syncing, and settings display.
