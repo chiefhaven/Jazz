@@ -230,9 +230,11 @@ class StockReconciliationService
                 ->where(fn ($q) => $q->whereNull('t.id')->orWhereNull('t.location_id')
                     ->orWhere('t.business_id', '!=', $setting->business_id)
                     ->orWhere('line.product_id', '!=', $productId)->orWhere('line.variation_id', '!=', $variationId))
-                ->select('line.id')->lockForUpdate()->first();
+                ->select(['line.id', 'line.transaction_id'])->lockForUpdate()->first();
             if ($invalid) {
-                throw new \InvalidArgumentException('Orphaned or inconsistent stock movement requires purchase-ledger repair before EIS reconciliation.');
+                throw new \InvalidArgumentException('Product #'.$productId.': orphaned or inconsistent '.$table
+                    .' row #'.$invalid->id.' references transaction #'.$invalid->transaction_id
+                    .'. Restore or explicitly resolve its ledger history before EIS reconciliation; its original location cannot be inferred safely.');
             }
         }
         $unbacked = $this->db->table('transaction_sell_lines_purchase_lines as allocation')
@@ -241,9 +243,11 @@ class StockReconciliationService
             ->leftJoin('purchase_lines as purchase', 'purchase.id', '=', 'allocation.purchase_line_id')
             ->where('t.business_id', $setting->business_id)->where('t.location_id', $setting->location_id)
             ->where('sale.variation_id', $variationId)->whereNull('purchase.id')
-            ->select('allocation.id')->lockForUpdate()->first();
+            ->select(['allocation.id', 'sale.transaction_id'])->lockForUpdate()->first();
         if ($unbacked) {
-            throw new \InvalidArgumentException('Unresolved overselling allocations must be repaired before EIS reconciliation.');
+            throw new \InvalidArgumentException('Product #'.$productId.' at location #'.$setting->location_id
+                .': unresolved overselling allocation #'.$unbacked->id.' for transaction #'.$unbacked->transaction_id
+                .' must be repaired against received purchase supply before EIS reconciliation.');
         }
     }
 
