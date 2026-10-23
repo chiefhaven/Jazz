@@ -332,10 +332,10 @@ class StockOutboundController extends Controller
 
     private function permittedLocations(Request $request, int $businessId)
     {
-        $query = BusinessLocation::where('business_id', $businessId);
+        $query = BusinessLocation::where('business_locations.business_id', $businessId);
         $permitted = $request->user()->permitted_locations($businessId);
         if ($permitted !== 'all') {
-            $query->whereIn('id', $permitted);
+            $query->whereIn('business_locations.id', $permitted);
         }
 
         return $query;

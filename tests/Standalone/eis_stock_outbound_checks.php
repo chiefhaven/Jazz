@@ -373,5 +373,30 @@ outboundCheck($verified->status === 'verified' && (int) $verified->verified_by =
 outboundCheck(count($requests) === $requestCount, 'Verifying a final EIS outcome never resends stock or receiving');
 outboundCheck(!$service->dispatchQueued($purchaseId, 7, ['all']), 'Verified outcomes cannot be resubmitted');
 
+$locationUser = new class extends App\User {
+    public $locations = 'all';
+    public function permitted_locations($business_id = null) { return $this->locations; }
+};
+$locationRequest = Illuminate\Http\Request::create('/eis/stock/outbound');
+$locationRequest->setUserResolver(fn () => $locationUser);
+$outboundController = new Modules\EIS\Http\Controllers\StockOutboundController($service);
+$locationScope = new ReflectionMethod($outboundController, 'permittedLocations');
+$locationScope->setAccessible(true);
+DB::table('business_locations')->insert([
+    'id' => 3, 'business_id' => 8, 'default_eis_setting_id' => 1, 'eis_site_id' => 'FOREIGN',
+]);
+foreach (['all', [1], [2], []] as $permitted) {
+    $locationUser->locations = $permitted;
+    $rows = $locationScope->invoke($outboundController, $locationRequest, 7)
+        ->join('eis_settings as setting', function ($join) {
+            $join->on('setting.id', '=', 'business_locations.default_eis_setting_id')
+                ->on('setting.business_id', '=', 'business_locations.business_id')
+                ->on('setting.location_id', '=', 'business_locations.id');
+        })->get(['business_locations.id', 'setting.device_id']);
+    $expected = $permitted === 'all' || $permitted === [1] ? [1] : [];
+    outboundCheck($rows->pluck('id')->map(fn ($id) => (int) $id)->all() === $expected,
+        'Joined outbound location scope qualifies business and location IDs for '.json_encode($permitted));
+}
+
 $migration->down();
 echo 'EIS stock outbound checks passed: '.$checks." checks\n";
