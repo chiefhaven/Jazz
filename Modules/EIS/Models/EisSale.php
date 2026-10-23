@@ -12,8 +12,7 @@ class EisSale extends Model
     protected static function booted()
     {
         static::saving(function ($model) {
-            // MyISAM tracking cannot be rolled back. Reject draft/split tracking
-            // BEFORE writing it, including direct submission-service callers.
+            // Reject draft/split tracking before writing, including direct service callers.
             $header = \App\Services\Sales\SavedSaleWriteGuard::fiscal($model->getConnection(), $model->transaction_id);
             if ($header && $header->type === 'sell' && $header->status === 'draft') {
                 throw new \App\Services\Sales\SavedSplitException('draft_fiscal_state_blocked', 'Draft sales must not create fiscal tracking.');
@@ -22,6 +21,9 @@ class EisSale extends Model
     }
 
     protected $fillable = [
+        'location_id',
+        'eis_setting_id',
+        'eis_invoice_number',
         'business_id',
         'transaction_id',
         'invoice_number',
@@ -71,8 +73,9 @@ class EisSale extends Model
     {
         try {
             // Get business settings with terminal configuration using DB
+            $settings = \Modules\EIS\Services\Terminal\TerminalContext::forLocation((int) $business_id, $location_id, true);
             $eisConfigurations = DB::table('eis_configurations')
-                ->where('business_id', $business_id)
+                ->where('business_id', $business_id)->where('eis_setting_id', $settings->id)
                 ->first();
                 
             if (!$eisConfigurations) {
@@ -144,12 +147,14 @@ class EisSale extends Model
             $totalUnsubmitted = DB::table('eis_sales')
                 ->join('transactions', 'eis_sales.transaction_id', '=', 'transactions.id')
                 ->where('eis_sales.business_id', $business_id)
+                ->where('eis_sales.eis_setting_id', $settings->id)
                 ->where('eis_sales.status', '!=', 'submitted')
                 ->sum('transactions.final_total');
             
             // Get the oldest unsubmitted sale using DB
             $oldestUnsubmittedSale = DB::table('eis_sales')
                 ->where('business_id', $business_id)
+                ->where('eis_setting_id', $settings->id)
                 ->where('status', '!=', 'submitted')
                 ->orderBy('created_at', 'asc')
                 ->first();

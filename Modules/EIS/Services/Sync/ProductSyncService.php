@@ -2,10 +2,8 @@
 
 namespace Modules\EIS\Services\Sync;
 
-use App\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Modules\EIS\Models\EisProductMap;
 use Modules\EIS\Services\Products\EisProductClient;
 use Modules\EIS\Services\Products\OpeningStockInitializer;
 use Modules\EIS\Services\Products\ProductTransformer;
@@ -26,14 +24,21 @@ class ProductSyncService
             || (string) $settings->business_id !== (string) $businessId) {
             throw new \InvalidArgumentException('EIS product settings must belong to the import business.');
         }
-        // Snapshot the same settings passed to every request; never query an arbitrary local site.
-        $settings = clone $settings;
-        $sentSite = EisProductClient::requestSiteId($settings);
+        $passedSite = EisProductClient::requestSiteId($settings);
         $storedSettings = \Modules\EIS\Services\Terminal\TerminalContext::settings(
-            $businessId, isset($settings->jwt_token) ? $settings->jwt_token : null
+            $businessId,
+            isset($settings->jwt_token) ? $settings->jwt_token : null,
+            isset($settings->id) ? (int) $settings->id : null,
+            isset($settings->location_id) ? (int) $settings->location_id : null
         );
-        if ($sentSite !== EisProductClient::requestSiteId($storedSettings)) {
+        $settings = clone $storedSettings;
+        $sentSite = EisProductClient::requestSiteId($settings);
+        if ($passedSite !== $sentSite) {
             throw new \InvalidArgumentException('EIS product request does not match the business terminal site.');
+        }
+        $locationId = (int) ($storedSettings->location_id ?? 0);
+        if ($locationId <= 0) {
+            throw new \InvalidArgumentException('EIS product import requires a terminal mapped to a business location.');
         }
         $requestSite = OpeningStockInitializer::siteId(['siteId' => $sentSite]);
         if ($requestSite === null || $requestSite !== (string) $sentSite) {
@@ -107,29 +112,22 @@ class ProductSyncService
         }
 
         $this->requireTransactionalStorage();
-        DB::transaction(function () use ($businessId, $requestSite, $catalog) {
+        DB::transaction(function () use ($businessId, $requestSite, $locationId, $settings, $catalog) {
             if (!DB::table('business')->where('id', $businessId)->lockForUpdate()->first()) {
                 throw new \UnexpectedValueException('EIS import business does not exist.');
             }
-            if (DB::table('business_locations')->where('business_id', $businessId)
-                ->where('eis_site_id', $requestSite)->count() !== 1) {
-                throw new \UnexpectedValueException('EIS product site must map to exactly one business location.');
+            if (!DB::table('business_locations')->where('id', $locationId)
+                ->where('business_id', $businessId)->where('eis_site_id', $requestSite)->exists()) {
+                throw new \UnexpectedValueException('EIS terminal location must match its configured business location.');
             }
 
             foreach ($catalog as $eisId => $data) {
-                $this->upserter->upsert($businessId, $data, (string) $eisId);
+                $this->upserter->upsert($businessId, $data, (string) $eisId, $settings, $locationId);
             }
 
-            // Only a complete catalog may retire products, including manual products.
-            $currentMaps = EisProductMap::where('business_id', $businessId)
-                ->whereIn('eis_product_id', array_keys($catalog));
-            $productIds = (clone $currentMaps)->pluck('product_id');
-            Product::where('business_id', $businessId)->whereNotIn('id', $productIds)->delete();
-            EisProductMap::where('business_id', $businessId)
-                ->whereNotIn('eis_product_id', array_keys($catalog))->delete();
-
             Log::info('EIS product catalog reconciled', [
-                'business_id' => $businessId, 'site_id' => $requestSite, 'product_count' => count($catalog),
+                'business_id' => $businessId, 'site_id' => $requestSite,
+                'location_id' => $locationId, 'product_count' => count($catalog),
             ]);
         });
     }

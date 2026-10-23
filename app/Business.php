@@ -95,9 +95,9 @@ class Business extends Model
         return $this->hasMany('\Modules\Superadmin\Entities\Subscription');
     }
 
-    public function eisSetting()
+    public function eisTerminals()
     {
-        return $this->hasOne(\Modules\EIS\Models\EisSetting::class, 'business_id');
+        return $this->hasMany(\Modules\EIS\Models\EisSetting::class, 'business_id');
     }
 
     /**

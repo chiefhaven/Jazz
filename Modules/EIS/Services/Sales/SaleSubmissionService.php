@@ -4,6 +4,7 @@ namespace Modules\EIS\Services\Sales;
 
 use App\Transaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisSale;
 use Modules\EIS\Models\EisSetting;
@@ -31,8 +32,14 @@ class SaleSubmissionService
      */
     public function submit(Transaction $transaction, object $settings): EisSale
     {
+        return Cache::lock('eis-sale-'.$transaction->business_id.'-'.$transaction->id, 300)
+            ->block(10, fn () => $this->submitLocked($transaction, $settings));
+    }
+
+    private function submitLocked(Transaction $transaction, object $settings): EisSale
+    {
         \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, (int) $transaction->business_id);
-        // Fence before invoice counters, MyISAM tracking or any external call.
+        // Fence before invoice counters, tracking or any external call.
         \App\Services\Sales\SavedSaleWriteGuard::fiscal($transaction->getConnection(), $transaction->id);
         $transaction->refresh();
         \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, (int) $transaction->business_id);
@@ -51,7 +58,7 @@ class SaleSubmissionService
         // ----------------------------
         // GET EIS SETTINGS
         // ----------------------------
-        $eisSetting = \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $transaction->business_id);
+        $eisSetting = \Modules\EIS\Services\Terminal\TerminalContext::forSale($transaction);
         $settings = $eisSetting;
         if ($transaction->location_id) {
             $location = \App\BusinessLocation::where('business_id', $transaction->business_id)->find($transaction->location_id);
@@ -67,13 +74,19 @@ class SaleSubmissionService
         $includeOfflineSignature = $existing && ($existing->status === 'failed' || !empty($existing->request_payload));
         $includeOfflineSignature = $includeOfflineSignature || DB::table('eis_failed_transactions')
             ->where('business_id', $transaction->business_id)->where('transaction_id', $transaction->id)->exists();
-        $eisInvoiceNumber = $existing?->eis_invoice_number
-            ?? $existing?->fiscal_invoice_number
-            ?? $this->generateEISInvoiceNumber($transaction, $eisSetting);
-        $eisSale = EisSale::updateOrCreate(['transaction_id' => $transaction->id], [
-            'business_id' => $transaction->business_id, 'invoice_number' => $transaction->invoice_no,
-            'fiscal_invoice_number' => $eisInvoiceNumber, 'status' => 'pending',
-        ]);
+        // Split fiscal guards require a top-level transaction; lock allocation without enclosing their model saves.
+        [$eisSale, $eisInvoiceNumber] = Cache::lock('eis-invoice-terminal-'.$eisSetting->id, 60)->block(10, function () use ($transaction, $eisSetting) {
+            $tracking = EisSale::where('transaction_id', $transaction->id)->first();
+            $number = $tracking?->eis_invoice_number ?? $tracking?->fiscal_invoice_number
+                ?? $this->generateEISInvoiceNumber($transaction, $eisSetting);
+            $sale = EisSale::updateOrCreate(['transaction_id' => $transaction->id], [
+                'business_id' => $transaction->business_id, 'invoice_number' => $transaction->invoice_no,
+                'fiscal_invoice_number' => $number, 'status' => 'pending',
+                'eis_invoice_number' => $number,
+                'location_id' => $transaction->location_id, 'eis_setting_id' => $eisSetting->id,
+            ]);
+            return [$sale, $number];
+        });
 
         // Only a sale paid in full is submitted (see SaleSubmissionRule).
         if (! SaleSubmissionRule::isPaid($transaction)) {
@@ -147,11 +160,13 @@ class SaleSubmissionService
     protected function generateEISInvoiceNumber(Transaction $transaction, EisSetting $setting): string
     {
         try {
-            $terminalPosition = $this->getTerminalPosition($transaction->business_id);
-            $taxpayerId = $this->getTaxpayerId($transaction->business_id);
-            $transactionCount = $this->getTransactionCount($transaction->business_id);
+            $configuration = \Modules\EIS\Models\EisConfiguration::where('eis_setting_id', $setting->id)->firstOrFail();
+            $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where('configuration_id', $configuration->id)->firstOrFail();
+            $terminalPosition = (int) $terminal->terminal_position;
+            $taxpayerId = (int) $terminal->taxpayer_id;
+            $transactionCount = $this->invoiceGenerator->getDailyCount((int) $transaction->business_id, (int) $setting->id) + 1;
             $invoiceNumber = $this->invoiceGenerator->generateInvoiceNumber(
-                $transaction->business_id, $transactionCount, $terminalPosition, $taxpayerId);
+                $transaction->business_id, $transactionCount, $terminalPosition, $taxpayerId, (int) $setting->id);
 
             Log::debug('EIS Number generated', [
                 'transaction_id' => $transaction->id,
@@ -166,8 +181,7 @@ class SaleSubmissionService
                 'error' => $e->getMessage()
             ]);
 
-            // Fallback: generate using transaction ID
-            return $this->generateFallbackInvoiceNumber($transaction);
+            throw new EisSaleException('Unable to allocate an invoice for the selected terminal: '.$e->getMessage(), 0, $e);
         }
     }
 
@@ -177,37 +191,9 @@ class SaleSubmissionService
      * @param int $businessId
      * @return int
      */
-    protected function getTerminalPosition(int $businessId): int
+    protected function getTerminalPosition(int $businessId, ?int $terminalId = null): int
     {
-        $eisConfiguration = \Modules\EIS\Models\EisConfiguration::where('business_id', $businessId)
-            ->oldest('id')
-            ->first();
-
-        if (!$eisConfiguration) {
-            Log::warning('EIS configuration not found', [
-                'business_id' => $businessId,
-            ]);
-
-            return 1;
-        }
-
-        $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where(
-                'configuration_id',
-                $eisConfiguration->id
-            )
-            ->oldest('id')
-            ->first();
-
-        if (!$terminal) {
-            Log::warning('Terminal configuration not found', [
-                'business_id' => $businessId,
-                'configuration_id' => $eisConfiguration->id,
-            ]);
-
-            return 1;
-        }
-
-        return (int) ($terminal->terminal_position ?? 1);
+        return $this->invoiceGenerator->getTerminalPosition($businessId, null, $terminalId);
     }
 
     /**
@@ -216,37 +202,9 @@ class SaleSubmissionService
      * @param int $businessId
      * @return int
      */
-    protected function getTaxpayerId(int $businessId): int
+    protected function getTaxpayerId(int $businessId, ?int $terminalId = null): int
     {
-        $eisConfiguration = \Modules\EIS\Models\EisConfiguration::where('business_id', $businessId)
-            ->oldest('id')
-            ->first();
-
-        if (!$eisConfiguration) {
-            Log::warning('EIS configuration not found', [
-                'business_id' => $businessId,
-            ]);
-
-            return 1;
-        }
-
-        $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where(
-                'configuration_id',
-                $eisConfiguration->id
-            )
-            ->oldest('id')
-            ->first();
-
-        if (!$terminal) {
-            Log::warning('Terminal configuration not found', [
-                'business_id' => $businessId,
-                'configuration_id' => $eisConfiguration->id,
-            ]);
-
-            return 1;
-        }
-
-        return (int) ($terminal->taxpayer_id ?? 1);
+        return (int) $this->invoiceGenerator->getOrCreateTerminal($businessId, null, $terminalId)->taxpayer_id;
     }
 
     /**
@@ -255,9 +213,9 @@ class SaleSubmissionService
      * @param int $businessId
      * @return int
      */
-    protected function getTransactionCount(int $businessId): int
+    protected function getTransactionCount(int $businessId, ?int $terminalId = null): int
     {
-        return $this->invoiceGenerator->getDailyCount($businessId) + 1;
+        return $this->invoiceGenerator->getDailyCount($businessId, $terminalId) + 1;
     }
 
     /**
@@ -269,7 +227,7 @@ class SaleSubmissionService
     protected function generateFallbackInvoiceNumber(Transaction $transaction): string
     {
         // Format: FALLBACK-TPIN-YYYYMMDD-COUNT
-        $setting = EisSetting::where('business_id', $transaction->business_id)->first();
+        $setting = \Modules\EIS\Services\Terminal\TerminalContext::forSale($transaction);
         $tpin = $setting->tpin ?? '000000';
         $date = now()->format('Ymd');
         $count = str_pad($transaction->id, 6, '0', STR_PAD_LEFT);
@@ -305,6 +263,8 @@ class SaleSubmissionService
         } else {
             DB::table('eis_failed_transactions')->insert([
                 'business_id' => $transaction->business_id,
+                'location_id' => $transaction->location_id,
+                'eis_setting_id' => EisSale::where('transaction_id', $transaction->id)->value('eis_setting_id'),
                 'transaction_id' => $transaction->id,
                 'payload' => json_encode($payload),
                 'error_message' => $errorMessage,
@@ -359,7 +319,7 @@ class SaleSubmissionService
                 ];
             }
 
-            $settings = EisSetting::where('business_id', $businessId)->first();
+            $settings = \Modules\EIS\Services\Terminal\TerminalContext::forSale($transaction);
             if (!$settings) {
                 return [
                     'success' => false,
@@ -368,7 +328,10 @@ class SaleSubmissionService
             }
 
             // Retry submission
-            $this->submit($transaction, $settings);
+            $result = $this->submit($transaction, $settings);
+            if ($result->status !== 'submitted') {
+                throw new EisSaleException($result->error_message ?: 'Sale has not been submitted; retry record retained.');
+            }
 
             // Remove from failed table on success
             DB::table('eis_failed_transactions')

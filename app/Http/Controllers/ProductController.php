@@ -171,7 +171,7 @@ class ProductController extends Controller
                 'products.product_custom_field16', 'products.product_custom_field17', 'products.product_custom_field18', 
                 'products.product_custom_field19', 'products.product_custom_field20',
                 'products.alert_quantity',
-                DB::raw('SUM(vld.qty_available) as current_stock'),
+                DB::raw('COALESCE(SUM(vld.qty_available), 0) as current_stock'),
                 DB::raw('MAX(v.sell_price_inc_tax) as max_price'),
                 DB::raw('MIN(v.sell_price_inc_tax) as min_price'),
                 DB::raw('MAX(v.dpp_inc_tax) as max_purchase_price'),

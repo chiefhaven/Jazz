@@ -107,20 +107,24 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return string
      */
-    public function generateInvoiceNumber(int $businessId, int $transactionCount, ?int $terminalPosition, ?int $taxpayerId): string
+    public function generateInvoiceNumber(int $businessId, int $transactionCount, ?int $terminalPosition, ?int $taxpayerId, ?int $terminalId = null): string
     {
         try {
 
-            return DB::transaction(function () use ($businessId, $transactionCount, $terminalPosition, $taxpayerId) {
+            return DB::transaction(function () use ($businessId, $transactionCount, $terminalPosition, $taxpayerId, $terminalId) {
                 // Get EIS settings
-                $setting = EisSetting::where('business_id', $businessId)->first();
-                if (!$setting) {
-                    throw new \Exception('EIS settings not found for business: ' . $businessId);
+                $settings = EisSetting::where('business_id', $businessId)->when($terminalId !== null, fn ($query) => $query->whereKey($terminalId))->whereHas('configuration', function ($query) use ($terminalPosition, $taxpayerId) {
+                    $query->whereHas('terminalConfiguration', fn ($terminal) => $terminal
+                        ->where('terminal_position', $terminalPosition)->where('taxpayer_id', $taxpayerId));
+                })->limit(2)->get();
+                if ($settings->count() !== 1 || $transactionCount < 1) {
+                    throw new \InvalidArgumentException('Select exactly one EIS terminal and a positive invoice sequence.');
                 }
+                $setting = $settings->first();
 
                 // Get configuration with terminal relationship
                 $configuration = EisConfiguration::with('terminalConfiguration')
-                    ->where('business_id', $businessId)
+                    ->where('eis_setting_id', $setting->id)
                     ->first();
                     
                 if (!$configuration) {
@@ -169,7 +173,7 @@ class InvoiceNumberGenerator
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return $this->generateFallbackInvoiceNumber($businessId);
+            throw $e;
         }
     }
 
@@ -224,7 +228,7 @@ class InvoiceNumberGenerator
      */
     private function generateFallbackInvoiceNumber(int $businessId): string
     {
-        $setting = EisSetting::where('business_id', $businessId)->first();
+        $setting = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId);
         $tpin = $setting->tpin ?? '000000';
         $date = now()->format('Ymd');
         $timestamp = now()->format('His');
@@ -240,37 +244,9 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return int
      */
-    public function getTerminalPosition(int $businessId, ?int $terminalPosition = null): int
+    public function getTerminalPosition(int $businessId, ?int $terminalPosition = null, ?int $terminalId = null): int
     {
-        try {
-            $configuration = EisConfiguration::with('terminalConfiguration')
-                ->where('business_id', $businessId)
-                ->first();
-                
-            if (!$configuration) {
-                return $terminalPosition ?? 1;
-            }
-
-            $terminal = $configuration->terminalConfiguration;
-
-            if ($terminal) {
-                return $terminal->terminal_position ?? $terminalPosition ?? 1;
-            }
-
-            $setting = EisSetting::where('business_id', $businessId)->first();
-            if ($setting && $setting->terminal_position) {
-                return $setting->terminal_position;
-            }
-
-            return $terminalPosition ?? 1;
-
-        } catch (\Exception $e) {
-            Log::warning('Failed to get terminal position, using default', [
-                'business_id' => $businessId,
-                'error' => $e->getMessage()
-            ]);
-            return $terminalPosition ?? 1;
-        }
+        return (int) $this->getOrCreateTerminal($businessId, $terminalPosition, $terminalId)->terminal_position;
     }
 
     /**
@@ -280,24 +256,16 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return EisTerminalConfiguration
      */
-    public function getOrCreateTerminal(int $businessId, ?int $terminalPosition = null): EisTerminalConfiguration
+    public function getOrCreateTerminal(int $businessId, ?int $terminalPosition = null, ?int $terminalId = null): EisTerminalConfiguration
     {
         try {
-            $configuration = EisConfiguration::with('terminalConfiguration')
-                ->where('business_id', $businessId)
-                ->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, $terminalId);
 
-            if (!$configuration) {
-                throw new \Exception('Configuration not found for business: ' . $businessId);
-            }
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->firstOrFail();
 
-            $terminal = $configuration->terminalConfiguration;
-
-            if (!$terminal) {
-                $terminal = $this->createDefaultTerminal(
-                    $configuration,
-                    $terminalPosition ?? 1
-                );
+            if (!$terminal->terminal_position || !$terminal->taxpayer_id
+                || ($terminalPosition !== null && (int) $terminal->terminal_position !== $terminalPosition)) {
+                throw new \InvalidArgumentException('EIS requires the selected terminal taxpayer and terminal position.');
             }
 
             return $terminal;
@@ -308,12 +276,7 @@ class InvoiceNumberGenerator
                 'error' => $e->getMessage()
             ]);
 
-            return new EisTerminalConfiguration([
-                'configuration_id' => $businessId,
-                'terminal_position' => $terminalPosition ?? 1,
-                'terminal_label' => 'Default Terminal',
-                'is_active' => true,
-            ]);
+            throw $e;
         }
     }
 
@@ -325,7 +288,7 @@ class InvoiceNumberGenerator
      * @param int|null $terminalPosition
      * @return array
      */
-    public function generateInvoiceNumbers(int $businessId, int $count, ?int $terminalPosition = null): array
+    public function generateInvoiceNumbers(int $businessId, int $count, ?int $terminalPosition = null, ?int $terminalId = null): array
     {
         try {
             Log::info('Generating multiple invoice numbers', [
@@ -335,9 +298,14 @@ class InvoiceNumberGenerator
             ]);
 
             $invoiceNumbers = [];
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, $terminalId);
+            $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->firstOrFail();
+            $sequence = $this->getDailyCount($businessId, (int) $configuration->eis_setting_id) + 1;
             
             for ($i = 0; $i < $count; $i++) {
-                $invoiceNumbers[] = $this->generateInvoiceNumber($businessId, $terminalPosition);
+                $invoiceNumbers[] = $this->generateInvoiceNumber($businessId, $sequence + $i,
+                    $terminalPosition ?? (int) $terminal->terminal_position, (int) $terminal->taxpayer_id,
+                    (int) $configuration->eis_setting_id);
             }
             
             return $invoiceNumbers;
@@ -357,9 +325,10 @@ class InvoiceNumberGenerator
      * @param int $businessId
      * @return int
      */
-    public function getDailyCount(int $businessId): int
+    public function getDailyCount(int $businessId, ?int $terminalId = null): int
     {
-        $configuration = EisConfiguration::where('business_id', $businessId)->firstOrFail();
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, null, $terminalId);
+        $configuration = EisConfiguration::where('business_id', $businessId)->where('eis_setting_id', $settings->id)->firstOrFail();
         $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
         if (!$terminal || !$terminal->taxpayer_id || !$terminal->terminal_position) {
             throw new \InvalidArgumentException('EIS invoice counting requires a configured taxpayer and terminal position.');
@@ -369,8 +338,9 @@ class InvoiceNumberGenerator
             .$this->base10ToBase64($this->toJulianDate(now())).'-';
 
         return EisSale::where('business_id', $businessId)
-            ->where('fiscal_invoice_number', 'like', $prefix.'%')
-            ->pluck('fiscal_invoice_number')
+            ->where('eis_setting_id', $settings->id)
+            ->where('eis_invoice_number', 'like', $prefix.'%')
+            ->pluck('eis_invoice_number')
             ->filter(fn (string $number) => str_starts_with($number, $prefix))
             ->count();
     }

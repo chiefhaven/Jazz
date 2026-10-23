@@ -7,6 +7,13 @@ use Modules\EIS\Services\Products\OpeningStockInitializer;
 
 final class TerminalContext
 {
+    public static function configuration(int $businessId, ?int $terminalId = null): \Modules\EIS\Models\EisConfiguration
+    {
+        $settings = self::settings($businessId, null, $terminalId);
+        return \Modules\EIS\Models\EisConfiguration::where('business_id', $businessId)
+            ->where('eis_setting_id', $settings->id)->firstOrFail();
+    }
+
     public static function site(object $settings): string
     {
         $value = $settings->site_id ?? $settings->branch_id ?? null;
@@ -24,16 +31,81 @@ final class TerminalContext
         }
     }
 
-    public static function settings(int $businessId, ?string $token = null): EisSetting
+    public static function settings(int $businessId, ?string $token = null, ?int $terminalId = null, ?int $locationId = null): EisSetting
     {
-        $rows = EisSetting::where('business_id', $businessId)->limit(2)->get();
+        $query = EisSetting::where('business_id', $businessId);
+        if ($terminalId !== null) {
+            $query->whereKey($terminalId);
+        }
+        if ($locationId !== null) {
+            $query->where('location_id', $locationId);
+        }
+        if ($token !== null) {
+            $query->where('jwt_token', $token);
+        }
+        $rows = $query->limit(2)->get();
         if ($rows->count() !== 1) {
-            throw new \InvalidArgumentException('EIS business requires exactly one terminal settings record.');
+            throw new \InvalidArgumentException('Select exactly one EIS terminal belonging to this business and location.');
         }
         $settings = $rows->first();
         if ($token !== null && (!is_string($settings->jwt_token) || !hash_equals($settings->jwt_token, $token))) {
             throw new \InvalidArgumentException('EIS credentials do not belong to this business terminal.');
         }
+        return $settings;
+    }
+
+    public static function forLocation(int $businessId, int $locationId, bool $requireActive = false): EisSetting
+    {
+        $location = \App\BusinessLocation::where('business_id', $businessId)->findOrFail($locationId);
+        if (!$location->default_eis_setting_id) {
+            throw new \InvalidArgumentException('Select a default EIS terminal for the sale location.');
+        }
+        $settings = self::settings($businessId, null, (int) $location->default_eis_setting_id, $locationId);
+        if ($requireActive) {
+            self::assertActive($settings);
+        }
+        return $settings;
+    }
+
+    public static function assertActive(EisSetting $settings): void
+    {
+        $configuration = \Modules\EIS\Models\EisConfiguration::where('eis_setting_id', $settings->id)
+            ->where('business_id', $settings->business_id)->firstOrFail();
+        $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where('configuration_id', $configuration->id)->firstOrFail();
+        if (!$settings->status || !$terminal->is_active) {
+            throw new \InvalidArgumentException('The location default EIS terminal is inactive. Activate it before submitting sales.');
+        }
+    }
+
+    public static function forSale(\App\Transaction $transaction): EisSetting
+    {
+        $sale = \Modules\EIS\Models\EisSale::where('business_id', $transaction->business_id)
+            ->where('transaction_id', $transaction->id)->first();
+        if ($sale && !$sale->eis_setting_id) {
+            throw new \InvalidArgumentException('This historical EIS sale requires terminal reconciliation before retrying.');
+        }
+        if ($sale && (int) $sale->location_id !== (int) $transaction->location_id) {
+            throw new \InvalidArgumentException('The sale location no longer matches its recorded fiscal location.');
+        }
+        $terminalId = $sale?->eis_setting_id;
+        if (!$sale) {
+            $failed = \Illuminate\Support\Facades\DB::table('eis_failed_transactions')
+                ->where('business_id', $transaction->business_id)->where('transaction_id', $transaction->id)->get();
+            $terminalIds = $failed->pluck('eis_setting_id')->filter()->unique();
+            if ($terminalIds->count() > 1) {
+                throw new \InvalidArgumentException('Conflicting retry terminals require reconciliation.');
+            }
+            $terminalId = $terminalIds->first();
+            if (!$terminalId && $failed->isNotEmpty()
+                && \Illuminate\Support\Facades\DB::table('eis_migration_issues')
+                    ->where('source_table', 'eis_failed_transactions')->whereIn('source_id', $failed->pluck('id'))->exists()) {
+                throw new \InvalidArgumentException('This historical EIS retry requires terminal reconciliation before submission.');
+            }
+        }
+        $settings = $terminalId
+            ? self::settings((int) $transaction->business_id, null, (int) $terminalId, (int) $transaction->location_id)
+            : self::forLocation((int) $transaction->business_id, (int) $transaction->location_id);
+        self::assertActive($settings);
         return $settings;
     }
 

@@ -70,13 +70,15 @@ function openingFixture() {
         'business' => [],
         'products' => ['business_id', 'type', 'created_by', 'enable_stock', 'name', 'product_description', 'sku', 'tax',
             'eis_product_id', 'eis_last_synced_at', 'unit_id', 'expiry_period', 'deleted_at'],
+        'eis_settings' => ['business_id', 'location_id', 'site_id', 'branch_id', 'jwt_token'],
         'product_variations' => ['product_id', 'variation_template_id', 'name', 'is_dummy'],
         'variations' => ['product_id', 'product_variation_id', 'name', 'default_sell_price', 'default_purchase_price',
             'dpp_inc_tax', 'sell_price_inc_tax', 'sub_sku', 'profit_percent', 'deleted_at'],
         'business_locations' => ['business_id', 'eis_site_id', 'name'],
         'product_locations' => ['product_id', 'location_id'],
         'units' => ['business_id', 'short_name', 'actual_name'],
-        'tax_rates' => ['business_id', 'tax_rate_id', 'name', 'is_activated', 'rate', 'deleted_at'],
+        'tax_rates' => ['business_id', 'configuration_id', 'tax_rate_id', 'name', 'is_activated', 'rate', 'deleted_at'],
+        'eis_configurations' => ['business_id', 'eis_setting_id', 'location_id'],
         'eis_product_maps' => ['business_id', 'product_id', 'eis_product_id', 'sku', 'last_synced_at', 'meta', 'deleted_at'],
         'transactions' => ['business_id', 'location_id', 'type', 'status', 'payment_status', 'opening_stock_product_id',
             'created_by', 'transaction_date', 'total_before_tax', 'final_total', 'tax_amount', 'additional_notes'],
@@ -101,19 +103,23 @@ function openingFixture() {
         });
     }
     $db->table('business')->insert([['id' => 1], ['id' => 2]]);
+    $db->table('eis_settings')->insert(['id' => 1, 'business_id' => 1, 'location_id' => 2, 'site_id' => 'SITE-A']);
+    $db->table('eis_configurations')->insert(['id' => 1, 'business_id' => 1, 'eis_setting_id' => 1, 'location_id' => 2]);
     $db->table('business_locations')->insert([
         ['id' => 2, 'business_id' => 1, 'eis_site_id' => 'SITE-A', 'name' => 'One'],
         ['id' => 3, 'business_id' => 2, 'eis_site_id' => 'SITE-A', 'name' => 'Other tenant'],
         ['id' => 4, 'business_id' => 1, 'eis_site_id' => 'SITE-B', 'name' => 'Two'],
     ]);
     $db->table('units')->insert(['id' => 1, 'business_id' => 1, 'short_name' => 'pcs', 'actual_name' => 'Pieces']);
-    $db->table('tax_rates')->insert(['id' => 1, 'business_id' => 1, 'tax_rate_id' => 'A', 'name' => 'Zero', 'is_activated' => 1, 'rate' => '0']);
+    $db->table('tax_rates')->insert(['id' => 1, 'business_id' => 1, 'configuration_id' => 1,
+        'tax_rate_id' => 'A', 'name' => 'Zero', 'is_activated' => 1, 'rate' => '0']);
     return [$db, new ProductUpsertService(), $log];
 }
-function importItem($service, array $overrides = [], $eisId = 'EIS-ONE') {
+function importItem($service, array $overrides = [], $eisId = 'EIS-ONE', int $locationId = 2, int $terminalId = 1) {
     $raw = array_replace(['productCode' => 'SKU-ONE', 'productName' => 'Synthetic item', 'siteId' => 'SITE-A',
         'quantity' => '10.1234', 'price' => '5.00', 'cost' => '2.00', 'isProduct' => true, 'taxRateId' => 'A'], $overrides);
-    return $service->upsert(1, (new ProductTransformer())->fromEis($raw, $eisId), $eisId);
+    $settings = (object) ['id' => $terminalId, 'business_id' => 1, 'location_id' => $locationId, 'site_id' => 'SITE-A'];
+    return $service->upsert(1, (new ProductTransformer())->fromEis($raw, $eisId), $eisId, $settings, $locationId);
 }
 function graph($db) {
     $out = [];
@@ -182,10 +188,10 @@ ini_set('serialize_precision', $precision);
 foreach ([['site_id' => 'SITE-A', 'branch_id' => 'SITE-B'], ['site_id' => null, 'branch_id' => 'SITE-A'],
     ['branch_id' => 'SITE-A']] as $siteSettings) {
     [$db, $service] = openingFixture();
-    $settings = (object) (['business_id' => '1'] + $siteSettings);
+    $settings = (object) (['id' => 1, 'location_id' => 2, 'business_id' => '1'] + $siteSettings);
     $client = new OpeningSyntheticClient([
         ['data' => [['productCode' => 'SYNC-ONE', 'productName' => 'Missing item site', 'quantity' => 12.5, 'cost' => '2', 'isProduct' => true]], 'has_more' => true],
-        ['data' => [['productCode' => 'SYNC-ONE', 'productName' => 'Repeated', 'quantity' => 99.5, 'cost' => '3', 'isProduct' => true]]],
+        ['data' => []],
     ]);
     (new ProductSyncService($client, new ProductTransformer(), $service))->sync($settings, 1);
     verify(count($client->requests) === 2 && $client->requests[0]['site'] === 'SITE-A'
@@ -195,19 +201,28 @@ foreach ([['site_id' => 'SITE-A', 'branch_id' => 'SITE-B'], ['site_id' => null, 
 }
 [$db, $service] = openingFixture();
 $client = new OpeningSyntheticClient([['data' => [['productCode' => 'SYNC-UNKNOWN', 'quantity' => 1.5, 'isProduct' => true]]]]);
-(new ProductSyncService($client, new ProductTransformer(), $service))->sync((object) ['business_id' => 1,
-    'site_id' => 'UNKNOWN', 'branch_id' => 'SITE-A'], 1);
-verify($client->requests[0]['site'] === 'UNKNOWN' && $db->table('purchase_lines')->count() === 0
-    && $db->table('product_locations')->count() === 0, 'unknown exact requested site cannot fall back to branch or first location');
+try {
+    (new ProductSyncService($client, new ProductTransformer(), $service))->sync((object) ['id' => 1, 'location_id' => 2,
+        'business_id' => 1, 'site_id' => 'UNKNOWN', 'branch_id' => 'SITE-A'], 1);
+    throw new RuntimeException('expected unknown terminal site rejection');
+} catch (InvalidArgumentException $e) {
+    verify(!$client->requests && $db->table('purchase_lines')->count() === 0
+        && $db->table('product_locations')->count() === 0, 'unknown site cannot be used for a selected terminal');
+}
 foreach ([['siteId' => 'SITE-B'], ['siteId' => null], ['siteId' => []], ['siteId' => false],
     ['siteId' => ''], ['siteId' => 'SITE-A', 'locationId' => 'SITE-B'], ['location' => null],
     ['location' => ['id' => null]]] as $override) {
     [$db, $service] = openingFixture();
     $client = new OpeningSyntheticClient([['data' => [array_replace(['productCode' => 'SYNC-ONE',
         'productName' => 'Unsafe site', 'quantity' => 1.5, 'isProduct' => true], $override)]]]);
-    (new ProductSyncService($client, new ProductTransformer(), $service))->sync((object) ['business_id' => 1, 'site_id' => 'SITE-A'], 1);
-    verify($db->table('products')->count() === 1 && $db->table('purchase_lines')->count() === 0
-        && $db->table('product_locations')->count() === 0, 'explicit invalid/conflicting item site never inherits request');
+    try {
+        (new ProductSyncService($client, new ProductTransformer(), $service))->sync((object) ['id' => 1,
+            'location_id' => 2, 'business_id' => 1, 'site_id' => 'SITE-A'], 1);
+        throw new RuntimeException('expected invalid item site rejection');
+    } catch (UnexpectedValueException $e) {
+    }
+    verify($db->table('products')->count() === 0 && $db->table('purchase_lines')->count() === 0
+        && $db->table('product_locations')->count() === 0, 'explicit invalid/conflicting item site rejects the catalog');
 }
 foreach ([['business_id' => 2, 'site_id' => 'SITE-A'], ['site_id' => 'SITE-A'],
     ['business_id' => true, 'site_id' => 'SITE-A'], ['business_id' => 1, 'site_id' => '', 'branch_id' => 'SITE-A'],
@@ -270,7 +285,11 @@ foreach (['10.1234', '0.0000'] as $quantity) {
         verify(graph($db) === $before, 'sold/consumed availability and mappings never restored');
     }
     $before = graph($db);
-    importItem($service, ['siteId' => 'SITE-B']);
+    try {
+        importItem($service, ['siteId' => 'SITE-B']);
+        throw new RuntimeException('expected site drift rejection');
+    } catch (InvalidArgumentException $e) {
+    }
     verify(graph($db) === $before, 'site drift never adds another opening');
     importItem($service, ['quantity' => null]);
     verify(graph($db) === $before, 'missing source on later pull never changes initialized graph');
@@ -288,23 +307,58 @@ foreach ([null, '-1', '1.12345', 'junk', 1.23456] as $quantity) {
 [$db, $service] = openingFixture();
 $data = (new ProductTransformer())->fromEis(['productCode' => 'SKU-ONE', 'productName' => 'Missing', 'siteId' => 'SITE-A', 'isProduct' => true], 'EIS-ONE');
 verify($data['opening_stock_source']['reason'] === 'missing_stock', 'transform retains missing stock');
-$service->upsert(1, $data, 'EIS-ONE');
+$service->upsert(1, $data, 'EIS-ONE', (object) ['id' => 1, 'business_id' => 1,
+    'location_id' => 2, 'site_id' => 'SITE-A'], 2);
 verify($db->table('purchase_lines')->count() === 0, 'missing source not initialized');
 
 foreach ([['isProduct' => false], ['type' => 'variable'], ['variations' => [['quantity' => '1'], ['quantity' => '2']]],
     ['siteId' => null], ['siteId' => 'UNKNOWN'], ['siteId' => 'SITE-A', 'site_id' => 'SITE-B']] as $override) {
     [$db, $service] = openingFixture();
-    importItem($service, $override);
-    verify($db->table('products')->count() === 1, 'unsafe/nonstock case catalogue retained');
+    $invalidSite = array_key_exists('siteId', $override);
+    $rejected = false;
+    try {
+        importItem($service, $override);
+    } catch (InvalidArgumentException $e) {
+        $rejected = true;
+    } catch (UnexpectedValueException $e) {
+        $rejected = true;
+    }
+    $unsupported = ($override['type'] ?? null) === 'variable' || isset($override['variations']);
+    verify(!$rejected || $invalidSite || $unsupported, 'only invalid site or ambiguous variation rejects the direct import');
+    verify($db->table('products')->count() === ($invalidSite || $unsupported ? 0 : 1),
+        'unsupported stock case leaves catalog unchanged');
     verify($db->table('purchase_lines')->count() === 0 && $db->table('variation_location_details')->count() === 0, 'unsafe/nonstock case no stock');
 }
 [$db, $service] = openingFixture();
-$db->table('business_locations')->insert(['business_id' => 1, 'eis_site_id' => 'SITE-A']);
-importItem($service);
-verify($db->table('product_locations')->count() === 0 && $db->table('purchase_lines')->count() === 0, 'duplicate site not guessed');
+$db->table('business_locations')->insert(['id' => 5, 'business_id' => 1, 'eis_site_id' => 'SITE-A']);
+$db->table('eis_settings')->insert(['id' => 2, 'business_id' => 1, 'location_id' => 5, 'site_id' => 'SITE-A']);
+$db->table('eis_configurations')->insert(['id' => 2, 'business_id' => 1, 'eis_setting_id' => 2, 'location_id' => 5]);
+$db->table('tax_rates')->insert(['id' => 2, 'business_id' => 1, 'configuration_id' => 2,
+    'tax_rate_id' => 'A', 'name' => 'Zero', 'is_activated' => 1, 'rate' => '0']);
+$product = importItem($service, ['quantity' => '4.0000']);
+$legacyMeta = json_decode($db->table('eis_product_maps')->value('meta'), true);
+$legacyMarker = $legacyMeta['eis_opening_stock_v1_by_location']['2'];
+unset($legacyMeta['eis_opening_stock_v1_by_location']);
+$legacyMeta['eis_opening_stock_v1'] = $legacyMarker;
+$db->table('eis_product_maps')->update(['meta' => json_encode($legacyMeta, JSON_THROW_ON_ERROR)]);
+importItem($service, ['quantity' => '7.0000'], 'EIS-ONE', 5, 2);
+$locationMeta = json_decode($db->table('eis_product_maps')->value('meta'), true);
+verify($db->table('products')->count() === 1 && $db->table('eis_product_maps')->count() === 1
+    && $db->table('transactions')->where('location_id', 2)->count() === 1
+    && $db->table('transactions')->where('location_id', 5)->count() === 1
+    && $db->table('variation_location_details')->where('product_id', $product->id)->where('location_id', 2)->value('qty_available') === '4.0000'
+    && $db->table('variation_location_details')->where('product_id', $product->id)->where('location_id', 5)->value('qty_available') === '7.0000'
+    && $locationMeta['eis_opening_stock_v1'] === $legacyMarker
+    && isset($locationMeta['eis_opening_stock_v1_by_location']['5']),
+    'A shared product has separate immutable opening ledgers and markers for each selected same-site location');
+$beforeMultiLocationRepull = graph($db);
+importItem($service, ['quantity' => '99.0000'], 'EIS-ONE', 5, 2);
+importItem($service, ['quantity' => '100.0000']);
+verify(graph($db) === $beforeMultiLocationRepull,
+    'Repulls at either location preserve each location-specific opening ledger and quantity');
 
 foreach (['positive', 'negative', 'sell_sentinel', 'purchase', 'adjustment', 'opening_header', 'multiple_variations',
-    'duplicate_stock', 'wrong_stock_product', 'other_stock_location', 'corrupt_meta'] as $case) {
+    'duplicate_stock', 'wrong_stock_product', 'corrupt_meta'] as $case) {
     [$db, $service, $log] = openingFixture();
     seedMapped($db, $case === 'positive' ? '8.0000' : ($case === 'negative' ? '-1.0000' : '0.0000'));
     if ($case === 'sell_sentinel') {
@@ -321,7 +375,11 @@ foreach (['positive', 'negative', 'sell_sentinel', 'purchase', 'adjustment', 'op
     if ($case === 'corrupt_meta') { $db->table('eis_product_maps')->update(['meta' => 'broken']); }
     $before = graph($db);
     $metaBefore = $db->table('eis_product_maps')->value('meta');
-    importItem($service);
+    try {
+        importItem($service);
+    } catch (UnexpectedValueException $e) {
+        verify($case === 'multiple_variations', 'only an ambiguous legacy variation aborts its upsert');
+    }
     verify(graph($db) === $before, 'legacy graph preserved: '.$case);
     verify($db->table('eis_product_maps')->value('product_id') == 10 && $db->table('eis_product_maps')->value('meta') === $metaBefore, 'legacy mapping unchanged: '.$case);
     verify(count($log->warnings) > 0, 'actionable legacy diagnosis: '.$case);
@@ -331,7 +389,8 @@ foreach (['positive', 'negative', 'sell_sentinel', 'purchase', 'adjustment', 'op
 seedMapped($db, '0.0000');
 importItem($service);
 $meta = json_decode($db->table('eis_product_maps')->value('meta'), true);
-verify($meta['unrelated'] === 'retain' && isset($meta['eis_opening_stock_v1']), 'clean zero map initializes, unrelated meta retained');
+verify($meta['unrelated'] === 'retain'
+    && isset($meta['eis_opening_stock_v1_by_location']['2']), 'clean zero map initializes, unrelated meta retained');
 verify($db->table('variation_location_details')->count() === 1, 'clean zero row updated not duplicated');
 
 foreach ([null, '8.0000'] as $available) {

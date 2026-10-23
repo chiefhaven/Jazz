@@ -29,6 +29,7 @@ class TerminalActivationController extends Controller
         try {
             $request->validate([
                 'terminal_activation_code' => 'required|string',
+                'location_id' => 'required|integer|exists:business_locations,id',
             ]);
 
             // Get business_id from request
@@ -64,7 +65,8 @@ class TerminalActivationController extends Controller
                 $businessId,
                 $activationCode,
                 $environment,
-                Auth::id()
+                Auth::id(),
+                $request->integer('location_id') ?: null
             );
 
             if ($result['success']) {
@@ -230,7 +232,8 @@ class TerminalActivationController extends Controller
             $result = $this->activationService->deactivate(
                 $request->business_id,
                 $request->reason,
-                $deactivatedBy
+                $deactivatedBy,
+                $request->integer('terminal_id') ?: null
             );
 
             return response()->json($result, $result['success'] ? 200 : 400);
@@ -267,8 +270,9 @@ class TerminalActivationController extends Controller
 
             $result = $this->activationService->toggle(
                 $user->business_id,
-                \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $user->business_id)->jwt_token,
-                $user->id
+                \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $user->business_id, null, $request->integer('terminal_id') ?: null)->jwt_token,
+                $user->id,
+                $request->integer('terminal_id') ?: null
             );
 
             return response()->json($result, $result['success'] ? 200 : 400);
@@ -302,7 +306,7 @@ class TerminalActivationController extends Controller
         try {
             $businessId = $request->input('business_id') or abort(400, 'business_id is required');
             
-            $result = $this->activationService->getLatestConfig($businessId);
+            $result = $this->activationService->getLatestConfig($businessId, $request->integer('terminal_id') ?: null);
 
             Log::info('Fetched latest terminal configuration', [
                 'business_id' => $businessId,
@@ -340,7 +344,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            $result = $this->activationService->getStatus($businessId);
+            $result = $this->activationService->getStatus($businessId, request()->integer('terminal_id') ?: null);
 
             return response()->json($result, $result['success'] ? 200 : 404);
 
@@ -363,7 +367,7 @@ class TerminalActivationController extends Controller
     public function getStatus(Request $request)
     {
         $businessId = (int) $request->user()->business_id;
-        $result = $this->activationService->getStatus($businessId);
+        $result = $this->activationService->getStatus($businessId, $request->integer('terminal_id') ?: null);
 
         return response()->json($result, $result['success'] ? 200 : 404);
     }
@@ -386,7 +390,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            $isActive = $this->activationService->isActive($businessId);
+            $isActive = $this->activationService->isActive($businessId, request()->integer('terminal_id') ?: null);
 
             return response()->json([
                 'success' => true,
@@ -424,7 +428,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            $result = $this->activationService->getActivationHistory($businessId);
+            $result = $this->activationService->getActivationHistory($businessId, request()->integer('terminal_id') ?: null);
 
             return response()->json($result, $result['success'] ? 200 : 404);
 
@@ -450,7 +454,7 @@ class TerminalActivationController extends Controller
     public function getCredentials(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
             
             if (!$configuration) {
                 return response()->json([
@@ -513,7 +517,8 @@ class TerminalActivationController extends Controller
 
             $result = $this->activationService->regenerateCredentials(
                 $request->business_id,
-                $request->token
+                $request->token,
+                $request->integer('terminal_id') ?: null
             );
 
             return response()->json($result, $result['success'] ? 200 : 400);
@@ -550,6 +555,7 @@ class TerminalActivationController extends Controller
                 'business_ids' => 'required|array',
                 'business_ids.*' => 'integer|exists:eis_configurations,business_id',
                 'terminal_activation_code' => 'required|string',
+                'location_id' => 'required|integer|exists:business_locations,id',
                 'environment' => 'sometimes|array',
                 'environment.platform' => 'sometimes|array',
                 'environment.pos' => 'sometimes|array'
@@ -580,7 +586,8 @@ class TerminalActivationController extends Controller
                     $businessId,
                     $activationCode,
                     $environment,
-                    Auth::id()
+                    Auth::id(),
+                    $request->integer('location_id') ?: null
                 );
 
                 $results[$businessId] = $result;
@@ -645,7 +652,8 @@ class TerminalActivationController extends Controller
                 $result = $this->activationService->deactivate(
                     $businessId,
                     $request->reason,
-                    $deactivatedBy
+                    $deactivatedBy,
+                    $request->integer('terminal_id') ?: null
                 );
 
                 $results[$businessId] = $result;
@@ -695,7 +703,7 @@ class TerminalActivationController extends Controller
     public function details(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
             
             if (!$configuration) {
                 return response()->json([
@@ -718,7 +726,7 @@ class TerminalActivationController extends Controller
             // Get business location for branch information
             $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
                 ->where('eis_site_id', \Modules\EIS\Services\Terminal\TerminalContext::site(
-                    \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId)
+                    \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, null, (int) $configuration->eis_setting_id)
                 ))->first();
             $branch = $businessLocation?->name ?? null;
 
@@ -788,7 +796,8 @@ class TerminalActivationController extends Controller
 
             $result = $this->activationService->syncTerminal(
                 $request->business_id,
-                $request->token
+                $request->token,
+                $request->integer('terminal_id') ?: null
             );
 
             return response()->json($result, $result['success'] ? 200 : 400);
@@ -821,7 +830,7 @@ class TerminalActivationController extends Controller
     public function health(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
             
             if (!$configuration) {
                 return response()->json([

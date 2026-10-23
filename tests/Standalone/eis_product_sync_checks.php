@@ -74,16 +74,25 @@ function catalogFixture(): array
             'eis_product_id', 'eis_last_synced_at', 'unit_id', 'expiry_period', 'deleted_at',
             'brand_id', 'category_id', 'sub_category_id', 'alert_quantity', 'image', 'product_custom_field1',
             'woocommerce_media_id', 'woocommerce_product_id'],
-        'eis_settings' => ['business_id', 'status', 'site_id', 'branch_id'],
+        'eis_settings' => ['business_id', 'location_id', 'status', 'site_id', 'branch_id', 'jwt_token'],
         'product_variations' => ['product_id', 'variation_template_id', 'name', 'is_dummy'],
         'variations' => ['product_id', 'product_variation_id', 'name', 'default_sell_price', 'default_purchase_price',
             'dpp_inc_tax', 'sell_price_inc_tax', 'sub_sku', 'profit_percent', 'deleted_at'],
         'business_locations' => ['business_id', 'eis_site_id', 'name'],
         'product_locations' => ['product_id', 'location_id'],
         'units' => ['business_id', 'short_name', 'actual_name'],
-        'tax_rates' => ['business_id', 'tax_rate_id', 'name', 'is_activated', 'rate', 'deleted_at'],
+        'tax_rates' => ['business_id', 'configuration_id', 'tax_rate_id', 'name', 'is_activated', 'rate', 'deleted_at'],
+        'eis_configurations' => ['business_id', 'eis_setting_id', 'location_id'],
         'eis_product_maps' => ['business_id', 'product_id', 'eis_product_id', 'sku', 'last_synced_at', 'meta', 'deleted_at'],
         'variation_location_details' => ['product_id', 'product_variation_id', 'variation_id', 'location_id', 'qty_available'],
+        'transactions' => ['business_id', 'location_id', 'type', 'status', 'payment_status', 'opening_stock_product_id',
+            'created_by', 'transaction_date', 'total_before_tax', 'final_total', 'tax_amount', 'additional_notes'],
+        'purchase_lines' => ['transaction_id', 'product_id', 'variation_id', 'quantity', 'pp_without_discount',
+            'purchase_price', 'purchase_price_inc_tax', 'item_tax', 'tax_id', 'quantity_sold', 'quantity_adjusted',
+            'quantity_returned', 'mfg_quantity_used'],
+        'transaction_sell_lines' => ['transaction_id', 'product_id', 'variation_id', 'quantity'],
+        'stock_adjustment_lines' => ['transaction_id', 'product_id', 'variation_id', 'quantity'],
+        'transaction_sell_lines_purchase_lines' => ['sell_line_id', 'purchase_line_id', 'quantity', 'qty_returned'],
     ] as $name => $columns) {
         $db->getSchemaBuilder()->create($name, function (Blueprint $table) use ($name, $columns) {
             $table->increments('id');
@@ -97,13 +106,15 @@ function catalogFixture(): array
         });
     }
     $db->table('business')->insert([['id' => 1], ['id' => 2]]);
-    $db->table('eis_settings')->insert(['business_id' => 1, 'status' => 0, 'branch_id' => 'SITE-A']);
+    $db->table('eis_settings')->insert(['business_id' => 1, 'location_id' => 1, 'status' => 0, 'branch_id' => 'SITE-A']);
     $db->table('business_locations')->insert([
         ['id' => 1, 'business_id' => 1, 'eis_site_id' => 'SITE-A'],
         ['id' => 2, 'business_id' => 2, 'eis_site_id' => 'SITE-A'],
     ]);
+    $db->table('eis_configurations')->insert(['id' => 1, 'business_id' => 1, 'eis_setting_id' => 1, 'location_id' => 1]);
     $db->table('units')->insert(['business_id' => 1, 'short_name' => 'pcs', 'actual_name' => 'Pieces']);
-    $db->table('tax_rates')->insert(['business_id' => 1, 'tax_rate_id' => 'A', 'rate' => '0']);
+    $db->table('tax_rates')->insert(['business_id' => 1, 'configuration_id' => 1,
+        'tax_rate_id' => 'A', 'name' => 'Zero', 'is_activated' => 1, 'rate' => '0']);
     $client = new CatalogFixtureClient();
     $sync = new ProductSyncService($client, new ProductTransformer(), new ProductUpsertService());
     return [$db, $client, $sync];
@@ -115,7 +126,7 @@ function catalogItem(string $id, $quantity = '12.3456'): array
 }
 function pullCatalog($sync): void
 {
-    $sync->sync((object) ['business_id' => 1, 'site_id' => 'SITE-A'], 1);
+    $sync->sync((object) ['id' => 1, 'business_id' => 1, 'location_id' => 1, 'site_id' => 'SITE-A'], 1);
 }
 function catalogSnapshot($db): array
 {
@@ -147,8 +158,8 @@ $client->pages = [['data' => [catalogItem('ONE')], 'has_more' => true],
     ['data' => [catalogItem('TWO', '0')], 'has_more' => false]];
 pullCatalog($sync);
 catalogCheck($client->requests === [1, 2], 'All catalog pages are fetched');
-catalogCheck(Product::where('business_id', 1)->count() === 2
-    && Product::withTrashed()->find(100)->trashed(), 'Unmapped manual business products are soft deleted');
+catalogCheck(Product::where('business_id', 1)->count() === 3
+    && !Product::withTrashed()->find(100)->trashed(), 'Unmapped manual business products are retained');
 catalogCheck(!Product::findOrFail(101)->trashed(), 'Other businesses remain unchanged');
 $one = EisProductMap::where('eis_product_id', 'ONE')->firstOrFail();
 $two = EisProductMap::where('eis_product_id', 'TWO')->firstOrFail();
@@ -156,34 +167,69 @@ catalogCheck($db->table('variation_location_details')->where('product_id', $one-
     'Stock exactly matches four-decimal EIS quantity');
 catalogCheck($db->table('variation_location_details')->where('product_id', $two->product_id)->value('qty_available') === '0.0000',
     'Explicit zero stock is persisted');
-$db->table('business_locations')->insert(['id' => 3, 'business_id' => 1, 'eis_site_id' => 'SITE-B']);
+$db->table('business_locations')->insert(['id' => 3, 'business_id' => 1, 'eis_site_id' => 'SITE-A']);
+$db->table('eis_settings')->insert(['id' => 2, 'business_id' => 1, 'location_id' => 3,
+    'status' => 0, 'branch_id' => 'SITE-A']);
+$db->table('eis_configurations')->insert(['id' => 2, 'business_id' => 1, 'eis_setting_id' => 2, 'location_id' => 3]);
+$db->table('tax_rates')->insert(['id' => 2, 'business_id' => 1, 'configuration_id' => 2,
+    'tax_rate_id' => 'A', 'name' => 'Zero', 'is_activated' => 1, 'rate' => '0']);
+$client->pages = [['data' => [catalogItem('ONE'), catalogItem('TWO', '0')]]];
+$sync->sync((object) ['id' => 2, 'business_id' => 1, 'location_id' => 3, 'site_id' => 'SITE-A'], 1);
+catalogCheck($db->table('variation_location_details')->where('product_id', $one->product_id)
+    ->where('location_id', 1)->value('qty_available') === '12.3456'
+    && $db->table('variation_location_details')->where('product_id', $one->product_id)
+        ->where('location_id', 3)->value('qty_available') === '12.3456',
+    'Same-site terminals initialize separate selected locations without changing the first');
+$db->table('tax_rates')->where('id', 2)->update(['tax_rate_id' => 'OTHER']);
+$client->pages = [['data' => [catalogItem('ONE')]]];
+$beforeUnmappedTerminalTax = catalogSnapshot($db);
+try {
+    $sync->sync((object) ['id' => 2, 'business_id' => 1, 'location_id' => 3, 'site_id' => 'SITE-A'], 1);
+    throw new RuntimeException('expected terminal-scoped tax mapping rejection');
+} catch (UnexpectedValueException $e) {
+    catalogCheck(catalogSnapshot($db) === $beforeUnmappedTerminalTax,
+        'Missing selected-terminal tax mapping cannot fall back to another configuration');
+}
+$db->table('tax_rates')->where('id', 2)->update(['tax_rate_id' => 'A']);
+$db->table('tax_rates')->where('id', 2)->update(['rate' => '15']);
+$client->pages = [['data' => [catalogItem('ONE')]]];
+$beforeConflict = catalogSnapshot($db);
+try {
+    $sync->sync((object) ['id' => 2, 'business_id' => 1, 'location_id' => 3, 'site_id' => 'SITE-A'], 1);
+    throw new RuntimeException('expected incompatible terminal tax rejection');
+} catch (UnexpectedValueException $e) {
+    catalogCheck(catalogSnapshot($db) === $beforeConflict,
+        'A different terminal rate cannot overwrite the shared product tax or its catalog state');
+}
+$db->table('tax_rates')->where('id', 2)->update(['rate' => '0']);
+$db->table('business_locations')->insert(['id' => 4, 'business_id' => 1, 'eis_site_id' => 'SITE-B']);
 $stockRow = (array) $db->table('variation_location_details')->where('product_id', $one->product_id)->first();
 unset($stockRow['id']);
-$db->table('variation_location_details')->insert(array_replace($stockRow, ['location_id' => 3, 'qty_available' => '42.0000']));
-$db->table('variation_location_details')->where('product_id', $one->product_id)->where('location_id', 1)
-    ->update(['qty_available' => '999.0000']);
+$db->table('variation_location_details')->insert(array_replace($stockRow, ['location_id' => 4, 'qty_available' => '42.0000']));
 $db->table('products')->where('id', $one->product_id)->update(['enable_stock' => 0]);
 $client->pages = [['data' => [catalogItem('ONE', '1.0001')]]];
 pullCatalog($sync);
-catalogCheck($db->table('variation_location_details')->where('product_id', $one->product_id)->value('qty_available') === '1.0001',
-    'Repull replaces local stock instead of adding or retaining the old quantity');
-catalogCheck((bool) Product::findOrFail($one->product_id)->enable_stock, 'EIS stock management applies to existing products');
-catalogCheck($db->table('variation_location_details')->where('location_id', 3)->value('qty_available') === '42.0000',
+catalogCheck($db->table('variation_location_details')->where('product_id', $one->product_id)
+    ->where('location_id', 1)->value('qty_available') === '12.3456',
+    'Repull retains the immutable opening quantity rather than replacing local stock');
+catalogCheck(!(bool) Product::findOrFail($one->product_id)->enable_stock,
+    'Repull does not silently enable stock tracking on an existing nonstock product');
+catalogCheck($db->table('variation_location_details')->where('location_id', 4)->value('qty_available') === '42.0000',
     'Sync overwrites only the exact EIS site location quantity');
-catalogCheck(Product::withTrashed()->find($two->product_id)->trashed()
-    && EisProductMap::withTrashed()->find($two->id)->trashed(), 'Absent product and its map are soft deleted together');
+catalogCheck(!Product::withTrashed()->find($two->product_id)->trashed()
+    && !EisProductMap::withTrashed()->find($two->id)->trashed(), 'An absent location catalog entry does not retire shared products or maps');
 $client->pages = [['data' => [catalogItem('ONE', '0'), catalogItem('TWO', '999999999999999999.9999')]]];
 pullCatalog($sync);
 catalogCheck(Product::find($two->product_id) !== null && EisProductMap::find($two->id) !== null,
     'Returning product and map restore the same identities');
-catalogCheck($db->table('variation_location_details')->where('product_id', $two->product_id)->value('qty_available')
-    === '999999999999999999.9999', 'DECIMAL(22,4) precision is not lost through floats');
-catalogCheck($db->table('variation_location_details')->where('product_id', $one->product_id)->value('qty_available') === '0.0000',
-    'Repull can reduce existing stock to zero');
+catalogCheck($db->table('variation_location_details')->where('product_id', $two->product_id)->where('location_id', 1)->value('qty_available')
+    === '0.0000', 'Opening ledger quantity remains immutable after a changed remote snapshot');
+catalogCheck($db->table('variation_location_details')->where('product_id', $one->product_id)->where('location_id', 1)->value('qty_available') === '12.3456',
+    'Repull cannot replace the initialized opening quantity with zero');
 $snapshot = catalogSnapshot($db);
 pullCatalog($sync);
-catalogCheck(Product::where('business_id', 1)->count() === 2 && EisProductMap::where('business_id', 1)->count() === 2
-    && $db->table('variation_location_details')->count() === 3, 'Repeated sync does not duplicate identities or stock rows');
+catalogCheck(Product::where('business_id', 1)->count() === 3 && EisProductMap::where('business_id', 1)->count() === 2
+    && $db->table('variation_location_details')->count() === 5, 'Repeated sync does not duplicate identities or stock rows');
 
 foreach ([
     null, [], ['error' => 'expired token'], ['data' => null], ['data' => 'invalid'],
@@ -213,8 +259,10 @@ rejectCatalog($db, $sync, 'Later product import failure');
 $db->table('products')->where('id', $two->product_id)->update(['type' => 'single']);
 $client->pages = [['data' => []]];
 pullCatalog($sync);
-catalogCheck(Product::where('business_id', 1)->count() === 0 && EisProductMap::where('business_id', 1)->count() === 0,
-    'A successful explicit empty catalog soft deletes all business products and maps');
+catalogCheck(Product::withTrashed()->where('business_id', 1)->count() === 3
+    && EisProductMap::withTrashed()->where('business_id', 1)->count() === 2
+    && !Product::withTrashed()->find(100)->trashed(),
+    'A successful explicit empty catalog preserves existing maps, products and manual business products');
 catalogCheck(Product::where('business_id', 2)->count() === 1, 'Empty catalog remains tenant scoped');
 $client->pages = [['data' => [catalogItem('TWO')]]];
 pullCatalog($sync);
@@ -257,10 +305,14 @@ $client->pages = [['data' => [catalogItem('ONE')]]];
 rejectCatalog($db, $sync, 'Unknown site mapping');
 $db->table('business_locations')->where('business_id', 1)->update(['eis_site_id' => 'SITE-A']);
 $db->table('business_locations')->insert(['business_id' => 1, 'eis_site_id' => 'SITE-A']);
-rejectCatalog($db, $sync, 'Ambiguous site mapping');
+$client->pages = [['data' => [catalogItem('ONE')]]];
+pullCatalog($sync);
+catalogCheck($db->table('variation_location_details')->where('product_id',
+    EisProductMap::where('eis_product_id', 'ONE')->value('product_id'))->where('location_id', 1)->exists(),
+    'Selected terminal location is honored when multiple locations share its EIS site');
 $db->table('business_locations')->where('business_id', 1)->where('id', '!=', 1)->delete();
 $foreignId = $db->table('products')->insertGetId(['business_id' => 2, 'type' => 'single', 'name' => 'Foreign', 'sku' => 'ONE']);
-$db->table('eis_product_maps')->insert(['business_id' => 1, 'product_id' => $foreignId, 'eis_product_id' => 'ONE']);
+$db->table('eis_product_maps')->where('business_id', 1)->where('eis_product_id', 'ONE')->update(['product_id' => $foreignId]);
 rejectCatalog($db, $sync, 'Cross-business map identity');
 
 // Real client must reject HTTP failures before decoding an error response as a catalog.
@@ -641,16 +693,16 @@ function listedStock(int $businessId, $locationId = null, $permitted = 'all')
         ->where('products.business_id', $businessId)->whereNull('v.deleted_at')
         ->selectRaw('SUM(vld.qty_available) as current_stock')->value('current_stock');
 }
-catalogCheck((float) listedStock(1) === 108977.0,
-    'EIS business list displays only its terminal quantity, excluding legacy and foreign locations');
+catalogCheck((float) listedStock(1) === 109019.0,
+    'Business stock includes quantities from its own allowed locations');
 catalogCheck((float) listedStock(1, 1) === 108977.0, 'Selected terminal displays exact EIS stock');
-catalogCheck(listedStock(1, 3) === null, 'Another location cannot display the terminal quantity');
-catalogCheck(listedStock(1, null, [3]) === null, 'Terminal stock is not exposed without location permission');
+catalogCheck((float) listedStock(1, 3) === 42.0, 'Another location displays only its own quantity');
+catalogCheck((float) listedStock(1, null, [3]) === 42.0, 'Permitted location contributes only its own quantity');
 catalogCheck((float) listedStock(1, null, [1]) === 108977.0, 'Permitted terminal quantity is included');
 $db->table('eis_settings')->where('business_id', 1)->update(['site_id' => 'SITE-B']);
-catalogCheck((float) listedStock(1) === 42.0, 'Explicit configured site takes precedence over branch');
+catalogCheck((float) listedStock(1) === 109019.0, 'Changing terminal site does not change the business locations in scope');
 $db->table('eis_settings')->where('business_id', 1)->update(['site_id' => 'UNKNOWN']);
-catalogCheck(listedStock(1) === null, 'Missing terminal mapping does not fall back to unrelated stock');
+catalogCheck((float) listedStock(1) === 109019.0, 'Missing terminal site does not alter ordinary business stock totals');
 $db->table('eis_settings')->where('business_id', 1)->delete();
 catalogCheck((float) listedStock(1) === 109019.0, 'Ordinary business list sums only its own locations');
 catalogCheck((float) listedStock(1, 3) === 42.0, 'Ordinary selected-location stock excludes other locations');

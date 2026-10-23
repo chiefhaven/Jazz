@@ -148,516 +148,148 @@
             });
         });
 
-        // EIS Terminal Activation - Using the button from settings_mra_eis
-        // Terminal Activation
-        $('#activate_eis_terminal_btn').click(function() {
-            var activationCode = $('#terminal_activation_code_input').val();
-            
-            if (!activationCode) {
-                swal({
-                    text: 'Please enter terminal activation code',
-                    icon: 'warning'
+        var eisBusy = false;
+        var eisUrls = {
+            index: @json(route('eis.terminals.index')),
+            activate: @json(route('eis.terminals.activate')),
+            'latest-config': @json(route('eis.terminals.latest-config', ['terminalId' => 0])),
+            deactivate: @json(route('eis.terminals.deactivate', ['terminalId' => 0])),
+            'renew-tokens': @json(route('eis.terminals.renew-tokens', ['terminalId' => 0])),
+            'default': @json(route('eis.terminals.default', ['terminalId' => 0]))
+        };
+
+        function eisMessage(message, error) {
+            $('#eis-management-message')
+                .attr('class', 'alert ' + (error ? 'alert-danger' : 'alert-success'))
+                .text(message);
+        }
+
+        function eisError(xhr) {
+            var result = xhr.responseJSON || {};
+            var errors = result.errors || {};
+            var field = Object.keys(errors)[0];
+            eisMessage(field ? errors[field][0] : (result.msg || result.message || 'Unable to complete terminal action.'), true);
+        }
+
+        function eisControls() {
+            $('#eis-terminal-management button').prop('disabled', eisBusy);
+            $('#eis-activation-location').prop('disabled', eisBusy || !$('#eis-activation-location option[value!=""]').length);
+            $('#eis-activate-terminal').prop('disabled', eisBusy || !$('#eis-activation-location').val());
+            $('#eis-terminal-rows button[data-is-default="true"]').prop('disabled', true);
+        }
+
+        function loadEisTerminals() {
+            eisBusy = true;
+            eisControls();
+            return $.ajax({
+                url: eisUrls.index,
+                dataType: 'json'
+            }).done(function(result) {
+                if (!result.success) {
+                    eisMessage(result.msg || result.message || 'Unable to load terminals.', true);
+                    return;
+                }
+                var selected = $('#eis-activation-location').val();
+                var locations = $('#eis-activation-location').empty();
+                $('<option>').val('').text('Select a location').appendTo(locations);
+                $.each(result.data.locations, function(_, location) {
+                    $('<option>').val(location.id).text(location.name).appendTo(locations);
                 });
+                if (selected) locations.val(selected);
+                var rows = $('#eis-terminal-rows').empty();
+                $.each(result.data.terminals, function(_, terminal) {
+                    var row = $('<tr>').appendTo(rows);
+                    $('<td>').text((terminal.terminal_label || terminal.device_id || 'Terminal') + ' (#' + terminal.id + ')').appendTo(row);
+                    $('<td>').text(terminal.location_name).appendTo(row);
+                    $('<td>').text(terminal.is_default ? 'Default' : '—').appendTo(row);
+                    $('<td>').text(terminal.is_active ? 'Active' : 'Inactive').appendTo(row);
+                    var actions = $('<td>').appendTo(row);
+                    $.each({'latest-config': 'Latest config', 'deactivate': 'Deactivate', 'renew-tokens': 'Renew tokens', 'default': 'Set default'}, function(action, label) {
+                        if ((action === 'deactivate' || action === 'default') && !terminal.is_active) return;
+                        $('<button>', {type: 'button', 'class': 'btn btn-default btn-xs eis-terminal-action'})
+                            .attr('data-terminal-id', terminal.id)
+                            .attr('data-action', action)
+                            .attr('data-is-default', action === 'default' && terminal.is_default ? 'true' : 'false')
+                            .text(label).appendTo(actions);
+                        actions.append(' ');
+                    });
+                });
+                if (!result.data.terminals.length) {
+                    $('<tr>').append($('<td>', {colspan: 5}).text('No terminals in your permitted locations.')).appendTo(rows);
+                }
+            }).fail(function(xhr) {
+                $('#eis-terminal-rows').empty().append($('<tr>').append($('<td>', {colspan: 5}).text('Unable to load terminals. Use Refresh to try again.')));
+                eisError(xhr);
+            }).always(function() {
+                eisBusy = false;
+                eisControls();
+            });
+        }
+
+        function eisAction(url, data, activated) {
+            var reload = false;
+            eisBusy = true;
+            eisControls();
+            $.ajax({
+                method: 'post',
+                url: url,
+                data: data,
+                dataType: 'json',
+                headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')}
+            }).done(function(result) {
+                eisMessage(result.msg || result.message || 'Terminal updated.', !result.success);
+                if (result.success) {
+                    if (activated) $('#eis-activation-code').val('');
+                    reload = true;
+                }
+            }).fail(eisError).always(function() {
+                if (reload) {
+                    loadEisTerminals();
+                } else {
+                    eisBusy = false;
+                    eisControls();
+                }
+            });
+        }
+
+        $('#eis-activation-location').change(eisControls);
+        $('#eis-refresh-terminals').click(function() {
+            if (!eisBusy) loadEisTerminals();
+        });
+        $('#eis-activate-terminal').click(function() {
+            if (eisBusy) return;
+            var location = $('#eis-activation-location').val();
+            var code = $('#eis-activation-code').val().trim();
+            if (!location || !code) {
+                eisMessage('Select a location and enter an activation code.', true);
                 return;
             }
-
-            // Build the correct payload structure
-            var data = {
-                terminal_activation_code: activationCode,
-                business_id: $('#business_id').val(),
-                token: $('#eis_token').val(),
+            eisAction(eisUrls.activate, {
+                location_id: location,
+                terminal_activation_code: code,
                 environment: {
-                    platform: {
-                        osName: getOSName(),
-                        osVersion: getOSVersion(),
-                        osBuild: '',
-                        macAddress: getMacAddress()
-                    },
-                    pos: {
-                        productID: '{{ config('app.name') }}',
-                        productVersion: '{{ config('app.version') }}'
-                    }
+                    platform: {osName: navigator.platform || 'Web', osVersion: 'Unknown', osBuild: ''},
+                    pos: {productID: @json(config('app.name')), productVersion: @json(config('app.version', '1.0.0'))}
                 }
-            };
-
-            // Show loading
-            var $btn = $(this);
-            $btn.prop('disabled', true);
-            $btn.html('<i class="fa fa-spinner fa-spin"></i> Activating...');
-
-            $.ajax({
-                method: 'post',
-                data: data,
-                url: "{{ route('eis.terminal.activate') }}",
-                dataType: 'json',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                success: function(result) {
-                    if (result.success == true) {
-                        swal({
-                            text: result.message || 'Terminal activated successfully!',
-                            icon: 'success'
-                        });
-                        
-                        if (result.data) {
-                            updateTerminalUI(result.data);
-                        }
-                        
-                        // Display activation code if returned
-                        if (result.activation_code) {
-                            $('#activation_code_display').text(result.activation_code);
-                        }
-                        
-                        // Display credentials if returned
-                        if (result.terminal_credentials) {
-                            $('#jwt_token_display').text(result.terminal_credentials.jwtToken || 'N/A');
-                            $('#secret_key_display').text(result.terminal_credentials.secretKey || 'N/A');
-                        }
-                    } else {
-                        console.error('Activation failed:', result);
-                        swal({
-                            text: result.message || 'Failed to activate terminal',
-                            icon: 'error'
-                        });
-                    }
-                },
-                error: function(xhr) {
-                    var errorMsg = 'An error occurred';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMsg = xhr.responseJSON.message;
-                    }
-                    swal({
-                        text: errorMsg,
-                        icon: 'error'
-                    });
-                },
-                complete: function() {
-                    $btn.prop('disabled', false);
-                    $btn.html('@lang('lang_v1.activate_eis_terminal')');
-                }
-            });
+            }, true);
         });
-
-        // Utility functions for environment detection
-        function getOSName() {
-            var userAgent = navigator.userAgent;
-            if (userAgent.indexOf('Windows') !== -1) return 'Windows';
-            if (userAgent.indexOf('Mac') !== -1) return 'MacOS';
-            if (userAgent.indexOf('Linux') !== -1) return 'Linux';
-            if (userAgent.indexOf('Android') !== -1) return 'Android';
-            if (userAgent.indexOf('iOS') !== -1) return 'iOS';
-            return 'Unknown';
-        }
-
-        function getOSVersion() {
-            var userAgent = navigator.userAgent;
-            var match;
-            if ((match = userAgent.match(/Windows NT (\d+\.\d+)/))) return match[1];
-            if ((match = userAgent.match(/Mac OS X (\d+[._]\d+[._]\d+)/))) return match[1].replace(/_/g, '.');
-            if ((match = userAgent.match(/Android (\d+\.\d+)/))) return match[1];
-            return 'Unknown';
-        }
-
-        function getMacAddress() {
-            // For web, we generate a unique identifier
-            return 'web-' + navigator.platform + '-' + navigator.userAgent.length;
-        }
-
-        // Deactivate Terminal
-        $(document).on('click', '#deactivate_eis_terminal_btn', function() {
-            var data = {
-                business_id: $('#business_id').val(),
-                reason: $('#deactivation_reason').val()
-            };
-
-            swal({
-                title: 'Are you sure?',
-                text: 'Do you want to deactivate this terminal?',
-                icon: 'warning',
-                buttons: true,
-                dangerMode: true
-            }).then((willDeactivate) => {
-                if (willDeactivate) {
-                    $.ajax({
-                        method: 'post',
-                        data: data,
-                        url: "{{ route('eis.terminal.deactivate') }}",
-                        dataType: 'json',
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        },
-                        success: function(result) {
-                            if (result.success == true) {
-                                swal({
-                                    text: result.msg || 'Terminal deactivated successfully',
-                                    icon: 'success'
-                                });
-                                updateTerminalUI(result.data);
-                            } else {
-                                swal({
-                                    text: result.msg || 'Failed to deactivate terminal',
-                                    icon: 'error'
-                                });
-                            }
-                        },
-                        error: function(error) {
-                            swal({
-                                text: 'An error occurred',
-                                icon: 'error'
-                            });
-                        }
-                    });
-                }
-            });
-        });
-
-        // Toggle Terminal Status
-        $(document).on('click', '#toggle_eis_terminal_btn', function() {
-            var data = {
-                business_id: $('#business_id').val(),
-                token: $('#eis_token').val()
-            };
-
-            $.ajax({
-                method: 'post',
-                data: data,
-                url: "{{ route('eis.terminal.toggle') }}",
-                dataType: 'json',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                success: function(result) {
-                    if (result.success == true) {
-                        swal({
-                            text: result.msg || 'Terminal status toggled successfully',
-                            icon: 'success'
-                        });
-                        updateTerminalUI(result.data);
-                    } else {
-                        swal({
-                            text: result.msg || 'Failed to toggle terminal',
-                            icon: 'error'
-                        });
-                    }
-                },
-                error: function(error) {
-                    swal({
-                        text: 'An error occurred while toggling terminal status',
-                        icon: 'error'
-                    });
-                }
-            });
-        });
-
-        // Get Latest Terminal Config
-        $(document).on('click', '#get_latest_eis_config_btn', function() {
-            var data = {
-                business_id: $('#business_id').val(),
-                token: $('#eis_token').val()
-            };
-
-            $.ajax({
-                method: 'post',
-                data: data,
-                url: "{{ route('eis.terminal.get-latest-config') }}",
-                dataType: 'json',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                success: function(result) {
-                    if (result.success == true) {
-                        swal({
-                            text: result.msg || 'Latest terminal config fetched successfully',
-                            icon: 'success'
-                        });
-                        updateTerminalUI(result.data);
-                    } else {
-                        swal({
-                            text: result.msg || 'Failed to get latest terminal config',
-                            icon: 'error'
-                        });
-                    }
-                },
-                error: function(error) {
-                    swal({
-                        text: 'An error occurred while fetching latest terminal config',
-                        icon: 'error'
-                    });
-                }
-            });
-        });
-
-        $(document).on('click', '#regenerate_credentials_btn', function (e) {
-
-            
-            const btn = $(this);
-
-            swal({
-                title: 'Are you sure?',
-                text: 'This will regenerate terminal credentials. Existing credentials will immediately become invalid.',
-                icon: 'warning',
-                buttons: true,
-                dangerMode: true
-            }).then(function (confirmed) {
-
-                if (!confirmed) {
-                    return;
-                }
-
-                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Regenerating...');
-
-                $.ajax({
-                    url: "{{ route('eis.terminal.regenerate-credentials') }}",
-                    type: "POST",
-                    dataType: "json",
-                    headers: {
-                        "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
-                    },
-                    data: {
-                        business_id: $('#business_id').val(),
-                        token: $('#eis_token').val()
-                    },
-
-                    success: function (response) {
-
-                        if (response.success) {
-
-                            swal(
-                                "Success",
-                                response.msg || "Credentials regenerated successfully.",
-                                "success"
-                            );
-
-                            if (response.data) {
-                                $('#jwt_token_display').text(response.data.jwt_token ?? 'N/A');
-                                $('#secret_key_display').text(response.data.secret_key ?? 'N/A');
-                            }
-
-                        } else {
-
-                            swal(
-                                "Failed",
-                                response.msg || "Unable to regenerate credentials.",
-                                "error"
-                            );
-                        }
-                    },
-
-                    error: function (xhr) {
-
-                        let message = "An unexpected error occurred.";
-
-                        if (xhr.responseJSON) {
-                            message = xhr.responseJSON.msg ||
-                                    xhr.responseJSON.message ||
-                                    message;
-                        }
-
-                        swal("Error", message, "error");
-                    },
-
-                    complete: function () {
-                        btn.prop('disabled', false)
-                        .html('@lang("lang_v1.regenerate_credentials")');
-                    }
-                });
-
-            });
-
-        });
-
-        $(document).on('click', '#get_latest_config_btn', function (e) {
-
-            
-            const btn = $(this);
-
-            swal({
-                title: 'Are you sure?',
-                text: 'Fetching latest configuration.',
-                icon: 'warning',
-                buttons: true,
-                dangerMode: true
-            }).then(function (confirmed) {
-
-                if (!confirmed) {
-                    return;
-                }
-
-                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Fetching...');
-
-                $.ajax({
-                    url: "{{ route('eis.terminal.get-latest-config') }}",
-                    type: "POST",
-                    dataType: "json",
-                    headers: {
-                        "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
-                    },
-                    data: {
-                        business_id: $('#business_id').val(),
-                        token: $('#eis_token').val()
-                    },
-
-                    success: function (response) {
-
-                        if (response.success) {
-
-                            swal(
-                                "Success",
-                                response.msg || "Latest configuration fetched successfully.",
-                                "success"
-                            );
-
-                            if (response.data) {
-                                $('#jwt_token_display').text(response.data.jwt_token ?? 'N/A');
-                                $('#secret_key_display').text(response.data.secret_key ?? 'N/A');
-                            }
-
-                        } else {
-
-                            swal(
-                                "Failed",
-                                response.msg || "Unable to fetch latest configuration.",
-                                "error"
-                            );
-                        }
-                    },
-
-                    error: function (xhr) {
-
-                        let message = "An unexpected error occurred.";
-
-                        if (xhr.responseJSON) {
-                            message = xhr.responseJSON.msg ||
-                                    xhr.responseJSON.message ||
-                                    message;
-                        }
-
-                        swal("Error", message, "error");
-                    },
-
-                    complete: function () {
-                        btn.prop('disabled', false)
-                        .html('@lang("lang_v1.get_latest_config")');
-                    }
-                });
-
-            });
-
-        });
-
-        // Get Terminal Status
-        function getTerminalStatus() {
-            $.ajax({
-                method: 'get',
-                url: "{{ route('eis.web.terminal.status') }}",
-                dataType: 'json',
-                success: function(result) {
-                    if (result.success == true) {
-                        updateTerminalUI(result.data);
-                    }
-                },
-                error: function(error) {
-                    $('#terminal_status_display').html('<span class="badge badge-danger">Error loading status</span>');
-                }
-            });
-        }
-
-        // Update Terminal UI
-        function updateTerminalUI(data) {
-            if (data) {
-                // Only update status if is_active is explicitly provided in the data
-                // This prevents "Get Latest Config" from overwriting the status display with undefined
-                if (typeof data.is_active !== 'undefined') {
-                    if (data.is_active) {
-                        $('#terminal_status_display').html('<span class="badge badge-success">Active</span>');
-                        $('#terminal_active_actions').show();
-                        $('#terminal_inactive_actions').hide();
-                        $('#activation_code_section').hide();
-                    } else {
-                        $('#terminal_status_display').html('<span class="badge badge-danger">Inactive</span>');
-                        $('#terminal_active_actions').hide();
-                        $('#terminal_inactive_actions').show();
-                        $('#activation_code_section').show();
-                    }
-                } else if (typeof data.terminal_is_active !== 'undefined') {
-                    // Handle response from "Get Latest Config" which returns terminal_is_active
-                    if (data.terminal_is_active) {
-                        $('#terminal_status_display').html('<span class="badge badge-success">Active</span>');
-                        $('#terminal_active_actions').show();
-                        $('#terminal_inactive_actions').hide();
-                        $('#activation_code_section').hide();
-                    } else {
-                        $('#terminal_status_display').html('<span class="badge badge-danger">Inactive</span>');
-                        $('#terminal_active_actions').hide();
-                        $('#terminal_inactive_actions').show();
-                        $('#activation_code_section').show();
-                    }
-                }
-                
-                $('#terminal_label_display').text(data.terminal_label || 'N/A');
-                $('#terminal_id_display').text(data.terminal_id || 'N/A');
-                $('#trading_name_display').text(data.trading_name || 'N/A');
-                $('#activation_code').text(data.activation_code || 'N/A');
-                $('#email_address_display').text(data.email_address || 'N/A');
-                $('#phone_number_display').text(data.phone_number || 'N/A');
-                $('#activation_date_display').text(data.activation_date
-                    ? new Date(data.activation_date).toLocaleString()
-                    : 'N/A');
-                $('#branch').text(data.branch || 'N/A');
-                
-                // Update credentials
-                var credentials = data.terminal_credentials || {};
-                $('#jwt_token_display').text(credentials.jwt_token || 'N/A');
-                $('#secret_key_display').text(credentials.secret_key || 'N/A');
+        $('#eis-terminal-rows').on('click', '.eis-terminal-action', function() {
+            if (eisBusy) return;
+            var action = $(this).attr('data-action');
+            var terminalId = $(this).attr('data-terminal-id');
+            var data = {};
+            if (action === 'deactivate') {
+                var reason = window.prompt('Deactivate terminal #' + terminalId + '? Reason (optional):', '');
+                if (reason === null) return;
+                data.reason = reason;
+            } else if (action === 'renew-tokens' && !window.confirm('Renew tokens for terminal #' + terminalId + '? Existing credentials will become invalid.')) {
+                return;
+            } else if (action === 'default' && !window.confirm('Use terminal #' + terminalId + ' as the default for its location?')) {
+                return;
             }
-        }
-
-        // Utility functions for environment detection
-        function getOSName() {
-            var userAgent = navigator.userAgent;
-            if (userAgent.indexOf('Windows') !== -1) return 'Windows';
-            if (userAgent.indexOf('Mac') !== -1) return 'MacOS';
-            if (userAgent.indexOf('Linux') !== -1) return 'Linux';
-            if (userAgent.indexOf('Android') !== -1) return 'Android';
-            if (userAgent.indexOf('iOS') !== -1) return 'iOS';
-            return 'Unknown';
-        }
-
-        function getOSVersion() {
-            var userAgent = navigator.userAgent;
-            var match;
-            if ((match = userAgent.match(/Windows NT (\d+\.\d+)/))) return match[1];
-            if ((match = userAgent.match(/Mac OS X (\d+[._]\d+[._]\d+)/))) return match[1].replace(/_/g, '.');
-            if ((match = userAgent.match(/Android (\d+\.\d+)/))) return match[1];
-            return 'Unknown';
-        }
-
-        function getBrowser() {
-            var userAgent = navigator.userAgent;
-            if (userAgent.indexOf('Chrome') !== -1 && userAgent.indexOf('Edge') === -1) return 'Chrome';
-            if (userAgent.indexOf('Firefox') !== -1) return 'Firefox';
-            if (userAgent.indexOf('Safari') !== -1 && userAgent.indexOf('Chrome') === -1) return 'Safari';
-            if (userAgent.indexOf('Edge') !== -1) return 'Edge';
-            return 'Unknown';
-        }
-
-        function getBrowserVersion() {
-            var userAgent = navigator.userAgent;
-            var match;
-            if ((match = userAgent.match(/(Chrome|Firefox|Safari|Edge|Opera)\/(\d+\.\d+)/))) return match[2];
-            return 'Unknown';
-        }
-
-        function getMacAddress() {
-            return 'web-' + navigator.platform + '-' + navigator.userAgent.length;
-        }
-
-        // Load terminal status on page load
-        setTimeout(getTerminalStatus, 500);
-
-        // Refresh status every 60 seconds
-        setInterval(getTerminalStatus, 60000);
+            eisAction(eisUrls[action].replace('/0/', '/' + terminalId + '/'), data, false);
+        });
+        loadEisTerminals();
 
         // SMS Test
         $('#test_sms_btn').click( function() {

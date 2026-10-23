@@ -99,7 +99,7 @@ class DispatchAllUnsubmittedSalesCommand extends Command
         }
 
         $query->whereHas('business', function ($query) {
-            $query->whereHas('eisSetting', function ($query) {
+            $query->whereHas('eisTerminals', function ($query) {
                 $query->where('status', 1)
                     ->whereNotNull('tpin')
                     ->whereNotNull('device_id');

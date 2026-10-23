@@ -49,13 +49,16 @@ class RetryFailedSaleJob implements ShouldQueue
                     throw new \InvalidArgumentException('Retry transaction does not belong to the business terminal.');
                 }
 
-                $settings = EisSetting::where('business_id', $row->business_id)->first();
+                $settings = \Modules\EIS\Services\Terminal\TerminalContext::forSale($transaction);
 
                 if (!$settings) {
                     continue;
                 }
 
-                $service->submit($transaction, $settings);
+                $result = $service->submit($transaction, $settings);
+                if ($result->status !== 'submitted') {
+                    throw new \RuntimeException($result->error_message ?: 'Sale has not been submitted; retry record retained.');
+                }
 
                 // SUCCESS → remove
                 DB::table('eis_failed_transactions')

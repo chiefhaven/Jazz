@@ -3,21 +3,17 @@
 namespace Modules\EIS\Services\Products;
 
 use App\Product;
-use App\TaxRate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Models\EisProductMap;
+use Modules\EIS\Models\EisTaxRate;
 
 class ProductUpsertService {
     /**
      * Cache for unit lookups
      */
     private array $unitCache = [];
-    
-    /**
-     * Cache for location lookups
-     */
-    private array $locationCache = [];
     
     /**
      * Cache for tax rate lookups
@@ -30,18 +26,37 @@ class ProductUpsertService {
     public function upsert(
         int $businessId,
         array $item,
-        string $eisId
+        string $eisId,
+        ?object $settings = null,
+        ?int $locationId = null
     ): Product {
+        if (trim($eisId) === '') {
+            throw new \InvalidArgumentException('EIS product identifier is required.');
+        }
+        if (!$settings || !$locationId || $locationId <= 0) {
+            throw new \InvalidArgumentException('EIS product upsert requires its selected terminal and location.');
+        }
 
-        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId);
-        if (($item['site_id'] ?? null) !== \Modules\EIS\Services\Terminal\TerminalContext::site($settings)) {
+        \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($settings, $businessId);
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings(
+            $businessId,
+            isset($settings->jwt_token) ? $settings->jwt_token : null,
+            isset($settings->id) ? (int) $settings->id : null,
+            $locationId
+        );
+        if (($item['site_id'] ?? null) !== \Modules\EIS\Services\Terminal\TerminalContext::site($settings)
+            || (int) $settings->location_id !== $locationId) {
             throw new \InvalidArgumentException('EIS product does not belong to the business terminal site.');
         }
         return \App\Services\EisProductPolicy::duringSync($businessId, fn () => DB::transaction(function () use (
             $businessId,
             $item,
-            $eisId
+            $eisId,
+            $settings,
+            $locationId
         ) {
+            $configurationId = EisConfiguration::where('business_id', $businessId)
+                ->where('eis_setting_id', $settings->id)->lockForUpdate()->value('id');
 
             Log::info('EIS product sync started', [
                 'business_id' => $businessId,
@@ -95,11 +110,10 @@ class ProductUpsertService {
                 |--------------------------------------------------------------------------
                 */
                 if (!$product) {
-                    Log::warning('Mapped product missing, creating new product', [
-                        'old_product_id' => $map->product_id,
-                        'eis_product_id' => $eisId,
-                    ]);
-                    $product = new Product();
+                    throw new \UnexpectedValueException('EIS product map points to a missing product.');
+                }
+                if (!empty($product->eis_product_id) && (string) $product->eis_product_id !== $eisId) {
+                    throw new \UnexpectedValueException('EIS product map and product identifiers conflict.');
                 }
 
                 /*
@@ -124,10 +138,14 @@ class ProductUpsertService {
                 $sku = $item['sku'] ?? null;
                 
                 if ($sku) {
-                    $product = Product::withTrashed()
+                    $matches = Product::withTrashed()
                         ->where('business_id', $businessId)
                         ->where('sku', $sku)
-                        ->first();
+                        ->limit(2)->get();
+                    if ($matches->count() > 1) {
+                        throw new \UnexpectedValueException('EIS SKU matches multiple business products.');
+                    }
+                    $product = $matches->first();
                 }
             }
 
@@ -140,10 +158,14 @@ class ProductUpsertService {
                 $name = $item['name'] ?? $item['productName'] ?? null;
                 
                 if ($name) {
-                    $product = Product::withTrashed()
+                    $matches = Product::withTrashed()
                         ->where('business_id', $businessId)
                         ->where('name', $name)
-                        ->first();
+                        ->limit(2)->get();
+                    if ($matches->count() > 1) {
+                        throw new \UnexpectedValueException('EIS name matches multiple business products.');
+                    }
+                    $product = $matches->first();
                     
                     if ($product) {
                         Log::info('Product found by name fallback', [
@@ -161,10 +183,14 @@ class ProductUpsertService {
             |--------------------------------------------------------------------------
             */
             if (!$product || !$product->exists) {
-                $product = Product::withTrashed()
+                $matches = Product::withTrashed()
                     ->where('business_id', $businessId)
                     ->where('eis_product_id', $eisId)
-                    ->first();
+                    ->limit(2)->get();
+                if ($matches->count() > 1) {
+                    throw new \UnexpectedValueException('EIS identifier matches multiple business products.');
+                }
+                $product = $matches->first();
                 
                 if ($product) {
                     Log::info('Product found by EIS ID fallback', [
@@ -197,14 +223,20 @@ class ProductUpsertService {
             |--------------------------------------------------------------------------
             */
             $isNew = !$product->exists;
-
+            $excludeOpeningStock = !$map && !$isNew && empty($product->eis_product_id);
+            if (!$map && !$isNew && EisProductMap::withTrashed()->where('product_id', $product->id)
+                ->where('business_id', '!=', $businessId)->exists()) {
+                throw new \UnexpectedValueException('EIS product map points to a product owned by another business.');
+            }
             $product->business_id = $businessId;
 
             if ($isNew) {
                 $product->type = $item['type'] ?? 'single';
                 $product->created_by = config('eis.system_user_id', 1);
             }
-            $product->enable_stock = $item['manage_stock'] ?? false;
+            if ($isNew) {
+                $product->enable_stock = $item['manage_stock'] ?? false;
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -214,7 +246,15 @@ class ProductUpsertService {
             $product->name = $this->getProductName($item, $eisId);
             $product->product_description = $this->getProductDescription($item);
             $product->sku = $this->getProductSku($item, $eisId);
-            $product->tax = $this->getProductTaxRateId($item['tax_rate_id'], $businessId);
+            $taxRateId = $this->getProductTaxRateId(
+                $item['tax_rate_id'] ?? null,
+                $businessId,
+                $configurationId ? (int) $configurationId : null,
+                $product->tax
+            );
+            if ($taxRateId !== null) {
+                $product->tax = $taxRateId;
+            }
             $product->eis_product_id = $eisId;
             $product->eis_last_synced_at = now();
 
@@ -281,7 +321,8 @@ class ProductUpsertService {
                 $businessId,
                 $eisId,
                 $product,
-                $item['sku'] ?? null
+                $item['sku'] ?? null,
+                $excludeOpeningStock
             );
 
             /*
@@ -296,7 +337,9 @@ class ProductUpsertService {
             return $this->syncVariationAndLocation(
                 $businessId,
                 $product,
-                $item
+                $item,
+                $locationId,
+                $configurationId ? (int) $configurationId : null
             );
         }));
     }
@@ -307,11 +350,17 @@ class ProductUpsertService {
     private function syncVariationAndLocation(
         int $businessId,
         Product $product,
-        array $item
+        array $item,
+        int $locationId,
+        ?int $configurationId
     ): Product {
 
         if ($product->type !== 'single' || $product->variations()->withTrashed()->count() > 1
             || $product->product_variations()->count() > 1) {
+            Log::warning('EIS stock cannot be assigned to an ambiguous product variation.', [
+                'product_id' => $product->id,
+                'type' => $product->type,
+            ]);
             throw new \UnexpectedValueException('EIS stock cannot be assigned to an ambiguous product variation.');
         }
         /*
@@ -351,6 +400,7 @@ class ProductUpsertService {
             ->where('product_variation_id', $productVariationId)
             ->lockForUpdate()
             ->first();
+        $restoredDeletedVariation = $variation && $variation->trashed();
         if ($variation && $variation->trashed()) {
             $variation->restore();
         }
@@ -375,7 +425,7 @@ class ProductUpsertService {
         | GET TAX RATE FROM SHORT NAME
         |--------------------------------------------------------------------------
         */
-        $taxRate = $this->getTaxRateByShortName($businessId, $item);
+        $taxRate = $this->getTaxRateByShortName($businessId, $item, $configurationId);
         $taxPercentage = $taxRate ? (float) $taxRate->rate : 0;
 
         /*
@@ -384,7 +434,8 @@ class ProductUpsertService {
         |--------------------------------------------------------------------------
         */
         $sellPrice = $this->getSellPrice($item, $variation);
-        $cost = $this->getCostPrice($item, $variation);
+        $costIncTax = $this->getCostPrice($item, $variation);
+        $cost = $taxPercentage > 0 ? $costIncTax / (1 + ($taxPercentage / 100)) : $costIncTax;
         
         // Calculate sell price excluding tax
         // Formula: Price Excl Tax = Price / (1 + TaxRate/100)
@@ -407,6 +458,7 @@ class ProductUpsertService {
         $variation->update([
             'default_sell_price' => round($sellPriceExclTax, 2), // Price excluding tax
             'default_purchase_price' => $cost,
+            'dpp_inc_tax' => $costIncTax,
             'sell_price_inc_tax' => round($sellPrice, 2), // Price including tax
             'sub_sku' => $item['sku'] ?? $product->sku,
             'profit_percent' => $this->profit($sellPriceExclTax, $cost),
@@ -417,9 +469,11 @@ class ProductUpsertService {
         | EXACT EIS SITE LOCATION
         |--------------------------------------------------------------------------
         */
-        $locationId = $this->getMappedLocation($businessId, $item);
-
-        if (!$locationId) {
+        $location = DB::table('business_locations')->where('id', $locationId)
+            ->where('business_id', $businessId)
+            ->where('eis_site_id', $item['site_id'] ?? null)
+            ->first();
+        if (!$location) {
             Log::error('No location found for product', [
                 'product_id' => $product->id,
                 'business_id' => $businessId,
@@ -447,26 +501,26 @@ class ProductUpsertService {
         | STOCK LOCATION
         |--------------------------------------------------------------------------
         */
-        $stock = $this->getEisStock($item);
-        
-        DB::table('variation_location_details')->updateOrInsert(
-            [
-                'variation_id' => $variation->id,
-                'location_id' => $locationId,
-            ],
-            [
-                'product_id' => $product->id,
-                'product_variation_id' => $productVariationId,
-                'qty_available' => $stock,
-                'updated_at' => now(),
-            ]
-        );
+        if ($restoredDeletedVariation) {
+            $openingStatus = 'deleted_variation_restored_without_stock';
+        } else {
+            $openingStock = $item['opening_stock_source'] ?? OpeningStockInitializer::stockSource($item);
+            $openingStatus = (new OpeningStockInitializer(DB::connection()))->initialize(
+                $businessId,
+                (int) $product->id,
+                (int) $variation->id,
+                $locationId,
+                (string) ($product->eis_product_id ?? ''),
+                (string) ($item['site_id'] ?? ''),
+                $openingStock
+            );
+        }
 
         Log::info('Product inventory synced', [
             'product_id' => $product->id,
             'variation_id' => $variation->id,
             'location_id' => $locationId,
-            'stock' => $stock,
+            'opening_stock_status' => $openingStatus,
             'tax_percentage' => $taxPercentage,
             'tax_rate_short_name' => $item['taxRateId'] ?? null,
             'price_excl_tax' => round($sellPriceExclTax, 2),
@@ -483,17 +537,24 @@ class ProductUpsertService {
      * @param array $item
      * @return object|null
      */
-    private function getTaxRateByShortName(int $businessId, array $item): ?object
+    private function getTaxRateByShortName(int $businessId, array $item, ?int $configurationId): ?object
     {
-        $shortName = $item['taxRateId'] ?? null;
+        $shortName = $item['tax_rate_id'] ?? $item['taxRateId'] ?? null;
+        if (!$configurationId) {
+            if (!empty($shortName)) {
+                throw new \UnexpectedValueException('EIS tax lookup requires the selected terminal configuration.');
+            }
+            return null;
+        }
         
         Log::debug('Looking for tax rate by short name', [
             'business_id' => $businessId,
+            'configuration_id' => $configurationId,
             'short_name' => $shortName
         ]);
 
         // Check cache first
-        $cacheKey = $businessId . ':' . ($shortName ?? 'default');
+        $cacheKey = $configurationId . ':' . ($shortName ?? 'default');
         if (isset($this->taxRateCache[$cacheKey])) {
             Log::debug('Tax rate found in cache', [
                 'short_name' => $shortName,
@@ -506,9 +567,8 @@ class ProductUpsertService {
 
         // Primary: Find by short name (case insensitive)
         if (!empty($shortName)) {
-            $taxRate = DB::table('tax_rates')
-                ->where('business_id', $businessId)
-                ->whereRaw('LOWER(short_name) = ?', [strtolower(trim($shortName))])
+            $taxRate = EisTaxRate::where('configuration_id', $configurationId)
+                ->where('tax_rate_id', $shortName)
                 ->first();
             
             if ($taxRate) {
@@ -522,8 +582,7 @@ class ProductUpsertService {
 
         // Secondary: Try to find by name
         if (!$taxRate && !empty($shortName)) {
-            $taxRate = DB::table('tax_rates')
-                ->where('business_id', $businessId)
+            $taxRate = EisTaxRate::where('configuration_id', $configurationId)
                 ->whereRaw('LOWER(name) = ?', [strtolower(trim($shortName))])
                 ->first();
             
@@ -535,11 +594,13 @@ class ProductUpsertService {
                 ]);
             }
         }
+        if (!$taxRate && !empty($shortName)) {
+            throw new \UnexpectedValueException('EIS tax rate '.$shortName.' is not configured for the selected terminal.');
+        }
 
         // Fallback 1: Get default tax rate (standard rate with rate > 0)
         if (!$taxRate) {
-            $taxRate = DB::table('tax_rates')
-                ->where('business_id', $businessId)
+            $taxRate = EisTaxRate::where('configuration_id', $configurationId)
                 ->where('is_activated', true)
                 ->where('rate', '>', 0)
                 ->orderBy('rate', 'desc')
@@ -556,8 +617,7 @@ class ProductUpsertService {
 
         // Fallback 2: Use zero-rated tax if no other found
         if (!$taxRate) {
-            $taxRate = DB::table('tax_rates')
-                ->where('business_id', $businessId)
+            $taxRate = EisTaxRate::where('configuration_id', $configurationId)
                 ->where('is_activated', true)
                 ->where('rate', 0)
                 ->first();
@@ -572,8 +632,7 @@ class ProductUpsertService {
 
         // Fallback 3: Get any tax rate
         if (!$taxRate) {
-            $taxRate = DB::table('tax_rates')
-                ->where('business_id', $businessId)
+            $taxRate = EisTaxRate::where('configuration_id', $configurationId)
                 ->where('is_activated', true)
                 ->first();
             
@@ -607,15 +666,14 @@ class ProductUpsertService {
      */
     private function getSellPrice(array $item, $variation): float
     {
-        // Primary: Use existing price
-        if ($variation->exists && $variation->sell_price_inc_tax > 0) {
-            return $variation->sell_price_inc_tax;
-        }
-        
-        // Secondary: Extract from item
+        // Prefer the terminal's current catalogue price; use local values only as a fallback.
         $price = (float) ($item['price'] ?? $item['sellingPrice'] ?? $item['unitPrice'] ?? 0);
         if ($price > 0) {
             return $price;
+        }
+
+        if ($variation->exists && $variation->sell_price_inc_tax > 0) {
+            return $variation->sell_price_inc_tax;
         }
         
         // Fallback 1: Calculate from cost with margin
@@ -640,15 +698,16 @@ class ProductUpsertService {
      */
     private function getCostPrice(array $item, $variation): float
     {
-        // Primary: Use existing cost
-        if ($variation->exists && $variation->default_purchase_price > 0) {
-            return $variation->default_purchase_price;
-        }
-        
-        // Secondary: Extract from item
+        // Prefer the terminal's current catalogue cost; use local values only as a fallback.
         $cost = (float) ($item['cost'] ?? $item['purchasePrice'] ?? $item['buyingPrice'] ?? 0);
         if ($cost > 0) {
             return $cost;
+        }
+
+        if ($variation->exists && $variation->default_purchase_price > 0) {
+            return $variation->dpp_inc_tax > 0
+                ? $variation->dpp_inc_tax
+                : $variation->default_purchase_price;
         }
         
         // Fallback 1: Estimate from price
@@ -665,34 +724,6 @@ class ProductUpsertService {
         // Fallback 2: Use default 0
         Log::warning('No cost available, using 0 as final fallback');
         return 0;
-    }
-
-    /**
-     * Use the exact validated quantity shared with the transformer.
-     */
-    private function getEisStock(array $item): string
-    {
-        $source = $item['opening_stock_source'] ?? OpeningStockInitializer::stockSource($item);
-        if (!isset($source['quantity']) || OpeningStockInitializer::decimal($source['quantity']) === null) {
-            throw new \UnexpectedValueException('EIS stock quantity is missing, invalid, or conflicting.');
-        }
-
-        return OpeningStockInitializer::decimal($source['quantity']);
-    }
-
-    /**
-     * Require exactly one location for the EIS site; never fall back to another site.
-     */
-    private function getMappedLocation(int $businessId, array $item): ?int
-    {
-        $siteId = OpeningStockInitializer::siteId($item);
-        if ($siteId === null) {
-            return null;
-        }
-        $locations = DB::table('business_locations')->where('business_id', $businessId)
-            ->where('eis_site_id', $siteId)->pluck('id');
-
-        return $locations->count() === 1 ? (int) $locations->first() : null;
     }
 
     /**
@@ -747,11 +778,34 @@ class ProductUpsertService {
     /**
      * Get product taxRate with dual fallbacks.
      */
-    private function getProductTaxRateId(string $item, $businessId): ?string
+    private function getProductTaxRateId(?string $item, int $businessId, ?int $configurationId, $existingTaxId): ?int
     {
-        $taxRateId = TaxRate::where('business_id', $businessId)->where('tax_rate_id', $item)->first();
-        Log::info('Tax rate fetch', [$taxRateId]);
-        return $taxRateId->id ?? null;
+        if ($item === null || trim($item) === '') {
+            return null;
+        }
+        if (!$configurationId) {
+            throw new \UnexpectedValueException('EIS product tax requires the selected terminal configuration.');
+        }
+        $selected = EisTaxRate::where('configuration_id', $configurationId)->where('tax_rate_id', $item)->first();
+        if (!$selected) {
+            throw new \UnexpectedValueException('EIS tax rate '.$item.' is not configured for the selected terminal.');
+        }
+        if ($existingTaxId && (int) $existingTaxId !== (int) $selected->id) {
+            $existing = EisTaxRate::whereKey($existingTaxId)
+                ->whereHas('configuration', fn ($query) => $query->where('business_id', $businessId))
+                ->first();
+            $sameRate = $existing && number_format((float) $existing->rate, 3, '.', '')
+                === number_format((float) $selected->rate, 3, '.', '');
+            $sameMode = $existing && (string) ($existing->charge_mode ?? 'Item')
+                === (string) ($selected->charge_mode ?? 'Item');
+            if (!$sameRate || !$sameMode) {
+                throw new \UnexpectedValueException(
+                    'EIS terminal tax rate conflicts with the rate already assigned to this shared business product.'
+                );
+            }
+            return (int) $existing->id;
+        }
+        return (int) $selected->id;
     }
 
     /**
@@ -810,7 +864,8 @@ class ProductUpsertService {
         int $businessId,
         string $eisId,
         Product $product,
-        ?string $sku
+        ?string $sku,
+        bool $excludeOpeningStock
     ): void {
 
         $map = EisProductMap::withTrashed()
@@ -835,13 +890,17 @@ class ProductUpsertService {
                 'sku' => $sku
             ]);
         } else {
-            EisProductMap::create([
+            $map = EisProductMap::create([
                 'business_id' => $businessId,
                 'eis_product_id' => $eisId,
                 'product_id' => $product->id,
                 'sku' => $sku ?? $product->sku,
                 'last_synced_at' => now(),
             ]);
+            if ($excludeOpeningStock) {
+                DB::table('eis_product_maps')->where('id', $map->id)
+                    ->update(['meta' => json_encode(['eis_opening_stock_excluded' => true], JSON_THROW_ON_ERROR)]);
+            }
 
             Log::debug('EIS product map created', [
                 'business_id' => $businessId,
@@ -864,43 +923,6 @@ class ProductUpsertService {
         }
 
         return round((($price - $cost) / $cost) * 100, 2);
-    }
-
-    /**
-     * Get POS location using EIS site ID.
-     */
-    private function getLocationFromSite(
-        int $businessId,
-        ?string $siteId
-    ): ?int {
-        if (empty($siteId)) {
-            Log::warning('Missing EIS site id', [
-                'business_id' => $businessId
-            ]);
-            return null;
-        }
-
-        // Check cache first
-        $cacheKey = $businessId . ':' . $siteId;
-        if (isset($this->locationCache[$cacheKey])) {
-            return $this->locationCache[$cacheKey];
-        }
-
-        $locationId = DB::table('business_locations')
-            ->where('business_id', $businessId)
-            ->where('eis_site_id', $siteId)
-            ->value('id');
-
-        // Cache the result
-        $this->locationCache[$cacheKey] = $locationId;
-
-        Log::debug('EIS location lookup', [
-            'business_id' => $businessId,
-            'site_id' => $siteId,
-            'location_id' => $locationId
-        ]);
-
-        return $locationId;
     }
 
     /**

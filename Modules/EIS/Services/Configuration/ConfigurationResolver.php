@@ -7,42 +7,40 @@ use Modules\EIS\Models\EisConfiguration;
 class ConfigurationResolver
 {
 
-    public function get(int $businessId)
+    public function get(int $businessId, ?int $terminalId = null)
     {
-        return EisConfiguration::where(
-            'business_id',
-            $businessId
-        )
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, null, $terminalId);
+        return EisConfiguration::where('eis_setting_id', $settings->id)
         ->latest()
         ->first();
     }
 
 
-    public function sellerTin(int $businessId)
+    public function sellerTin(int $businessId, ?int $terminalId = null)
     {
-        return $this->get($businessId)
+        return $this->get($businessId, $terminalId)
             ?->tpin;
     }
 
 
-    public function siteId(int $businessId)
+    public function siteId(int $businessId, ?int $terminalId = null)
     {
         return \Modules\EIS\Services\Terminal\TerminalContext::site(
-            \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId)
+            \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, null, $terminalId)
         );
     }
 
 
-    public function vatRegistered(int $businessId)
+    public function vatRegistered(int $businessId, ?int $terminalId = null)
     {
-        return $this->get($businessId)
+        return $this->get($businessId, $terminalId)
             ?->is_vat_registered;
     }
 
 
-    public function taxRates(int $businessId)
+    public function taxRates(int $businessId, ?int $terminalId = null)
     {
-        return $this->get($businessId)
+        return $this->get($businessId, $terminalId)
             ?->taxRates;
     }
 

@@ -60,26 +60,31 @@
                             throw new \Exception('Business ID not found');
                         }
                         
-                        // Get token
-                        $eisSetting = EisSetting::where('business_id', $businessId)->first();
-                        $token = $eisSetting->jwt_token ?? null;
-                        
-                        if (empty($token)) {
-                            throw new \Exception('EIS token not configured');
+                        $permittedLocations = auth()->user()->permitted_locations();
+                        $terminals = EisSetting::where('business_id', $businessId)
+                            ->whereHas('location', function ($query) use ($businessId, $permittedLocations) {
+                                $query->where('business_id', $businessId);
+                                if ($permittedLocations !== 'all') {
+                                    $query->whereIn('id', $permittedLocations);
+                                }
+                            })->limit(2)->get();
+                        if ($terminals->count() > 1) {
+                            $eisStatus = 'multiple terminals';
+                        } elseif ($terminals->isEmpty()) {
+                            $eisStatus = 'not configured';
+                        } else {
+                            $terminal = $terminals->first();
+                            $eisHealth = app(\Modules\EIS\Services\Http\EisHealthService::class);
+                            $eisStatus = $terminal->status && $terminal->jwt_token
+                                && $eisHealth->isOnline($businessId, $terminal->jwt_token) ? 'online' : 'offline';
                         }
-                        
-                        // The health service owns the short-lived, credential-aware cache.
-                        $eisHealth = app(\Modules\EIS\Services\Http\EisHealthService::class);
-                        $eisStatus = $eisHealth->isOnline($businessId, $token) ? 'online' : 'offline';
                         
                     } catch (\Exception $e) {
                         \Log::error('EIS status error: ' . $e->getMessage());
                         $eisStatus = 'offline';
                     }
 
-                    // Ensure only online or offline
-                    $eisStatus = ($eisStatus == 'online') ? 'online' : 'offline';
-                    $statusColor = ($eisStatus == 'online') ? 'green' : 'red';
+                    $statusColor = $eisStatus === 'online' ? 'green' : ($eisStatus === 'offline' ? 'red' : 'yellow');
                 ?>
 
                 <span class="tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-1.5 tw-rounded-full tw-text-sm tw-font-semibold tw-bg-<?php echo $statusColor; ?>-500/10 tw-text-white tw-border tw-border-<?php echo $statusColor; ?>-500/20 tw-shadow-sm">

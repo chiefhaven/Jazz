@@ -12,19 +12,12 @@ class SyncProductsJob implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public int $businessId) {}
+    public function __construct(public int $businessId, public ?int $terminalId = null) {}
 
     public function handle(ProductSyncService $service)
     {
-        $settings = EisSetting::where('business_id', $this->businessId)->first();
-
         Log::info('Products syncing');
-
-        if (!$settings) {
-            return;
-        }
-
-        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($this->businessId);
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($this->businessId, null, $this->terminalId);
         $service->sync($settings, $this->businessId);
     }
 }

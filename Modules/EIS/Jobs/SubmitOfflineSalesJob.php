@@ -68,7 +68,7 @@ class SubmitOfflineSalesJob implements ShouldQueue
                 return;
             }
 
-            $settings = EisSetting::where('business_id', $this->businessId)->first();
+            $settings = \Modules\EIS\Services\Terminal\TerminalContext::forSale($transaction);
 
             if (!$settings) {
                 Log::error('EIS settings not found', [
@@ -156,6 +156,8 @@ class SubmitOfflineSalesJob implements ShouldQueue
 
             DB::table('eis_failed_transactions')->insert([
                 'business_id' => $this->businessId,
+                'location_id' => $eisSale?->location_id ?? Transaction::whereKey($this->transactionId)->value('location_id'),
+                'eis_setting_id' => $eisSale?->eis_setting_id,
                 'transaction_id' => $this->transactionId,
                 'error_message' => $exception->getMessage(),
                 'attempts' => $this->attempts(),
@@ -191,6 +193,8 @@ class SubmitOfflineSalesJob implements ShouldQueue
 
             DB::table('eis_failed_transactions')->insert([
                 'business_id' => $this->businessId,
+                'location_id' => $eisSale?->location_id ?? Transaction::whereKey($this->transactionId)->value('location_id'),
+                'eis_setting_id' => $eisSale?->eis_setting_id,
                 'transaction_id' => $this->transactionId,
                 'error_message' => $errorMessage,
                 'attempts' => $this->attempts(),

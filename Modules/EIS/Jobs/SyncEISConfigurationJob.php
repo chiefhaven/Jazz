@@ -119,7 +119,9 @@ class SyncEISConfigurationJob implements ShouldQueue
             DB::transaction(function () use ($setting, $syncService, &$successCount) {
                 $result = $syncService->sync(
                     $setting->business_id,
-                    $setting->jwt_token
+                    $setting->jwt_token,
+                    false,
+                    (int) $setting->id
                 );
                 
                 $setting->update([
@@ -136,7 +138,7 @@ class SyncEISConfigurationJob implements ShouldQueue
                 $successCount++;
             });
 
-            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($setting->business_id);
+            \Modules\EIS\Services\Configuration\ConfigurationSyncService::businessLocation($setting->business_id, (int) $setting->id);
             
         } catch (\Throwable $e) {
             $failureCount++;

@@ -31,7 +31,9 @@ class ConfigurationController extends Controller
         try {
             $configuration = $this->syncService->sync(
                 $request->business_id,
-                $request->token
+                $request->token,
+                false,
+                $request->integer('terminal_id') ?: null
             );
 
             return response()->json([
@@ -69,7 +71,8 @@ class ConfigurationController extends Controller
         try {
             $configuration = $this->syncService->forceSync(
                 $request->business_id,
-                $request->token
+                $request->token,
+                $request->integer('terminal_id') ?: null
             );
 
             return response()->json([
@@ -100,7 +103,7 @@ class ConfigurationController extends Controller
     public function getConfiguration(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([
@@ -136,7 +139,7 @@ class ConfigurationController extends Controller
     public function getStatus(int $businessId)
     {
         try {
-            $status = $this->syncService->getSyncStatus($businessId);
+            $status = $this->syncService->getSyncStatus($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$status['synced']) {
                 return response()->json([
@@ -172,7 +175,7 @@ class ConfigurationController extends Controller
     public function getVersions(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([
@@ -227,7 +230,7 @@ class ConfigurationController extends Controller
                 ], 400);
             }
 
-            $configuration = $this->syncService->sync($businessId, $token);
+            $configuration = $this->syncService->sync($businessId, $token, false, $request->integer('terminal_id') ?: null);
 
             return response()->json([
                 'success' => true,

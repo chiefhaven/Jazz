@@ -1,6 +1,70 @@
 # EIS Terminal Activation and Configuration Fixes
 
-## Summary
+## Settings → MRA EIS terminal management
+
+The settings tab lists terminals at the signed-in user's permitted locations, including restricted administrators. Multiple terminals may belong to a location; **Set default** designates the location's terminal for sales. Terminal IDs below are local `eis_settings.id` values, not EIS device IDs or configuration IDs.
+
+All management routes require a session-authenticated account with `business_settings.access`; POST requests require the normal web CSRF token. Business identity comes from the account, never from a client-supplied business ID. Locations and terminals must belong to that business and be permitted for that user (`all` is honored).
+
+| Method | Path | Route name | Input |
+| --- | --- | --- | --- |
+| GET | `/eis/terminals` | `eis.terminals.index` | None |
+| POST | `/eis/terminals/activate` | `eis.terminals.activate` | Required `location_id`, `terminal_activation_code`; optional `environment` object |
+| POST | `/eis/terminals/{terminalId}/latest-config` | `eis.terminals.latest-config` | None |
+| POST | `/eis/terminals/{terminalId}/deactivate` | `eis.terminals.deactivate` | Optional `reason` |
+| POST | `/eis/terminals/{terminalId}/renew-tokens` | `eis.terminals.renew-tokens` | None; uses this terminal's stored JWT |
+| POST | `/eis/terminals/{terminalId}/default` | `eis.terminals.default` | None; updates this terminal's own location |
+
+Listing returns `{success: true, data: {locations: [...], terminals: [...]}}`. Terminal entries contain `id`, `location_id`, `location_name`, `terminal_label`, `device_id`, `is_active`, and `is_default`. Location entries contain `id`, `name`, and `default_eis_setting_id`. Unassigned legacy terminals are excluded until reconciled. Management responses never include JWTs or secret keys.
+
+Mutations return `{success, message, msg}`; service failures use HTTP 422. Normal authentication, authorization, validation, and missing-record responses apply. Status is active only when both the local setting's `status` and terminal configuration's `is_active` are true. Default designation requires both flags to be active; inactive terminals cannot be selected as a new default. The old singleton `eis.web.terminal.*` web routes were replaced; API routes and their authentication remain separate and unchanged.
+
+Isolated regression checks (SQLite memory database; no application boot or live EIS calls):
+
+```powershell
+php -d error_reporting=8191 tests\Standalone\eis_terminal_management_checks.php
+```
+
+## Location-owned terminal schema and rollout
+
+The current design supersedes the historical singleton behavior described below:
+
+- A business owns many locations. A location owns many terminals; a terminal cannot be moved to another location or business by activation.
+- `eis_settings.id` is the terminal identity. Settings store `location_id`; configurations, sales, and retry records store both `location_id` and `eis_setting_id`. A terminal has one configuration.
+- `business_locations.default_eis_setting_id` explicitly chooses the terminal for new sales. Activation does not silently replace a different terminal or switch the default. Missing/inactive defaults block submission; choose **Set default** after activation.
+- Existing fiscal sales remain pinned to their recorded terminal, even after the location default changes. Unreconciled historical sales fail explicitly rather than being reassigned.
+- Local deactivation disables both the terminal and its settings. Configuration refreshes cannot silently re-enable it; reactivation or an explicit toggle is required.
+- `eis_sales.eis_invoice_number` retains the generated invoice identity even when the confirmed receipt overwrites `fiscal_invoice_number`. Only the last invoice component changes: today's allocated invoice count for the selected terminal plus one. Pending and failed allocations count too; retries reuse the number.
+- Terminal allocation and sale submission use atomic cache locks. Use a shared lock-capable cache across all web/queue servers (file cache is suitable only when processes share the same cache filesystem). Do not use the array/null cache driver in production.
+- Product identities/catalog mappings remain business-wide; opening-stock initialization and stock quantities are location-specific. All users, including administrators, see quantities only at permitted tenant locations. A product pull must not delete another location's stock or shared catalog.
+- New locations reuse default invoice schemes/layouts and payment settings. Configuration reconciliation updates the selected existing location and preserves its existing invoice/address choices.
+- Bulk submission from the sales screen is restricted to permitted locations. Each job resolves its own sale's location and terminal; no arbitrary business-wide token is used. The global badge shows **Multiple terminals** instead of claiming one selected terminal represents all locations.
+
+### Migration
+
+Back up the database and run the normal deployment migration process during a maintenance window:
+
+```powershell
+php artisan module:migrate EIS
+```
+
+The new migration is `2026_10_23_140000_scope_eis_to_location_terminals.php`. It adds ownership columns without deleting legacy records, backfills only exact site/terminal/invoice matches, and designates a default only where a location has exactly one mapped terminal. On MySQL it converts the affected business/location and fiscal ownership tables to InnoDB so activation and credential updates can roll back atomically. Engine conversion may rebuild/lock large tables; storage engines are not reverted on rollback.
+
+Review `eis_migration_issues` after migration. It records the source table, source ID, business ID, and reason for every unresolved mapping. Reconcile those records against verified historical terminal/site identities; do not assign them to an arbitrary first location. Unmapped terminals remain excluded from management until reconciled. A rollback is rejected once a business has multiple mapped terminals.
+
+No deployment migration or real EIS activation is performed by the standalone checks:
+
+```powershell
+php -d error_reporting=24575 tests\Standalone\eis_location_terminal_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_terminal_isolation_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_terminal_management_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_submission_retry_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_pos_validation_checks.php
+```
+
+Legacy API terminal/configuration/tax-rate actions accept `terminal_id` (local settings ID); token-driven actions validate token ownership. Omitted selection works only for an unambiguous single-terminal business and still enforces location permissions. Activation also requires an existing permitted `location_id`.
+
+## Historical fixes (ownership behavior superseded above)
 Fixed three critical issues in the Jazz POS EIS integration system related to terminal activation, configuration syncing, and settings display.
 
 ---

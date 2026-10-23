@@ -1503,38 +1503,14 @@ class SellController extends Controller
             ], 400);
         }
 
-        // Get EIS settings - FIX: Add first() to execute the query
-        $eisSetting = EisSetting::where('business_id', $business_id)->first();
-        
-        if (!$eisSetting) {
-            return response()->json([
-                'success' => false,
-                'error' => 'EIS settings not configured for this business'
-            ], 400);
-        }
-
-        // Check EIS health - FIX: Pass the token correctly
-        $eisHealth = new \Modules\EIS\Services\Http\EisHealthService();
-        
-        if (!$eisHealth->isOnline($business_id, $eisSetting->jwt_token)) {
-            Log::warning('EIS is offline', [
-                'business_id' => $business_id,
-                'device_id' => $eisSetting->device_id
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'error' => 'Cannot submit sales now, EIS is offline. Please try again later.'
-            ], 500);
-        }
-        
         $count = Transaction::with('eisSale')
             ->where('business_id', $business_id)
+            ->whereIn('location_id', $this->eisPermittedLocationIds((int) $business_id))
             ->where('type', 'sell')
             ->where('status', 'final')
             ->where('payment_status', 'paid')
-            ->whereHas('eisSale', function($query) {
-                $query->where('status', '!=', 'submitted');
+            ->whereDoesntHave('eisSale', function($query) {
+                $query->where('status', 'submitted');
             })
             ->count();
 
@@ -1559,33 +1535,9 @@ class SellController extends Controller
                 ], 400);
             }
 
-            // Get EIS settings - FIX: Add first() to execute the query
-            $eisSetting = EisSetting::where('business_id', $business_id)->first();
-            
-            if (!$eisSetting) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'EIS settings not configured for this business'
-                ], 400);
-            }
-
-            // Check EIS health - FIX: Pass the token correctly
-            $eisHealth = new \Modules\EIS\Services\Http\EisHealthService();
-            
-            if (!$eisHealth->isOnline($business_id, $eisSetting->jwt_token)) {
-                Log::warning('EIS is offline', [
-                    'business_id' => $business_id,
-                    'device_id' => $eisSetting->device_id
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Cannot submit sales now, EIS is offline. Please try again later.'
-                ], 503);
-            }
-
-            // Proceed with submission
-            \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch($business_id);
+            \Modules\EIS\Jobs\DispatchAllUnsubmittedSalesJob::dispatch(
+                $business_id, 50, null, null, $this->eisPermittedLocationIds((int) $business_id)
+            );
 
             Log::info('EIS bills submission initiated', [
                 'business_id' => $business_id,
@@ -1594,7 +1546,7 @@ class SellController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Bills submitted successfully. The process will run in the background.'
+                'message' => 'Bills queued for submission using each sale location and terminal. Check submission status for results.'
             ]);
 
         } catch (\Exception $e) {
@@ -1609,6 +1561,14 @@ class SellController extends Controller
                 'error' => 'Failed to submit bills: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function eisPermittedLocationIds(int $businessId): array
+    {
+        $permitted = auth()->user()->permitted_locations();
+        return BusinessLocation::where('business_id', $businessId)
+            ->when($permitted !== 'all', fn ($query) => $query->whereIn('id', $permitted))
+            ->pluck('id')->all();
     }
 
     /**

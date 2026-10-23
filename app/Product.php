@@ -174,10 +174,8 @@ class Product extends Model
         if (!empty($locationId) && $locationId !== 'none') {
             $locations->where('id', $locationId);
         }
-        if (\App\Services\EisProductPolicy::configured($businessId)) {
-            $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $businessId);
-            $site = \Modules\EIS\Services\Products\EisProductClient::requestSiteId($settings);
-            $locations->whereNotNull('eis_site_id')->where('eis_site_id', $site ?? '');
+        if ($locationId === 'none') {
+            $locations->whereRaw('1 = 0');
         }
 
         return $query->leftJoin('variation_location_details as vld', function ($join) use ($locations) {

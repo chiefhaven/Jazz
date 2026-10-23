@@ -99,9 +99,18 @@ class PosBuyerValidationService
         |--------------------------------------------------------------------------
         */
 
-        $settings = EisSetting::where('business_id', $businessId)
-            ->where('status', true)
-            ->first();
+        $locationId = $input['location_id'] ?? $existing?->location_id;
+        if (!$locationId && EisSetting::where('business_id', $businessId)->exists()) {
+            throw ValidationException::withMessages(['location_id' => 'Select a sale location before EIS buyer validation.']);
+        }
+        $hasEis = EisSetting::where('business_id', $businessId)->where('location_id', $locationId)->exists();
+        try {
+            $settings = $hasEis
+                ? \Modules\EIS\Services\Terminal\TerminalContext::forLocation($businessId, (int) $locationId, true)
+                : null;
+        } catch (\InvalidArgumentException | \Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw ValidationException::withMessages(['location_id' => $e->getMessage()]);
+        }
 
         /*
          * Businesses without active EIS settings

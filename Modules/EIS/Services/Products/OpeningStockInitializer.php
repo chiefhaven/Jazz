@@ -153,7 +153,7 @@ final class OpeningStockInitializer
             || !$variation || (int) $variation->product_id !== $productId
             || $variation->deleted_at !== null
             || !$location || (int) $location->business_id !== $businessId || (string) $location->eis_site_id !== $siteId
-            || $siteId === '' || $this->db->table('business_locations')->where('business_id', $businessId)->where('eis_site_id', $siteId)->count() !== 1
+            || $siteId === ''
             || $this->db->table('eis_product_maps')->where('product_id', $productId)->count() !== 1
             || (string) $product->eis_product_id !== $eisId) {
             return $block('identity_conflict');
@@ -170,32 +170,46 @@ final class OpeningStockInitializer
         if (!is_array($meta) || ($map->meta !== null && !str_starts_with(ltrim($map->meta), '{'))) {
             return $block('invalid_map_meta');
         }
+        $markers = [];
         if (array_key_exists('eis_opening_stock_v1', $meta)) {
-            $marker = $meta['eis_opening_stock_v1'];
-            foreach ($context as $key => $value) {
-                if (!is_array($marker) || !array_key_exists($key, $marker)
-                    || (!is_string($marker[$key]) && !is_int($marker[$key]))
+            $markers[] = $meta['eis_opening_stock_v1'];
+        }
+        if (array_key_exists('eis_opening_stock_v1_by_location', $meta)) {
+            if (!is_array($meta['eis_opening_stock_v1_by_location'])) {
+                return $block('invalid_location_opening_markers');
+            }
+            foreach ($meta['eis_opening_stock_v1_by_location'] as $markerLocation => $marker) {
+                if (!ctype_digit((string) $markerLocation) || (int) $markerLocation <= 0
+                    || !is_array($marker) || (string) ($marker['locationId'] ?? '') !== (string) $markerLocation) {
+                    return $block('invalid_location_opening_marker');
+                }
+                $markers[] = $marker;
+            }
+        }
+        $initializedHere = false;
+        foreach ($markers as $marker) {
+            if (!is_array($marker)) {
+                return $block('invalid_opening_marker');
+            }
+            foreach (['businessId' => $businessId, 'productId' => $productId,
+                'variationId' => $variationId, 'eisId' => $eisId] as $key => $value) {
+                if (!isset($marker[$key]) || (!is_string($marker[$key]) && !is_int($marker[$key]))
                     || (string) $marker[$key] !== (string) $value) {
                     return $block('opening_marker_identity_conflict');
                 }
             }
-            if (!isset($marker['transaction_id'], $marker['purchase_line_id'])
-                || !is_int($marker['transaction_id']) || $marker['transaction_id'] <= 0
-                || !is_int($marker['purchase_line_id']) || $marker['purchase_line_id'] <= 0
-                || self::decimal($marker['quantity'] ?? null) === null) {
-                return $block('invalid_opening_marker');
-            }
-            $header = $this->db->table('transactions')->where('id', $marker['transaction_id'])
-                ->where('business_id', $businessId)->where('location_id', $locationId)
-                ->where('opening_stock_product_id', $productId)->where('type', 'opening_stock')
-                ->where('status', 'received')->lockForUpdate()->first();
-            $line = $this->db->table('purchase_lines')->where('id', $marker['purchase_line_id'])
-                ->where('transaction_id', $marker['transaction_id'])->where('product_id', $productId)
-                ->where('variation_id', $variationId)->lockForUpdate()->first();
-            if (!$header || !$line || self::decimal($line->quantity) !== self::decimal($marker['quantity'])) {
+            $markerLocation = filter_var($marker['locationId'] ?? null, FILTER_VALIDATE_INT);
+            $markerSite = $marker['siteId'] ?? null;
+            if (!$markerLocation || $markerLocation <= 0 || !is_string($markerSite) || $markerSite === ''
+                || !$this->db->table('business_locations')->where('id', $markerLocation)
+                    ->where('business_id', $businessId)->where('eis_site_id', $markerSite)->exists()
+                || !$this->openingMarkerLedgerMatches($marker, $businessId, $productId, $variationId, $markerLocation)) {
                 return $block('opening_marker_ledger_missing_or_changed');
             }
-            // A deleted/edited opening ledger must be reviewed, never recreated by another pull.
+            $initializedHere = $initializedHere || $markerLocation === $locationId;
+        }
+        if ($initializedHere) {
+            // Existing ledgers stay immutable; only this location's catalogue row is already initialized.
             return 'already_initialized';
         }
         if (isset($meta['eis_opening_stock_excluded'])) {
@@ -208,13 +222,23 @@ final class OpeningStockInitializer
         // Fail closed even for orphaned lines and overselling sentinel allocations.
         // Looking across locations also prevents silently moving a historical site allocation.
         foreach (['purchase_lines', 'transaction_sell_lines', 'stock_adjustment_lines'] as $table) {
-            if ($this->db->table($table)->where(function ($q) use ($productId, $variationId) {
-                $q->where('product_id', $productId)->orWhere('variation_id', $variationId);
-            })->lockForUpdate()->get()->isNotEmpty()) {
+            $hasMovement = $this->db->table($table.' as movement')
+                ->leftJoin('transactions as transaction', 'transaction.id', '=', 'movement.transaction_id')
+                ->where(function ($q) use ($productId, $variationId) {
+                    $q->where('movement.product_id', $productId)->orWhere('movement.variation_id', $variationId);
+                })
+                ->where(function ($q) use ($locationId) {
+                    $q->whereNull('transaction.id')->orWhereNull('transaction.location_id')
+                        ->orWhere('transaction.location_id', $locationId);
+                })->lockForUpdate()->exists();
+            if ($hasMovement) {
                 return $block('historical_movement:'.$table);
             }
         }
-        if ($this->db->table('transactions')->where('opening_stock_product_id', $productId)->lockForUpdate()->get()->isNotEmpty()) {
+        if ($this->db->table('transactions')->where('opening_stock_product_id', $productId)
+            ->where(function ($query) use ($locationId) {
+                $query->where('location_id', $locationId)->orWhereNull('location_id');
+            })->lockForUpdate()->exists()) {
             return $block('existing_opening_stock_header');
         }
         $rows = $this->db->table('variation_location_details')->where(function ($q) use ($productId, $variationId) {
@@ -226,11 +250,14 @@ final class OpeningStockInitializer
                 || (int) $row->product_variation_id !== (int) $variation->product_variation_id) {
                 return $block('stock_row_identity_conflict');
             }
+            if ((int) $row->location_id !== $locationId) {
+                continue;
+            }
             $available = self::decimal($row->qty_available);
             if ($available === null || bccomp($available, '0', 4) !== 0) {
                 return $block('legacy_nonzero_or_invalid_availability');
             }
-            if ((int) $row->location_id !== $locationId || $stockRow !== null) {
+            if ($stockRow !== null) {
                 return $block('ambiguous_stock_location');
             }
             $stockRow = $row;
@@ -276,10 +303,33 @@ final class OpeningStockInitializer
                 'created_at' => $time, 'updated_at' => $time,
             ]);
         }
-        $meta['eis_opening_stock_v1'] = $context + ['quantity' => $quantity,
+        $meta['eis_opening_stock_v1_by_location'][(string) $locationId] = $context + ['quantity' => $quantity,
             'transaction_id' => $transactionId, 'purchase_line_id' => $lineId, 'initialized_at' => $time];
         $this->db->table('eis_product_maps')->where('id', $map->id)
             ->update(['meta' => json_encode($meta, JSON_THROW_ON_ERROR), 'updated_at' => $time]);
         return 'initialized';
+    }
+
+    private function openingMarkerLedgerMatches(
+        array $marker,
+        int $businessId,
+        int $productId,
+        int $variationId,
+        int $locationId
+    ): bool {
+        $transactionId = filter_var($marker['transaction_id'] ?? null, FILTER_VALIDATE_INT);
+        $purchaseLineId = filter_var($marker['purchase_line_id'] ?? null, FILTER_VALIDATE_INT);
+        $quantity = self::decimal($marker['quantity'] ?? null);
+        if (!$transactionId || $transactionId <= 0 || !$purchaseLineId || $purchaseLineId <= 0 || $quantity === null) {
+            return false;
+        }
+        $header = $this->db->table('transactions')->where('id', $transactionId)
+            ->where('business_id', $businessId)->where('location_id', $locationId)
+            ->where('opening_stock_product_id', $productId)->where('type', 'opening_stock')
+            ->where('status', 'received')->lockForUpdate()->first();
+        $line = $this->db->table('purchase_lines')->where('id', $purchaseLineId)
+            ->where('transaction_id', $transactionId)->where('product_id', $productId)
+            ->where('variation_id', $variationId)->lockForUpdate()->first();
+        return $header && $line && self::decimal($line->quantity) === $quantity;
     }
 }

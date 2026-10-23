@@ -13,7 +13,7 @@ class EisInvoiceService
     public function submit($sale, EisSetting $setting)
     {
         \Modules\EIS\Services\Terminal\TerminalContext::assertBusiness($setting, (int) $sale->business_id);
-        $setting = \Modules\EIS\Services\Terminal\TerminalContext::settings((int) $sale->business_id);
+        $setting = \Modules\EIS\Services\Terminal\TerminalContext::forSale($sale);
         $payload = [
             'invoice_no' => $sale->reference_no,
             'total' => $sale->final_total,

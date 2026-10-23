@@ -28,6 +28,8 @@ class EisConfiguration extends Model
     protected $table = 'eis_configurations';
 
     protected $fillable = [
+        'location_id',
+        'eis_setting_id',
         'business_id',
         'global_version',
         'terminal_version',
@@ -124,6 +126,16 @@ class EisConfiguration extends Model
     public function terminalConfiguration(): HasOne
     {
         return $this->hasOne(EisTerminalConfiguration::class, 'configuration_id');
+    }
+
+    public function setting()
+    {
+        return $this->belongsTo(EisSetting::class, 'eis_setting_id');
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(\App\BusinessLocation::class, 'location_id');
     }
 
     public function business()

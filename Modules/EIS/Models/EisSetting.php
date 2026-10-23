@@ -7,9 +7,21 @@ use Illuminate\Support\Carbon;
 
 class EisSetting extends Model
 {
+    public function configuration()
+    {
+        return $this->hasOne(EisConfiguration::class, 'eis_setting_id');
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(\App\BusinessLocation::class, 'location_id');
+    }
+
     protected $table = 'eis_settings';
     
     protected $fillable = [
+        'base_url',
+        'location_id',
         'business_id',
         'jwt_token',
         'secret_key',

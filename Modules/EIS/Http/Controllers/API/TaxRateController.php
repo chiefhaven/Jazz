@@ -24,7 +24,7 @@ class TaxRateController extends Controller
     public function index(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([
@@ -62,7 +62,7 @@ class TaxRateController extends Controller
     public function activated(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([
@@ -101,7 +101,7 @@ class TaxRateController extends Controller
     public function show(int $businessId, string $taxRateId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([
@@ -153,7 +153,7 @@ class TaxRateController extends Controller
         ]);
 
         try {
-            $configuration = EisConfiguration::where('business_id', $request->business_id)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration((int) $request->business_id, $request->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([
@@ -195,7 +195,7 @@ class TaxRateController extends Controller
     public function summary(int $businessId)
     {
         try {
-            $configuration = EisConfiguration::where('business_id', $businessId)->first();
+            $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, request()->integer('terminal_id') ?: null);
 
             if (!$configuration) {
                 return response()->json([

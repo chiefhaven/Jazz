@@ -50,7 +50,22 @@ $schema->create('contacts', function (Blueprint $t) {
 });
 $schema->create('eis_settings', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->boolean('status'); $t->string('jwt_token');
+    $t->integer('location_id')->default(2);
 });
+foreach (['business_locations', 'eis_configurations', 'eis_terminal_configurations'] as $name) {
+    $schema->create($name, function (Blueprint $t) use ($name) {
+        $t->increments('id');
+        if ($name === 'eis_terminal_configurations') {
+            $t->integer('configuration_id'); $t->boolean('is_active');
+        } else {
+            $t->integer('business_id');
+            $t->integer($name === 'business_locations' ? 'default_eis_setting_id' : 'eis_setting_id');
+        }
+    });
+}
+DB::table('business_locations')->insert(['id' => 2, 'business_id' => 7, 'default_eis_setting_id' => 1]);
+DB::table('eis_configurations')->insert(['id' => 1, 'business_id' => 7, 'eis_setting_id' => 1]);
+DB::table('eis_terminal_configurations')->insert(['configuration_id' => 1, 'is_active' => 1]);
 $source = file($root.'/app/Utils/TransactionUtil.php');
 $method = new ReflectionMethod(TransactionUtil::class, 'createSellTransaction');
 preg_match_all('/^\s*\x27([a-z_0-9]+)\x27\s*=>/m', implode('', array_slice($source, $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1)), $matches);
@@ -99,7 +114,16 @@ function fakeEis(?callable $override = null): void {
     });
 }
 $client = new EisValidationClient();
-$service = new PosBuyerValidationService($client);
+$health = Mockery::mock(Modules\EIS\Services\Http\EisHealthService::class);
+$health->shouldReceive('isOnline')->andReturn(true);
+// Existing buyer-contract scenarios all represent the currently selected POS location.
+$service = new class($client, $health) extends PosBuyerValidationService {
+    public function validate(int $businessId, array $input, ?Transaction $existing = null): ?array {
+        return parent::validate($businessId, $input + ['location_id' => $existing?->location_id ?? 2], $existing);
+    }
+};
+$direct = new PosBuyerValidationService($client, $health);
+rejectsEis(fn () => $direct->validate(7, ['contact_id' => 1]), 'location_id');
 $container->instance(PosBuyerValidationService::class, $service);
 $certificate = ['projectNumber' => 'PROJECT1', 'certificateNumber' => 'CERT1', 'quantity' => 2.5];
 $relief = ['contact_id' => 1, 'is_relief' => '1', 'vat5_project_number' => 'PROJECT1', 'vat5_certificate_number' => 'CERT1', 'vat5_quantity' => '2.5'];

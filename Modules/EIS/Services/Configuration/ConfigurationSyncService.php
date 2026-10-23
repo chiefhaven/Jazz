@@ -56,7 +56,8 @@ class ConfigurationSyncService
     public function sync(
         int $businessId,
         string $token,
-        bool $force = false
+        bool $force = false,
+        ?int $terminalId = null
     ): EisConfiguration {
         $this->validateBusinessId($businessId);
         $this->validateToken($token);
@@ -66,8 +67,8 @@ class ConfigurationSyncService
         ]);
 
         try {
-            return DB::transaction(function () use ($businessId, $token, $force) {
-                $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, $token);
+            return DB::transaction(function () use ($businessId, $token, $force, $terminalId) {
+                $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, $token, $terminalId);
                 // Fetch configuration from EIS
                 $response = $this->client->latest($token);
 
@@ -90,7 +91,7 @@ class ConfigurationSyncService
                 \Modules\EIS\Services\Terminal\TerminalContext::assertConfiguration($settings, $data);
 
                 // Check if data has changed before syncing
-                $existingConfig = EisConfiguration::where('business_id', $businessId)->first();
+                $existingConfig = EisConfiguration::where('eis_setting_id', $settings->id)->first();
                 if (!$force && $existingConfig && !$this->hasConfigurationChanged($existingConfig, $data)) {
                     Log::info('Configuration unchanged, skipping sync', [
                         'business_id' => $businessId,
@@ -118,6 +119,8 @@ class ConfigurationSyncService
 
                 // Prepare data for storage
                 $configurationData = $this->prepareConfigurationData($data, $businessId);
+                $configurationData['eis_setting_id'] = $settings->id;
+                $configurationData['location_id'] = $settings->location_id;
 
                 // Create or update main configuration
                 $configuration = $this->saveConfiguration($businessId, $configurationData);
@@ -376,7 +379,7 @@ class ConfigurationSyncService
      * @param object $data
      * @return void
      */
-    private function syncTerminalConfiguration(EisConfiguration $configuration, object $data): void
+    public function syncTerminalConfiguration(EisConfiguration $configuration, object $data): void
     {
         try {
             // Get terminal configuration from data
@@ -430,7 +433,9 @@ class ConfigurationSyncService
                 'last_synced_at' => now(),
                 // Terminal status comes from API response or defaults to false
                 // Explicitly cast to boolean to ensure correct database storage
-                'is_active' => $isActiveValue
+                'is_active' => isset($terminalData->isActiveTerminal)
+                    ? $isActiveValue
+                    : (EisTerminalConfiguration::where('configuration_id', $configuration->id)->value('is_active') ?? false)
             ];
 
             // Update or create terminal configuration
@@ -727,7 +732,7 @@ class ConfigurationSyncService
     private function saveConfiguration(int $businessId, array $data): EisConfiguration
     {
         return EisConfiguration::updateOrCreate(
-            ['business_id' => $businessId],
+            ['eis_setting_id' => $data['eis_setting_id']],
             $data
         );
     }
@@ -916,13 +921,13 @@ class ConfigurationSyncService
      * @return EisConfiguration
      * @throws SyncException
      */
-    public function forceSync(int $businessId, string $token): EisConfiguration
+    public function forceSync(int $businessId, string $token, ?int $terminalId = null): EisConfiguration
     {
         Log::info('Forced configuration sync started', [
             'business_id' => $businessId
         ]);
 
-        return $this->sync($businessId, $token, true);
+        return $this->sync($businessId, $token, true, $terminalId);
     }
 
     /**
@@ -931,9 +936,9 @@ class ConfigurationSyncService
      * @param int $businessId
      * @return array
      */
-    public function getSyncStatus(int $businessId): array
+    public function getSyncStatus(int $businessId, ?int $terminalId = null): array
     {
-        $configuration = EisConfiguration::where('business_id', $businessId)->first();
+        $configuration = \Modules\EIS\Services\Terminal\TerminalContext::configuration($businessId, $terminalId);
         
         if (!$configuration) {
             return [
@@ -1117,9 +1122,10 @@ class ConfigurationSyncService
         ];
     }
 
-    public static function businessLocation(int $businessId)
+    public static function businessLocation(int $businessId, ?int $terminalId = null)
     {
-        $eisConfiguration = EisConfiguration::where('business_id', $businessId)
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId, null, $terminalId);
+        $eisConfiguration = EisConfiguration::where('business_id', $businessId)->where('eis_setting_id', $settings->id)
             ->firstOrFail();
 
         // Decode the stored EIS API response
@@ -1127,7 +1133,6 @@ class ConfigurationSyncService
         if (is_string($response)) {
             $response = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
         }
-        $settings = \Modules\EIS\Services\Terminal\TerminalContext::settings($businessId);
         \Modules\EIS\Services\Terminal\TerminalContext::assertConfiguration($settings,
             json_decode(json_encode(data_get($response, 'data', []), JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR));
 
@@ -1169,7 +1174,8 @@ class ConfigurationSyncService
             $terminalConfig,
             $taxpayerConfig,
             $terminalSite,
-            $siteId
+            $siteId,
+            $settings
         ) {
 
             /*
@@ -1179,29 +1185,8 @@ class ConfigurationSyncService
             */
 
             $business = \App\Business::whereKey($businessId)->lockForUpdate()->firstOrFail();
-            $locations = \App\BusinessLocation::where('business_id', $businessId)->lockForUpdate()->limit(2)->get();
-            if ($locations->count() !== 1) {
-                throw new \InvalidArgumentException('EIS synchronization requires exactly one existing business location; no locations were created or removed.');
-            }
-            $businessLocation = $locations->first();
-
-            $business->update([
-                'name' => data_get(
-                    $terminalConfig,
-                    'tradingName',
-                    $business->name
-                ),
-
-                'tax_number_1' => data_get(
-                    $taxpayerConfig,
-                    'tin',
-                    $business->tax_number_1
-                ),
-
-                'tax_label_1' => 'TIN',
-
-                'enable_inline_tax' => true,
-            ]);
+            $businessLocation = \App\BusinessLocation::where('business_id', $businessId)
+                ->lockForUpdate()->findOrFail($settings->location_id);
 
             /*
             |--------------------------------------------------------------------------
@@ -1253,19 +1238,16 @@ class ConfigurationSyncService
                 [
                     'eis_site_id' => $siteId,
 
-                    'name' => data_get(
-                        $terminalSite,
-                        'siteName',
-                    ),
+                    'name' => data_get($terminalSite, 'siteName') ?: $businessLocation->name,
 
-                    'country' => 'Malawi',
-                    'state' => 'Malawi',
-                    'city' => 'Lilongwe',
-                    'zip_code' => '00000',
+                    'country' => $businessLocation->country ?: 'Malawi',
+                    'state' => $businessLocation->state ?: 'Malawi',
+                    'city' => $businessLocation->city ?: 'Lilongwe',
+                    'zip_code' => $businessLocation->zip_code ?: '00000',
 
-                    'invoice_scheme_id' => $invoiceSchemeId,
-                    'invoice_layout_id' => $invoiceLayoutId,
-                    'sale_invoice_scheme_id' => $invoiceSchemeId,
+                    'invoice_scheme_id' => $businessLocation->invoice_scheme_id ?: $invoiceSchemeId,
+                    'invoice_layout_id' => $businessLocation->invoice_layout_id ?: $invoiceLayoutId,
+                    'sale_invoice_scheme_id' => $businessLocation->sale_invoice_scheme_id ?: $invoiceSchemeId,
 
                     'mobile' => data_get(
                         $terminalConfig,

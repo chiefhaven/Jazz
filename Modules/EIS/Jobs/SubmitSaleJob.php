@@ -35,7 +35,7 @@ class SubmitSaleJob implements ShouldQueue
             return;
         }
 
-        $settings = EisSetting::where('business_id', $transaction->business_id)->first();
+        $settings = \Modules\EIS\Services\Terminal\TerminalContext::forSale($transaction);
 
         if (!$settings) {
             Log::info('EIS not enabled for business', [

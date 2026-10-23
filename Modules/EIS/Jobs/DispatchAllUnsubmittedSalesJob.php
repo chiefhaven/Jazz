@@ -29,17 +29,20 @@ class DispatchAllUnsubmittedSalesJob implements ShouldQueue
     protected $chunkSize;
     protected $dateFrom;
     protected $dateTo;
+    protected $locationIds;
 
     public function __construct(
         ?int $businessId = null,
         int $chunkSize = 50,
         ?string $dateFrom = null,
-        ?string $dateTo = null
+        ?string $dateTo = null,
+        ?array $locationIds = null
     ) {
         $this->businessId = $businessId;
         $this->chunkSize = $chunkSize;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->locationIds = $locationIds;
     }
 
     public function handle(): void
@@ -143,6 +146,9 @@ class DispatchAllUnsubmittedSalesJob implements ShouldQueue
 
         // Paid in full: the same rule that initiates a submission when a sale is saved.
         SaleSubmissionRule::constrainPaid($query);
+        if ($this->locationIds !== null) {
+            $query->whereIn('location_id', $this->locationIds);
+        }
 
         if ($this->businessId) {
             $query->where('business_id', $this->businessId);

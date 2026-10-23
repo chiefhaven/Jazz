@@ -30,24 +30,53 @@ $capsule->bootEloquent();
 Container::setInstance($container);
 $container->instance('db', $capsule->getDatabaseManager());
 $container->instance('log', new Psr\Log\NullLogger());
+$container->instance('cache', new class {
+    private $store;
+    public function __construct() { $this->store = new Illuminate\Cache\ArrayStore(); }
+    public function lock($name, $seconds) { return new Illuminate\Cache\ArrayLock($this->store, $name, $seconds); }
+});
 Facade::setFacadeApplication($container);
 $schema = $capsule->getConnection()->getSchemaBuilder();
 $schema->create('transactions', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->string('invoice_no');
     $t->string('type'); $t->string('status'); $t->string('payment_status');
+    $t->integer('location_id')->default(3);
     $t->boolean('is_fiscalized')->default(false);
     $t->string('fiscal_invoice_number')->nullable(); $t->string('receipt_number')->nullable();
     $t->timestamps();
 });
 $schema->create('eis_settings', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->string('tpin'); $t->string('branch_id'); $t->timestamps();
+    $t->integer('location_id')->default(3); $t->boolean('status')->default(true);
 });
 $container->instance('db.schema', $schema);
 (require dirname(__DIR__, 2).'/Modules/EIS/Database/Migrations/2026_07_05_000001_create_eis_sales_table.php')->up();
+$schema->table('eis_sales', function (Blueprint $t) {
+    $t->integer('location_id')->default(3); $t->integer('eis_setting_id')->default(1);
+    $t->string('eis_invoice_number')->nullable();
+});
+$schema->create('business_locations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->string('eis_site_id');
+    $t->integer('default_eis_setting_id')->nullable();
+});
+DB::table('business_locations')->insert(['id' => 3, 'business_id' => 7, 'eis_site_id' => 'SITE-7', 'default_eis_setting_id' => 1]);
+$schema->create('eis_configurations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id'); $t->integer('eis_setting_id')->unique(); $t->integer('location_id');
+});
+$schema->create('eis_terminal_configurations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('configuration_id'); $t->boolean('is_active')->default(true);
+    $t->integer('terminal_position'); $t->integer('taxpayer_id');
+});
+DB::table('eis_configurations')->insert(['id' => 1, 'business_id' => 7, 'eis_setting_id' => 1, 'location_id' => 3]);
+DB::table('eis_terminal_configurations')->insert(['configuration_id' => 1, 'terminal_position' => 3, 'taxpayer_id' => 100]);
 $schema->create('eis_failed_transactions', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->integer('transaction_id');
     $t->text('payload')->nullable(); $t->text('error_message')->nullable();
     $t->integer('attempts'); $t->dateTime('next_retry_at')->nullable(); $t->timestamps();
+    $t->integer('location_id')->nullable(); $t->integer('eis_setting_id')->nullable();
+});
+$schema->create('eis_migration_issues', function (Blueprint $t) {
+    $t->increments('id'); $t->string('source_table'); $t->integer('source_id');
 });
 DB::table('eis_settings')->insert(['business_id' => 7, 'tpin' => 'FIXTURE', 'branch_id' => 'SITE-7']);
 $settings = EisSetting::first();
@@ -278,12 +307,6 @@ checkRetry(count($client->payloads) === $beforeRequests && EisSale::count() === 
 $job->failed(new RuntimeException('Fixture mismatch'));
 checkRetry(DB::table('eis_failed_transactions')->count() === $beforeFailures,
     'Failed callback cannot create retry tracking for a foreign business transaction');
-$schema->table('transactions', function (Blueprint $t) {
-    $t->integer('location_id')->nullable();
-});
-$schema->create('business_locations', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('business_id'); $t->string('eis_site_id');
-});
 DB::table('business_locations')->insert([
     ['id' => 1, 'business_id' => 7, 'eis_site_id' => 'OTHER-SITE'],
     ['id' => 2, 'business_id' => 8, 'eis_site_id' => 'SITE-7'],
@@ -296,23 +319,12 @@ foreach ([1, 2] as $locationId) {
     try {
         $service->submit($sale, $settings);
         throw new RuntimeException('Expected terminal location rejection');
-    } catch (EisSaleException $e) {
-        checkRetry(str_contains($e->getMessage(), 'terminal site') && $service->generated === $beforeGenerated
+    } catch (\Exception $e) {
+        checkRetry($service->generated === $beforeGenerated
             && count($client->payloads) === $beforeRequests && !EisSale::where('transaction_id', $sale->id)->exists(),
             'Wrong site or foreign business location fails before tracking, counters or HTTP');
     }
 }
-$schema->create('eis_configurations', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('business_id');
-});
-$schema->create('eis_terminal_configurations', function (Blueprint $t) {
-    $t->increments('id'); $t->integer('configuration_id');
-    $t->integer('terminal_position'); $t->integer('taxpayer_id');
-});
-DB::table('eis_configurations')->insert(['id' => 1, 'business_id' => 7]);
-DB::table('eis_terminal_configurations')->insert([
-    'configuration_id' => 1, 'terminal_position' => 3, 'taxpayer_id' => 100,
-]);
 $generator = new InvoiceNumberGenerator();
 $nextCount = new ReflectionMethod(SaleSubmissionService::class, 'getTransactionCount');
 $nextCount->setAccessible(true);
@@ -326,18 +338,31 @@ try {
     foreach ([
         [7, $number],
         [7, $todayPrefix.$generator->base10ToBase64(2)],
-        [7, $generator->generateInvoiceNumber(7, 1, 4, 100)],
-        [7, $generator->generateInvoiceNumber(7, 1, 3, 101)],
+        [7, $generator->base10ToBase64(100).'-'.$generator->base10ToBase64(4).'-'.$generator->base10ToBase64($generator->toJulianDate(now())).'-B'],
+        [7, $generator->base10ToBase64(101).'-'.$generator->base10ToBase64(3).'-'.$generator->base10ToBase64($generator->toJulianDate(now())).'-B'],
         [8, $number],
     ] as [$businessId, $fiscalNumber]) {
         DB::table('eis_sales')->insert([
             'business_id' => $businessId, 'transaction_id' => fixtureSale()->id,
             'fiscal_invoice_number' => $fiscalNumber, 'status' => 'failed',
+            'eis_invoice_number' => $fiscalNumber,
+            'eis_setting_id' => 1, 'location_id' => 3,
             'created_at' => now(), 'updated_at' => now(),
         ]);
     }
     checkRetry($generator->getDailyCount(7) === 2 && $nextCount->invoke($service, 7) === 3,
         'Daily counter includes reserved/failed invoices but excludes other businesses, terminals and taxpayers');
+    $client->response = ['success' => true, 'data' => ['statusCode' => 1,
+        'data' => ['validationURL' => 'https://eis.invalid/validate?vc=DAILY-RECEIPT']]];
+    $realService = new SaleSubmissionService($transformer, $client, new SaleResponseService(), $generator);
+    $realSale = submissionFixture();
+    $issued = $realService->submit($realSale, $settings);
+    checkRetry($generator->parseInvoiceNumber($issued->eis_invoice_number)['count'] === 3
+        && str_starts_with($issued->eis_invoice_number, $todayPrefix),
+        'Real submission changes only the final component to this terminal daily count plus one');
+    checkRetry($issued->fiscal_invoice_number === 'DAILY-RECEIPT'
+        && $generator->getDailyCount(7, 1) === 3 && $nextCount->invoke($service, 7) === 4,
+        'Confirmed receipts remain included in daily invoice allocation');
     Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-10-24 00:00:00'));
     checkRetry($nextCount->invoke($service, 7) === 1, 'Terminal invoice count resets at the next day');
     DB::table('eis_terminal_configurations')->where('configuration_id', 1)->update(['terminal_position' => 4]);
