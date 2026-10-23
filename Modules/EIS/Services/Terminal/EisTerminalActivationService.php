@@ -446,6 +446,8 @@ class EisTerminalActivationService
     ): array {
         try {
             return DB::transaction(function () use ($businessId, $response, $activationCode, $environment, $activatedBy) {
+                DB::table('business')->where('id', $businessId)->lockForUpdate()->first();
+
                 // Get activated terminal data
                 $activatedTerminal = $response->data->activatedTerminal ?? null;
                 $configurationData = $response->data->configuration ?? null;
@@ -482,13 +484,23 @@ class EisTerminalActivationService
                         ->whereHas('configuration', fn ($query) => $query->where('business_id', '!=', $businessId))->exists()) {
                     throw new \InvalidArgumentException('EIS terminal is already assigned to another business.');
                 }
-                $currentSettings = EisSetting::where('business_id', $businessId)->first();
+                $currentSettings = EisSetting::where('business_id', $businessId)->lockForUpdate()->first();
                 if ($currentSettings) {
                     $currentSettings = TerminalContext::settings($businessId);
                 }
-                if ($currentSettings && !empty($currentSettings->device_id)
-                    && (string) $currentSettings->device_id !== $terminalId) {
+                $configuration = EisConfiguration::where('business_id', $businessId)->lockForUpdate()->first();
+                $currentTerminal = $configuration
+                    ? EisTerminalConfiguration::where('configuration_id', $configuration->id)->lockForUpdate()->first()
+                    : null;
+                $storedTerminalId = $currentTerminal->terminal_id ?? null;
+                if (($currentSettings && !empty($currentSettings->device_id)
+                        && (string) $currentSettings->device_id !== $terminalId)
+                    || (!empty($storedTerminalId) && (string) $storedTerminalId !== $terminalId)) {
                     throw new \InvalidArgumentException('A different terminal cannot replace this business terminal.');
+                }
+                $configurationTerminalId = $configurationData->terminalConfiguration->terminalId ?? null;
+                if ($configurationTerminalId !== null && (string) $configurationTerminalId !== $terminalId) {
+                    throw new \InvalidArgumentException('EIS activation response contains mismatched terminal identities.');
                 }
                 if ($currentSettings && !empty($currentSettings->branch_id) && !empty($currentSettings->tpin)) {
                     TerminalContext::assertConfiguration($currentSettings, $configurationData);

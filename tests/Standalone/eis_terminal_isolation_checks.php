@@ -191,6 +191,22 @@ foreach (['TERMINAL-B', 'UNRELATED'] as $terminalId) {
         'Activation cannot steal another account terminal or replace existing identity');
 }
 catalogCheck(TerminalContext::settings(1)->device_id === 'TERMINAL-A', 'Activation rejection preserves terminal assignment');
+$db->table('eis_terminal_configurations')->insert([
+    'configuration_id' => $db->table('eis_configurations')->where('business_id', 1)->value('id'),
+    'terminal_id' => 'TERMINAL-A',
+]);
+$db->table('eis_settings')->where('business_id', 1)->update(['device_id' => null]);
+$replacement = unserialize(serialize($data));
+$replacement->terminalConfiguration->terminalId = 'TERMINAL-B';
+$response = (object) ['data' => (object) [
+    'activatedTerminal' => (object) ['terminalId' => 'TERMINAL-B'],
+    'configuration' => $replacement,
+]];
+terminalReject(fn () => $process->invoke($activation, 1, $response, 'CODE', [], 1),
+    'Persisted terminal identity blocks replacement when settings device ID is missing');
+catalogCheck($db->table('eis_settings')->where('business_id', 1)->value('device_id') === null,
+    'Rejected activation leaves incomplete settings unchanged');
+$db->table('eis_settings')->where('business_id', 1)->update(['device_id' => 'TERMINAL-A']);
 
 // Location reconciliation must target the terminal site, not the first business location.
 $db->getSchemaBuilder()->table('business', function (Blueprint $table) {
