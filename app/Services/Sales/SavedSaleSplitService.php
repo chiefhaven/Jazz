@@ -22,14 +22,14 @@ class SavedSaleSplitService
         'is_direct_sale', 'is_created_from_api', 'exchange_rate', 'additional_notes', 'staff_note',
         'custom_field_1', 'custom_field_2', 'custom_field_3', 'custom_field_4',
         'selling_price_group_id', 'pay_term_number', 'pay_term_type', 'source',
-        'res_table_id', 'res_waiter_id', 'is_kitchen_order', 'res_order_status'];
+        'res_table_id', 'res_waiter_id', 'is_kitchen_order', 'res_order_status', 'connector_till_id'];
     private const LINE_COPY = ['product_id', 'variation_id', 'quantity', 'unit_price_before_discount',
         'unit_price', 'unit_price_inc_tax', 'item_tax', 'tax_id', 'sell_line_note', 'children_type'];
     // Inactive configuration defaults do not represent a linked sale.
     private const INERT_HEADER = ['discount_type', 'packing_charge_type', 'mfg_production_cost_type',
         'recur_interval', 'recur_interval_type', 'recur_repetitions', 'subscription_repeat_on'];
 
-    public function __construct(Connection $db)
+    public function __construct(Connection $db, private ?int $connectorTillId = null)
     {
         $this->db = $db;
     }
@@ -1089,6 +1089,7 @@ class SavedSaleSplitService
                     $this->fail('stale_split_version', 'Saved bill changed. Fetch a fresh checkout preview.');
                 }
                 [$business, $settings] = $this->checkoutEligible($g, $user, $admin);
+                \Modules\Connector\Support\TillAssignment::bind($user, (int) $id, $this->connectorTillId);
                 if (bccomp($amount, self::decimal($g['header']['final_total']), 4) !== 0) {
                     $this->fail('invalid_checkout_amount', 'Cash must equal the exact saved total; change and partial payments are unsupported.', 422);
                 }
@@ -1129,7 +1130,8 @@ class SavedSaleSplitService
     protected function executeCheckout(array $g, $user, $business, array $settings, $amount)
     {
         $h = $g['header'];
-        $limit = \Modules\EIS\Models\EisSale::checkOfflineLimits($h['business_id'], $amount, (int) $h['location_id']);
+        $limit = \Modules\EIS\Models\EisSale::checkOfflineLimits($h['business_id'], $amount, (int) $h['location_id'],
+            $this->connectorTillId ?? (isset($h['connector_till_id']) ? (int) $h['connector_till_id'] : null));
         if (!$limit['success'] || ($limit['code'] ?? null) === 'CHECK_ERROR') {
             $this->fail('checkout_fiscal_limits', $limit['message']); // Unlike legacy store, fail closed on check failure.
         }

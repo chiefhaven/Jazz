@@ -12,7 +12,7 @@ class RestaurantBillController extends Controller
 {
     public function handle(Request $request, $action, $id = 0)
     {
-        $service = new RestaurantBillService(DB::connection());
+        $service = new RestaurantBillService(DB::connection(), $request->attributes->get('connector_till_id'));
         $user = $request->user();
         $location = (int) $request->query('location_id');
         try {

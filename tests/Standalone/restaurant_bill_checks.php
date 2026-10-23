@@ -679,4 +679,21 @@ $response = $editor->editItems(1, $waiter, $edit);
 check($response['bill']['table_id'] === 1 && $response['bill']['is_kitchen_order'],
     'ordinary checked edit assigns table and Kitchen flag atomically');
 
+[$db, $unused, $actor] = restaurantFixture();
+$tillId = tillFixture($db);
+$service = new IsolatedRestaurantService($db, $tillId);
+$db->table('res_tables')->where('id', 1)->update(['allow_multiple_orders' => true]);
+$created = $service->create($actor, ['operation_id' => (string) Illuminate\Support\Str::uuid(),
+    'location_id' => 2, 'table_id' => 1, 'contact_id' => 3,
+    'items' => [['variation_id' => 5, 'quantity' => '1']]]);
+check((int) $db->table('transactions')->where('id', $created['id'])->value('connector_till_id') === $tillId,
+    'Restaurant creation persists Connector till in the workflow transaction');
+$service->dispatch($actor, 1, restaurantInput($service, $actor, ['station' => 'bar', 'variations' => [5]]));
+$service->transition($actor, 1, restaurantInput($service, $actor, ['action' => 'ready']));
+$cashier = clone $actor; $cashier->id = 8;
+$cashier->permissions = ['sell.view', 'sell.payments', 'location.2'];
+$payment = restaurantInput($service, $cashier, ['payments' => [['method' => 'cash', 'amount' => '1.0000']]]);
+$service->pay($cashier, 1, $payment);
+check((int) $db->table('transactions')->where('id', 1)->value('connector_till_id') === $tillId,
+    'Cashier clearing binds existing restaurant bill to the paying till');
 echo "PASS: $checks total isolated restaurant/saved-sale checks. No live writes or fiscal requests.\n";

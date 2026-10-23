@@ -69,11 +69,13 @@ class EisSale extends Model
      * @param float $sale_amount
      * @return array Returns ['success' => bool, 'message' => string, 'code' => string|null, 'details' => array|null]
      */
-    public static function checkOfflineLimits($business_id, $sale_amount, int $location_id)
+    public static function checkOfflineLimits($business_id, $sale_amount, int $location_id, ?int $till_id = null)
     {
         try {
             // Get business settings with terminal configuration using DB
-            $settings = \Modules\EIS\Services\Terminal\TerminalContext::forLocation((int) $business_id, $location_id, true);
+            $settings = $till_id
+                ? \Modules\Connector\Support\TillAssignment::terminal((int) $business_id, $location_id, $till_id)
+                : \Modules\EIS\Services\Terminal\TerminalContext::forLocation((int) $business_id, $location_id, true);
             $eisConfigurations = DB::table('eis_configurations')
                 ->where('business_id', $business_id)->where('eis_setting_id', $settings->id)
                 ->first();

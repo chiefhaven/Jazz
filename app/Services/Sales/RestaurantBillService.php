@@ -11,7 +11,7 @@ class RestaurantBillService
     private static array $editing = [];
     private static array $clearing = [];
 
-    public function __construct(Connection $db) { $this->db = $db; }
+    public function __construct(Connection $db, private ?int $connectorTillId = null) { $this->db = $db; }
 
     public static function isEditing(Connection $db, $id): bool
     {
@@ -290,6 +290,7 @@ class RestaurantBillService
             if (!$contact || (!$this->admin($user) && !$user->can('customer.view') && !$user->can('customer.view_own') &&
                 empty($contact->is_default))) { $this->fail('Choose the permitted default Walk-in customer.', 403); }
             $id = (new SavedSaleSplitService($this->db))->createRestaurantBill($user, $locationId, (int) $contact->id, $tableId, $items);
+            \Modules\Connector\Support\TillAssignment::bind($user, $id, $this->connectorTillId);
             $now = date('Y-m-d H:i:s');
             $this->db->table('restaurant_bills')->insert(['transaction_id' => $id, 'business_id' => $user->business_id,
                 'location_id' => $locationId, 'table_id' => $tableId, 'waiter_id' => $user->id,
@@ -730,6 +731,7 @@ class RestaurantBillService
                 $this->fail('Existing fiscal tracking prevents additional payments. Investigate in the backend.');
             }
             $location = $this->location($user, (int) $bill['header']->location_id);
+            \Modules\Connector\Support\TillAssignment::bind($user, $id, $this->connectorTillId);
             $methods = $this->methods($location);
             $accounts = json_decode($location->default_payment_accounts ?? '{}', true, 512, JSON_THROW_ON_ERROR);
             $total = '0.0000';
@@ -813,7 +815,8 @@ class RestaurantBillService
     protected function checkFiscalLimits(array $bill): void
     {
         $limit = \Modules\EIS\Models\EisSale::checkOfflineLimits($bill['header']->business_id,
-            $bill['header']->final_total, (int) $bill['header']->location_id);
+            $bill['header']->final_total, (int) $bill['header']->location_id,
+            $this->connectorTillId ?? ($bill['header']->connector_till_id ?? null));
         if (!$limit['success'] || ($limit['code'] ?? null) === 'CHECK_ERROR') { $this->fail($limit['message']); }
     }
 

@@ -112,7 +112,9 @@ final class TerminalContext
         }
         $settings = $terminalId
             ? self::settings((int) $transaction->business_id, null, (int) $terminalId)
-            : self::forLocation((int) $transaction->business_id, (int) $transaction->location_id);
+            : ($transaction->connector_till_id
+                ? \Modules\Connector\Support\TillAssignment::terminal((int) $transaction->business_id, (int) $transaction->location_id, (int) $transaction->connector_till_id)
+                : self::forLocation((int) $transaction->business_id, (int) $transaction->location_id));
         if ((int) $settings->location_id !== (int) $transaction->location_id) {
             throw new \InvalidArgumentException('The recorded terminal has moved to another EIS site. Reconcile this historical submission without changing its original fiscal location.');
         }

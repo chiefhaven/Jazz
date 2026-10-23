@@ -931,6 +931,7 @@ class SellController extends ApiController
                     }
 
                     $transaction = $this->transactionUtil->createSellTransaction($user->business_id, $input, $invoice_total, $user->id, false);
+                    \Modules\Connector\Support\TillAssignment::bind($user, $transaction->id, $request->attributes->get('connector_till_id'));
 
                     $this->transactionUtil->createOrUpdateSellLines($transaction, $input['products'], $input['location_id'], false, null, [], false);
                     //Add change return
@@ -946,7 +947,7 @@ class SellController extends ApiController
                     if ($input['status'] == 'final') {
                         //EIS: same offline limit gate as the web POS (SellPosController@store).
                         //Throwing rolls this sell back and its message is returned in the response entry.
-                        $limit_check = $this->checkEisSaleLimits($business_id, $transaction->final_total, $transaction->location_id);
+                        $limit_check = $this->checkEisSaleLimits($business_id, $transaction->final_total, $transaction->location_id, $request->attributes->get('connector_till_id'));
                         if (! $limit_check['success']) {
                             throw new \Exception($limit_check['message']);
                         }
@@ -1275,6 +1276,7 @@ class SellController extends ApiController
             \App\Services\Sales\SavedSaleWriteGuard::lock(DB::connection(), $id);
             $transaction_before = Transaction::where('business_id', $user->business_id)->with(['payment_lines'])
                                     ->lockForUpdate()->findOrFail($id);
+            \Modules\Connector\Support\TillAssignment::bind($user, (int) $id, $request->attributes->get('connector_till_id'));
 
             //Check if location allowed
             if (! $user->can_access_this_location($transaction_before->location_id)) {
@@ -1363,9 +1365,9 @@ class SellController extends ApiController
      * Same offline limit gate the web POS applies before finalizing a sale
      * (SellPosController::checkSaleLimits), so EIS limits also hold for API sales.
      */
-    private function checkEisSaleLimits($business_id, $final_total, $location_id)
+    private function checkEisSaleLimits($business_id, $final_total, $location_id, ?int $till_id = null)
     {
-        $result = EisSale::checkOfflineLimits($business_id, (float) $final_total, $location_id);
+        $result = EisSale::checkOfflineLimits($business_id, (float) $final_total, $location_id, $till_id);
 
         if (! is_array($result)) {
             return ['success' => true];

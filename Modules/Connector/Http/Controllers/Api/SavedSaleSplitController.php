@@ -34,7 +34,7 @@ class SavedSaleSplitController extends Controller
     public function checkout(Request $request, $id)
     {
         return $this->splitResponse(function () use ($request, $id) {
-            return (new SavedSaleSplitService(DB::connection()))->checkout($id, $request->user(), $request->all());
+            return (new SavedSaleSplitService(DB::connection(), $request->attributes->get('connector_till_id')))->checkout($id, $request->user(), $request->all());
         });
     }
 

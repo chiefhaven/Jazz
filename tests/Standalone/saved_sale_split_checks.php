@@ -22,6 +22,7 @@ final class SplitActor
     public $permissions = ['sell.create', 'sell.update', 'location.2'];
     public function hasRole($name) { return $this->admin && $name === 'Admin#'.$this->business_id; }
     public function can($name) { return in_array($name, $this->permissions, true); }
+    public function permitted_locations($businessId) { return $businessId === $this->business_id ? [2] : []; }
 }
 
 $checks = 0;
@@ -69,7 +70,7 @@ function fixture()
             'created_at', 'updated_at', 'is_quotation', 'sub_status', 'discount_amount', 'shipping_charges',
             'packing_charge', 'round_off_amount', 'rp_earned', 'rp_redeemed', 'rp_redeemed_amount',
             'journal_entry_id', 'woocommerce_order_id', 'sales_order_ids', 'is_recurring', 'tax_id',
-            'additional_expense_value_1', 'prefer_payment_account', 'source', 'unknown_module_state'] as $c) {
+            'additional_expense_value_1', 'prefer_payment_account', 'source', 'unknown_module_state', 'connector_till_id'] as $c) {
             $t->text($c)->nullable(); // TEXT prevents SQLite converting decimal strings to floats.
         }
     });
@@ -90,7 +91,7 @@ function fixture()
         'cash_register_transactions' => ['transaction_id'], 'eis_sales' => ['business_id', 'transaction_id', 'status', 'fiscal_invoice_number', 'request_payload'],
         'eis_failed_transactions' => ['transaction_id'], 'sell_line_warranties' => ['sell_line_id', 'warranty_id'],
         'business' => ['transaction_edit_days', 'pos_settings', 'enable_rp', 'enable_product_expiry', 'accounting_method', 'ref_no_prefixes'],
-        'business_locations' => ['business_id', 'default_payment_accounts', 'invoice_scheme_id'], 'users' => ['business_id'],
+        'business_locations' => ['business_id', 'default_payment_accounts', 'invoice_scheme_id', 'default_eis_setting_id'], 'users' => ['business_id'],
         'contacts' => ['business_id', 'type', 'balance', 'deleted_at'],
         'products' => ['business_id', 'type', 'unit_id', 'enable_stock', 'deleted_at', 'tax', 'not_for_selling', 'is_inactive'],
         'product_locations' => ['product_id', 'location_id'],
@@ -99,8 +100,8 @@ function fixture()
         'reference_counts' => ['business_id', 'ref_type', 'ref_count'],
         'invoice_schemes' => ['business_id', 'is_default', 'scheme_type', 'prefix', 'number_type', 'start_number', 'invoice_count', 'total_digits'],
         'variation_location_details' => ['qty_available', 'product_id', 'product_variation_id', 'variation_id', 'location_id', 'created_at', 'updated_at'],
-        'eis_settings' => ['business_id', 'tpin'],
-        'eis_configurations' => ['business_id'], 'eis_terminal_configurations' => ['configuration_id', 'taxpayer_id', 'terminal_position', 'max_cummulative_amount', 'max_transaction_age'],
+        'eis_settings' => ['business_id', 'tpin', 'location_id', 'status'],
+        'eis_configurations' => ['business_id', 'location_id', 'eis_setting_id'], 'eis_terminal_configurations' => ['configuration_id', 'taxpayer_id', 'terminal_position', 'max_cummulative_amount', 'max_transaction_age', 'is_active'],
         'eis_offline_limits' => ['terminal_configuration_id', 'max_cumulative_amount', 'max_transaction_age_hours']] as $table => $columns) {
         $schema->create($table, function (Blueprint $t) use ($columns) {
             $t->increments('id'); foreach (array_unique(array_merge($columns, ['created_at', 'updated_at'])) as $c) { $t->text($c)->nullable(); }
@@ -116,10 +117,10 @@ function fixture()
     $db->table('business')->insert(['id' => 1, 'transaction_edit_days' => '30', 'accounting_method' => 'fifo']);
     $db->table('invoice_schemes')->insert(['business_id' => 1, 'is_default' => 1, 'scheme_type' => 'blank',
         'prefix' => 'INV-', 'number_type' => 'sequential', 'start_number' => 1, 'invoice_count' => 0, 'total_digits' => 5]);
-    $db->table('eis_settings')->insert(['business_id' => 1, 'tpin' => 'TEST']);
-    $db->table('eis_configurations')->insert(['id' => 1, 'business_id' => 1]);
-    $db->table('eis_terminal_configurations')->insert(['configuration_id' => 1, 'taxpayer_id' => 98765, 'terminal_position' => 4]);
-    $db->table('business_locations')->insert(['id' => 2, 'business_id' => 1, 'default_payment_accounts' => '{"cash":{"is_enabled":1,"account":null}}']);
+    $db->table('eis_settings')->insert(['business_id' => 1, 'tpin' => 'TEST', 'location_id' => 2, 'status' => 1]);
+    $db->table('eis_configurations')->insert(['id' => 1, 'business_id' => 1, 'location_id' => 2, 'eis_setting_id' => 1]);
+    $db->table('eis_terminal_configurations')->insert(['configuration_id' => 1, 'taxpayer_id' => 98765, 'terminal_position' => 4, 'is_active' => 1]);
+    $db->table('business_locations')->insert(['id' => 2, 'business_id' => 1, 'default_payment_accounts' => '{"cash":{"is_enabled":1,"account":null}}', 'default_eis_setting_id' => 1]);
     $db->table('users')->insert([['id' => 7, 'business_id' => 1], ['id' => 8, 'business_id' => 1]]);
     $db->table('contacts')->insert(['id' => 3, 'business_id' => 1, 'type' => 'customer']);
     $db->table('units')->insert(['id' => 1, 'business_id' => 1, 'allow_decimal' => 1]);
@@ -1411,4 +1412,31 @@ $before = snapshot($db);
 rejects(fn () => $service->editItems(1, $actor, $request), 'split_forbidden');
 check(snapshot($db) === $before, 'backend revocation between preview and save blocks edit');
 
+function tillFixture($db): int
+{
+    $db->getSchemaBuilder()->create('connector_tills', function (Blueprint $t) {
+        $t->increments('id'); $t->integer('business_id'); $t->integer('location_id');
+        $t->integer('eis_setting_id')->nullable(); $t->string('name'); $t->boolean('is_active');
+    });
+    return $db->table('connector_tills')->insertGetId([
+        'business_id' => 1, 'location_id' => 2, 'eis_setting_id' => 1, 'name' => 'Counter', 'is_active' => true,
+    ]);
+}
+[$db, $unused, $actor] = checkoutFixture(true);
+$tillId = tillFixture($db);
+$service = new IsolatedCheckoutService($db, $tillId);
+$request = cashRequest($service, $actor);
+$paid = $service->checkout(1, $actor, $request);
+check((int) $db->table('transactions')->where('id', 1)->value('connector_till_id') === $tillId
+    && $paid['bill']['payment_status'] === 'paid', 'Connector checkout persists validated till inside payment transaction');
+$after = snapshot($db);
+check($service->checkout(1, $actor, $request) === $paid && snapshot($db) === $after,
+    'Till-bound checkout replay does not rewrite history or duplicate payment');
+[$db, $unused, $actor] = checkoutFixture(true);
+$tillId = tillFixture($db);
+$db->table('transactions')->where('id', 1)->update(['connector_till_id' => $tillId]);
+$service = new IsolatedCheckoutService($db);
+$split = $service->split(1, $actor, requestFor($service, $actor));
+check((int) $db->table('transactions')->where('id', $split['bill_b']['id'])->value('connector_till_id') === $tillId,
+    'Split child preserves named till provenance');
 echo "PASS: $checks isolated saved-sale split/overselling/reconciliation/additions/editing checks. No application/kernel/live database boot.\n";

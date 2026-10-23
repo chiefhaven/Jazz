@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('connector/api/desktop-login', [Modules\Connector\Http\Controllers\Api\DesktopLoginController::class, 'login'])
     ->middleware('throttle:5,1');
 
-Route::middleware('auth:api', 'timezone')->prefix('connector/api')->group(function () {
+Route::middleware(['auth:api', 'timezone', \Modules\Connector\Http\Middleware\ConnectorTill::class])->prefix('connector/api')->group(function () {
+    Route::get('tills', [Modules\Connector\Http\Controllers\Api\TillController::class, 'index']);
+    Route::post('tills', [Modules\Connector\Http\Controllers\Api\TillController::class, 'store']);
     Route::resource('business-location', Modules\Connector\Http\Controllers\Api\BusinessLocationController::class)->only('index', 'show');
 
     Route::resource('contactapi', Modules\Connector\Http\Controllers\Api\ContactController::class)->only('index', 'show', 'store', 'update');

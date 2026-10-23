@@ -58,6 +58,19 @@ The current design supersedes the historical singleton behavior described below:
 - New locations reuse default invoice schemes/layouts and payment settings. Configuration reconciliation updates the API-assigned location and preserves its existing invoice/address choices. Duplicate locations with the same site ID are rejected for reconciliation. Activation requires access to both the terminal's previous location and the API-assigned location; creating a new API site requires `access_all_locations`.
 - Bulk submission from the sales screen is restricted to permitted locations. Each job resolves its own sale's location and terminal; no arbitrary business-wide token is used. The global badge shows **Multiple terminals** instead of claiming one selected terminal represents all locations.
 
+### Desktop Connector tills
+
+Named tills are separate from EIS terminals and cash-register sessions. `connector_tills` links a business/location/name to an EIS setting. An administrator with `business_settings.access` can create or update a named till from MbiraPOS Connector settings, then select it for that desktop installation (encrypted for the current Windows user, retained across cashier sign-ins). Updating an existing name at the same location changes that shared till's terminal, including for other devices selecting the same till.
+
+- `GET /connector/api/tills` lists active tills and terminal IDs at the authenticated user's permitted locations; it never returns EIS credentials.
+- `POST /connector/api/tills` accepts `name`, `location_id`, and `eis_setting_id`. Business identity comes from authentication. Settings permission, location permission and terminal ownership are checked.
+- MbiraPOS sends `X-POS-Till: <id>` on operational Connector requests. The API validates tenant, active till, location access and sale/query location. An invalid/unpermitted till is rejected rather than silently replaced. Older clients without the header retain location-default routing.
+- Retail creation/update, saved-bill checkout and restaurant creation/clearing persist `transactions.connector_till_id` within the sale/payment transaction. Split children retain till provenance. Workspace location is pinned to the saved till; changing the device assignment requires desktop admin settings.
+- New fiscal submissions use the till's operational terminal. When that terminal is unavailable (including site reassignment), the same location's operational default is used and a notice is logged. If neither is usable, fiscal submission is blocked. Offline-limit checks use the same till selection.
+- Once EIS sale/retry tracking exists, its recorded terminal takes precedence over till/default changes. An unavailable recorded terminal blocks retry instead of changing fiscal identity.
+
+Deploy migration `Modules/Connector/Database/Migrations/2026_10_23_200000_create_connector_tills.php` before using desktop till settings. No existing locations, terminal defaults or historical sales are reassigned by this migration.
+
 ### Migration
 
 `EIS_BASE_URL` in `.env`, accessed through Laravel's `config('eis.base_url')`, is the runtime endpoint source for EIS clients, including credential refresh and signed GET requests. The database column is retained for legacy schema compatibility, not as a per-terminal endpoint override. After changing `.env`, rebuild or clear Laravel's configuration cache as appropriate for the deployment.
