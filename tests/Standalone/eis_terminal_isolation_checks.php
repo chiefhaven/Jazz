@@ -256,7 +256,7 @@ $db->table('eis_configurations')->where('business_id', 1)->update([
 $db->table('eis_terminal_configurations')->where('configuration_id',
    $db->table('eis_configurations')->where('business_id', 1)->value('id'))->update(['terminal_id' => 'TERMINAL-A']);
 
-// Location reconciliation must target the terminal site, not the first business location.
+// Terminal replacement updates the single existing location, retaining its identity.
 $db->getSchemaBuilder()->table('business', function (Blueprint $table) {
     foreach (['name', 'tax_number_1', 'tax_label_1', 'enable_inline_tax'] as $column) {
         $table->text($column)->nullable();
@@ -278,18 +278,29 @@ foreach (['invoice_schemes', 'invoice_layouts'] as $name) {
     $db->table($name)->insert(['business_id' => 1, 'name' => 'Default']);
 }
 $db->table('business_locations')->where('id', 1)->update(['eis_site_id' => 'LEGACY', 'name' => 'Legacy location']);
-$db->table('business_locations')->insert(['id' => 3, 'business_id' => 1, 'eis_site_id' => 'SITE-A', 'name' => 'Terminal']);
 $data->terminalConfiguration->terminalSite->siteName = 'Terminal updated';
 $db->table('eis_configurations')->where('business_id', 1)->update(['raw_response' => json_encode(['data' => $data])]);
 $location = ConfigurationSyncService::businessLocation(1);
-catalogCheck((int) $location->id === 3 && $location->name === 'Terminal updated',
-    'Location sync updates the terminal mapping and retains its ID');
-catalogCheck($db->table('business_locations')->where('id', 1)->value('eis_site_id') === 'LEGACY',
-    'Location sync does not overwrite an arbitrary legacy business location');
-catalogCheck($db->table('business_locations')->where('business_id', 1)->count() === 2,
-    'Repeated terminal reconciliation does not duplicate mapped locations');
+catalogCheck((int) $location->id === 1 && $location->name === 'Terminal updated' && $location->eis_site_id === 'SITE-A',
+    'Location sync updates the existing location to the new terminal site and retains its ID');
+ConfigurationSyncService::businessLocation(1);
+catalogCheck($db->table('business_locations')->where('business_id', 1)->count() === 1,
+    'Repeated terminal reconciliation maintains one business location');
+catalogCheck($db->table('business_locations')->where('id', 2)->value('business_id') === '2',
+    'Location sync leaves another business location unchanged');
+$beforeBusiness = $db->table('business')->get()->toJson();
 $db->table('business_locations')->insert(['business_id' => 1, 'eis_site_id' => 'SITE-A', 'name' => 'Duplicate']);
+$beforeLocations = $db->table('business_locations')->get()->toJson();
 terminalReject(fn () => ConfigurationSyncService::businessLocation(1),
-    'Duplicate terminal mappings fail rather than update an arbitrary location');
+    'Multiple existing locations require explicit reconciliation rather than automatic deletion');
+catalogCheck($db->table('business_locations')->get()->toJson() === $beforeLocations,
+    'Ambiguous location rejection does not modify or remove existing locations');
+catalogCheck($db->table('business')->get()->toJson() === $beforeBusiness,
+    'Ambiguous location rejection leaves business details unchanged');
+$db->table('business_locations')->where('business_id', 1)->delete();
+terminalReject(fn () => ConfigurationSyncService::businessLocation(1),
+    'A missing location is reported rather than creating a new location');
+catalogCheck($db->table('business_locations')->where('business_id', 1)->count() === 0,
+    'Location synchronization never creates a business location');
 Mockery::close();
 echo "PASS: {$checks} terminal isolation checks; in-memory fixtures only.\n";

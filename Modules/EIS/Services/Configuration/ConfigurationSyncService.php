@@ -1178,10 +1178,12 @@ class ConfigurationSyncService
             |--------------------------------------------------------------------------
             */
 
-            $business = \App\Business::findOrFail($businessId);
-            if (\App\BusinessLocation::where('business_id', $businessId)->where('eis_site_id', $siteId)->count() > 1) {
-                throw new \InvalidArgumentException('EIS terminal site must map to exactly one business location.');
+            $business = \App\Business::whereKey($businessId)->lockForUpdate()->firstOrFail();
+            $locations = \App\BusinessLocation::where('business_id', $businessId)->lockForUpdate()->limit(2)->get();
+            if ($locations->count() !== 1) {
+                throw new \InvalidArgumentException('EIS synchronization requires exactly one existing business location; no locations were created or removed.');
             }
+            $businessLocation = $locations->first();
 
             $business->update([
                 'name' => data_get(
@@ -1203,7 +1205,7 @@ class ConfigurationSyncService
 
             /*
             |--------------------------------------------------------------------------
-            | Create or Update Business Location
+            | Update Business Location
             |--------------------------------------------------------------------------
             */
 
@@ -1247,11 +1249,7 @@ class ConfigurationSyncService
             }
             $invoiceLayoutId = $defaultInvoiceLayout->id;
 
-            $businessLocation = \App\BusinessLocation::updateOrCreate(
-                [
-                    'business_id' => $business->id,
-                    'eis_site_id' => $siteId,
-                ],
+            $businessLocation->update(
                 [
                     'eis_site_id' => $siteId,
 

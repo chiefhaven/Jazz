@@ -130,9 +130,6 @@ class InvoiceNumberGenerator
                 // Get terminal position
                 $terminalPos = $terminalPosition ?? 1;
 
-                // Get count for today
-                $identifier = $businessId.$transactionCount;
-
                 // Use full astronomical Julian Date
                 $julianDate = $this->toJulianDate(now());
                 
@@ -140,7 +137,7 @@ class InvoiceNumberGenerator
                 $encodedTaxpayerId = $this->base10ToBase64($taxpayerId);
                 $encodedTerminalPos = $this->base10ToBase64($terminalPos);
                 $encodedJulianDate = $this->base10ToBase64($julianDate);
-                $encodedCount = $this->base10ToBase64($identifier);
+                $encodedCount = $this->base10ToBase64($transactionCount);
 
                 // Build invoice number
                 $invoiceNumber = $encodedTaxpayerId . '-' . 
@@ -355,15 +352,26 @@ class InvoiceNumberGenerator
     }
 
     /**
-     * Get daily transaction count.
+     * Count invoices issued today for the business's current terminal.
      *
      * @param int $businessId
      * @return int
      */
     public function getDailyCount(int $businessId): int
     {
+        $configuration = EisConfiguration::where('business_id', $businessId)->firstOrFail();
+        $terminal = EisTerminalConfiguration::where('configuration_id', $configuration->id)->first();
+        if (!$terminal || !$terminal->taxpayer_id || !$terminal->terminal_position) {
+            throw new \InvalidArgumentException('EIS invoice counting requires a configured taxpayer and terminal position.');
+        }
+        $prefix = $this->base10ToBase64($terminal->taxpayer_id).'-'
+            .$this->base10ToBase64($terminal->terminal_position).'-'
+            .$this->base10ToBase64($this->toJulianDate(now())).'-';
+
         return EisSale::where('business_id', $businessId)
-            ->whereDate('created_at', now()->toDateString())
+            ->where('fiscal_invoice_number', 'like', $prefix.'%')
+            ->pluck('fiscal_invoice_number')
+            ->filter(fn (string $number) => str_starts_with($number, $prefix))
             ->count();
     }
 

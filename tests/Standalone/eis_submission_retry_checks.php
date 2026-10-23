@@ -302,4 +302,48 @@ foreach ([1, 2] as $locationId) {
             'Wrong site or foreign business location fails before tracking, counters or HTTP');
     }
 }
+$schema->create('eis_configurations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('business_id');
+});
+$schema->create('eis_terminal_configurations', function (Blueprint $t) {
+    $t->increments('id'); $t->integer('configuration_id');
+    $t->integer('terminal_position'); $t->integer('taxpayer_id');
+});
+DB::table('eis_configurations')->insert(['id' => 1, 'business_id' => 7]);
+DB::table('eis_terminal_configurations')->insert([
+    'configuration_id' => 1, 'terminal_position' => 3, 'taxpayer_id' => 100,
+]);
+$generator = new InvoiceNumberGenerator();
+$nextCount = new ReflectionMethod(SaleSubmissionService::class, 'getTransactionCount');
+$nextCount->setAccessible(true);
+Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-10-23 12:00:00'));
+try {
+    checkRetry($nextCount->invoke($service, 7) === 1, 'First invoice for the terminal today starts at one');
+    $number = $generator->generateInvoiceNumber(7, 1, 3, 100);
+    checkRetry($generator->parseInvoiceNumber($number)['count'] === 1,
+        'Encoded invoice count is the sequence alone, without the business ID');
+    $todayPrefix = implode('-', array_slice(explode('-', $number), 0, 3)).'-';
+    foreach ([
+        [7, $number],
+        [7, $todayPrefix.$generator->base10ToBase64(2)],
+        [7, $generator->generateInvoiceNumber(7, 1, 4, 100)],
+        [7, $generator->generateInvoiceNumber(7, 1, 3, 101)],
+        [8, $number],
+    ] as [$businessId, $fiscalNumber]) {
+        DB::table('eis_sales')->insert([
+            'business_id' => $businessId, 'transaction_id' => fixtureSale()->id,
+            'fiscal_invoice_number' => $fiscalNumber, 'status' => 'failed',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+    checkRetry($generator->getDailyCount(7) === 2 && $nextCount->invoke($service, 7) === 3,
+        'Daily counter includes reserved/failed invoices but excludes other businesses, terminals and taxpayers');
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-10-24 00:00:00'));
+    checkRetry($nextCount->invoke($service, 7) === 1, 'Terminal invoice count resets at the next day');
+    DB::table('eis_terminal_configurations')->where('configuration_id', 1)->update(['terminal_position' => 4]);
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-10-23 12:00:00'));
+    checkRetry($nextCount->invoke($service, 7) === 2, 'Replacing terminal uses the replacement terminal daily count');
+} finally {
+    Carbon\Carbon::setTestNow();
+}
 echo "PASS: {$checks} EIS submission retry checks (isolated database, no network).\n";

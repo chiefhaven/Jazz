@@ -250,24 +250,14 @@ class SaleSubmissionService
     }
 
     /**
-     * Get terminal position from terminal configuration.
+     * Get the next invoice count for today's configured terminal.
      *
      * @param int $businessId
      * @return int
      */
     protected function getTransactionCount(int $businessId): int
     {
-        $transactionCount = \Modules\EIS\Models\EisSale::where('business_id', $businessId)->where('created_at', '>=', now()->startOfDay())->count(); 
-
-        if ($transactionCount === 0) {
-            Log::warning('Transaction count not found', [
-                'business_id' => $businessId,
-            ]);
-
-            return 1;
-        }
-
-        return (int) ($transactionCount + 1);
+        return $this->invoiceGenerator->getDailyCount($businessId) + 1;
     }
 
     /**

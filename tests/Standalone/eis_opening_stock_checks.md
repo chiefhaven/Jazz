@@ -77,15 +77,24 @@ never substituted for a missing site. Duplicate settings records fail closed.
 Configuration sync verifies the business's stored token and the returned site,
 TIN and terminal ID (when supplied) before persisting or skipping unchanged
 versions. Forced sync preserves the existing configuration if validation fails.
-Location reconciliation targets `(business_id, eis_site_id)`, preserving other
-locations and the mapped location's identity.
+Location reconciliation requires exactly one existing location for the business
+and updates its EIS site and details in place, preserving its ID and existing
+transaction/stock references when a terminal is replaced. It never creates or
+deletes locations. Missing or multiple locations require explicit reconciliation.
 
 Sale submission reloads stored credentials for the transaction's business,
 rejects mismatched caller settings, tracking, sale location and foreign
 products/customers, and checks payload site/TIN before HTTP. Retry jobs scope
 transaction reads and tracking writes to their business. Activation cannot
-assign another business's terminal or silently replace an existing terminal.
+assign another business's terminal. Activation can replace the current business
+terminal by updating its existing settings and terminal configuration records.
 Health caches already include both business ID and credential/host identity.
+
+EIS invoice sequence numbers use the current taxpayer ID, terminal position and
+Julian day encoded in the persisted fiscal invoice number. The next sequence is
+that terminal's invoice count for today plus one; the business ID is not prepended
+to the sequence. Pending and failed invoices retain their allocated numbers and
+retries reuse them. A new day or replacement terminal has its own count.
 
 Internal module routes, including formerly public terminal/configuration
 read endpoints, now require authenticated same-business access. Body, route,
