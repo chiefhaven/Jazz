@@ -52,6 +52,8 @@ class SaleSubmissionService
         }
 
         if ($existing && $existing->status === 'submitted') {
+            \App\Services\Sales\SavedSaleWriteGuard::recordFiscalReceipt($transaction->getConnection(), $transaction->id);
+            $transaction->refresh();
             return $existing;
         }
 

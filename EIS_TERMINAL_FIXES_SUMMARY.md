@@ -73,6 +73,8 @@ Deploy migration `Modules/Connector/Database/Migrations/2026_10_23_200000_create
 
 ### Migration
 
+`2026_10_23_211000_add_transaction_fiscal_receipt_projection.php` restores missing `transactions.is_fiscalized`, `fiscal_invoice_number`, and `receipt_number` columns without altering existing columns. Receipt identifiers are strings. Its rollback deliberately retains compatibility columns. A retry of an already-submitted sale repairs the local transaction receipt from tenant-scoped submitted EIS tracking without resubmitting to EIS. If the queue failed after acceptance, verify the saved response/tracking first; do not reset submitted tracking to pending. Apply this migration on each affected deployment/database before retrying the failed job.
+
 `EIS_BASE_URL` in `.env`, accessed through Laravel's `config('eis.base_url')`, is the runtime endpoint source for EIS clients, including credential refresh and signed GET requests. The database column is retained for legacy schema compatibility, not as a per-terminal endpoint override. After changing `.env`, rebuild or clear Laravel's configuration cache as appropriate for the deployment.
 
 Activation supports schemas with or without the legacy `eis_settings.base_url` column. It populates that field only when present (for older schemas where it is required); the endpoint is always taken from configuration.

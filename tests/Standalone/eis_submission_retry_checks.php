@@ -191,8 +191,14 @@ $submitted = $service->submit($transaction, $settings);
 checkRetry($submitted->status === 'submitted' && $submitted->fiscal_invoice_number === 'FISCAL-RECEIPT', 'Success replaces provisional number with confirmed fiscal receipt');
 checkRetry($submitted->eis_invoice_number === 'GENERATED-1' && $transaction->fresh()->is_fiscalized, 'Generated invoice identity survives success');
 $count = count($client->payloads);
+DB::table('transactions')->where('id', $transaction->id)->update([
+    'is_fiscalized' => false, 'fiscal_invoice_number' => null, 'receipt_number' => null,
+]);
 $service->submit($transaction, $settings);
 checkRetry(count($client->payloads) === $count, 'Submitted sale never sent again');
+checkRetry($transaction->fresh()->is_fiscalized
+    && $transaction->fresh()->receipt_number === 'FISCAL-RECEIPT',
+    'Already submitted sale repairs interrupted local receipt projection without another HTTP request');
 
 $schema->create('saved_sale_split_operations', function (Blueprint $t) {
     $t->increments('id'); $t->integer('business_id'); $t->integer('source_id');
@@ -307,6 +313,23 @@ checkRetry(count($client->payloads) === $beforeRequests && EisSale::count() === 
 $job->failed(new RuntimeException('Fixture mismatch'));
 checkRetry(DB::table('eis_failed_transactions')->count() === $beforeFailures,
     'Failed callback cannot create retry tracking for a foreign business transaction');
+$container->instance('db.schema', $schema);
+Illuminate\Support\Facades\Schema::clearResolvedInstance('db.schema');
+$projectionMigration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_23_211000_add_transaction_fiscal_receipt_projection.php';
+$schema->table('transactions', function (Blueprint $table) {
+    $table->dropColumn(['is_fiscalized', 'fiscal_invoice_number', 'receipt_number']);
+});
+$projectionMigration->up();
+checkRetry($schema->hasColumn('transactions', 'is_fiscalized')
+    && $schema->hasColumn('transactions', 'fiscal_invoice_number')
+    && $schema->hasColumn('transactions', 'receipt_number'), 'Migration restores all missing transaction fiscal columns');
+$service->submit($transaction, $settings);
+checkRetry($transaction->fresh()->is_fiscalized && $transaction->fresh()->receipt_number === 'FISCAL-RECEIPT',
+    'Migration plus submitted retry restores receipt after missing-column failure');
+$projectionMigration->up();
+$projectionMigration->down();
+checkRetry($transaction->fresh()->receipt_number === 'FISCAL-RECEIPT' && $schema->hasColumn('transactions', 'is_fiscalized'),
+    'Repeated migration and compatibility rollback preserve existing receipt data');
 DB::table('business_locations')->insert([
     ['id' => 1, 'business_id' => 7, 'eis_site_id' => 'OTHER-SITE'],
     ['id' => 2, 'business_id' => 8, 'eis_site_id' => 'SITE-7'],
