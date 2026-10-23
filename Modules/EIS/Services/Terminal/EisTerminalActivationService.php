@@ -803,7 +803,7 @@ class EisTerminalActivationService
      */
     private function getTerminalDetails(EisTerminalConfiguration $terminal, ?object $activatedTerminal = null, ?int $businessId = null): array
     {
-        $isActive = $terminal->is_active && (bool) $terminal->configuration?->setting?->status;
+        $isActive = TerminalContext::isOperational((bool) $terminal->configuration?->setting?->status, $terminal->is_active);
         $details = [
             'id' => $terminal->id,
             'configuration_id' => $terminal->configuration_id,
@@ -990,7 +990,7 @@ class EisTerminalActivationService
                 ];
             }
 
-            $newStatus = !($terminal->is_active && $setting->status);
+            $newStatus = !TerminalContext::isOperational((bool) $setting->status, $terminal->is_active);
             
             $updateData = [
                 'is_active' => $newStatus,
@@ -1102,7 +1102,7 @@ class EisTerminalActivationService
                     'global_version' => $configuration->global_version,
                     'terminal_version' => $configuration->terminal_version,
                     'taxpayer_version' => $configuration->taxpayer_version,
-                    'terminal_is_active' => $setting->status && ($terminal?->is_active ?? false)
+                    'terminal_is_active' => TerminalContext::isOperational((bool) $setting->status, $terminal?->is_active)
                 ]
             ];
 
@@ -1151,7 +1151,7 @@ class EisTerminalActivationService
 
             return [
                 'success' => true,
-                'is_active' => $setting->status && $terminal->is_active,
+                'is_active' => TerminalContext::isOperational((bool) $setting->status, $terminal->is_active),
                 'is_confirmed' => $terminal->is_confirmed ?? false,
                 'data' => $this->getTerminalDetails($terminal, null, $businessId)
             ];
@@ -1220,7 +1220,7 @@ class EisTerminalActivationService
                     'deactivation_reason' => $terminal->deactivation_reason,
                     'toggled_at' => $terminal->toggled_at,
                     'toggled_by' => $terminal->toggled_by,
-                    'current_status' => $setting->status && $terminal->is_active ? 'Active' : 'Inactive',
+                    'current_status' => TerminalContext::isOperational((bool) $setting->status, $terminal->is_active) ? 'Active' : 'Inactive',
                     'is_confirmed' => $terminal->is_confirmed ?? false,
                     'confirmed_at' => $terminal->confirmed_at,
                     'terminal_id' => $terminal->terminal_id,

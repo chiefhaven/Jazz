@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Modules\EIS\Models\EisTerminalConfiguration;
 use Modules\EIS\Models\EisConfiguration;
 use Modules\EIS\Services\Terminal\EisTerminalActivationService;
+use Modules\EIS\Services\Terminal\TerminalContext;
 
 class TerminalActivationController extends Controller
 {
@@ -471,7 +472,7 @@ class TerminalActivationController extends Controller
                 ], 404);
             }
 
-            if (!$terminal->is_active) {
+            if (!TerminalContext::isOperational((bool) $configuration->setting?->status, $terminal->is_active)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Terminal is not active'
@@ -734,8 +735,8 @@ class TerminalActivationController extends Controller
                     'terminal' => [
                         'id' => $terminal->id,
                         'terminal_label' => $terminal->terminal_label,
-                        'is_active' => $terminal->is_active,
-                        'status' => $terminal->status,
+                        'is_active' => TerminalContext::isOperational((bool) $configuration->setting?->status, $terminal->is_active),
+                        'status' => TerminalContext::isOperational((bool) $configuration->setting?->status, $terminal->is_active) ? 'Active' : 'Inactive',
                         'display_name' => $terminal->display_name,
                         'trading_name' => $terminal->trading_name,
                         'email_address' => $terminal->email_address,
@@ -853,7 +854,7 @@ class TerminalActivationController extends Controller
             $issues = [];
 
             // Check if terminal is active
-            if (!$terminal->is_active) {
+            if (!TerminalContext::isOperational((bool) $configuration->setting?->status, $terminal->is_active)) {
                 $healthScore -= 30;
                 $issues[] = 'Terminal is inactive';
             }
@@ -895,7 +896,7 @@ class TerminalActivationController extends Controller
                 'status' => $healthScore >= 70 ? 'healthy' : ($healthScore >= 40 ? 'warning' : 'critical'),
                 'issues' => $issues,
                 'data' => [
-                    'is_active' => $terminal->is_active,
+                    'is_active' => TerminalContext::isOperational((bool) $configuration->setting?->status, $terminal->is_active),
                     'has_credentials' => $terminal->hasCredentials(),
                     'has_site' => $terminal->hasSite(),
                     'has_offline_limit' => $terminal->hasOfflineLimit(),

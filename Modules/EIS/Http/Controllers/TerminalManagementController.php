@@ -45,7 +45,7 @@ class TerminalManagementController extends Controller
                     'location_name' => $location->name,
                     'terminal_label' => $terminal->terminal_label,
                     'device_id' => $terminal->device_id,
-                    'is_active' => (bool) $terminal->status && (bool) $terminal->is_active,
+                    'is_active' => TerminalContext::isOperational((bool) $terminal->status, $terminal->is_active),
                     'is_default' => (int) $location->default_eis_setting_id === (int) $terminal->id,
                 ];
             });
@@ -114,13 +114,13 @@ class TerminalManagementController extends Controller
                 ->lockForUpdate()->findOrFail($terminal->location_id);
             $settings = EisSetting::where('business_id', $terminal->business_id)
                 ->where('location_id', $location->id)->lockForUpdate()->findOrFail($terminal->id);
-            $active = DB::table('eis_terminal_configurations as terminal')
+            $remoteActive = DB::table('eis_terminal_configurations as terminal')
                 ->join('eis_configurations as configuration', 'configuration.id', '=', 'terminal.configuration_id')
                 ->where('configuration.eis_setting_id', $settings->id)
                 ->where('configuration.business_id', $settings->business_id)
                 ->where('configuration.location_id', $location->id)
-                ->where('terminal.is_active', true)->exists();
-            if (!$settings->status || !$active) {
+                ->value('terminal.is_active');
+            if (!TerminalContext::isOperational((bool) $settings->status, $remoteActive)) {
                 return false;
             }
             $location->default_eis_setting_id = $terminal->id;

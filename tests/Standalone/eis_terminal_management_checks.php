@@ -22,6 +22,7 @@ $app = new class extends Container {
     }
 };
 Container::setInstance($app);
+$app->instance('config', new Illuminate\Config\Repository(['eis' => ['environment' => 'production']]));
 $capsule = new Capsule($app);
 $capsule->addConnection(['driver' => 'sqlite', 'database' => ':memory:']);
 $capsule->setAsGlobal();
@@ -159,6 +160,29 @@ foreach ([[0, 1], [1, 0], [0, 0], [1, 1]] as [$localActive, $remoteActive]) {
 $db->table('business_locations')->where('id', 10)->update(['default_eis_setting_id' => 101]);
 $db->table('eis_settings')->where('id', 102)->update(['status' => 0]);
 $db->table('eis_terminal_configurations')->where('configuration_id', 1102)->update(['is_active' => 0]);
+
+foreach (['development', 'dev', 'sandbox', 'production', 'invalid', ''] as $mode) {
+    $app['config']->set('eis.environment', $mode);
+    foreach ([false, true] as $localActive) {
+        $db->table('eis_settings')->where('id', 102)->update(['status' => $localActive]);
+        $listed = $controller->index(managementRequest())->getData(true)['data']['terminals'][1];
+        $expected = $localActive && in_array($mode, ['development', 'dev', 'sandbox'], true);
+        managementCheck($listed['is_active'] === $expected, 'Inactive API flag uses environment and local status: '.$mode);
+        $result = $controller->setDefault(managementRequest(), 102)->getData(true);
+        managementCheck($result['success'] === $expected, 'Default selection uses operational status: '.$mode);
+    }
+}
+$app['config']->set('eis.environment', 'development');
+$db->table('eis_settings')->where('id', 102)->update(['status' => 1]);
+$db->table('eis_terminal_configurations')->where('configuration_id', 1102)->delete();
+managementCheck(!$controller->index(managementRequest())->getData(true)['data']['terminals'][1]['is_active'],
+    'Development does not treat a missing terminal configuration as active');
+managementCheck(!$controller->setDefault(managementRequest(), 102)->getData(true)['success'],
+    'Development cannot default a terminal without configuration');
+$db->table('eis_terminal_configurations')->insert(['id' => 2102, 'configuration_id' => 1102, 'terminal_label' => 'Label 102', 'is_active' => 0]);
+$db->table('eis_settings')->where('id', 102)->update(['status' => 0]);
+$db->table('business_locations')->where('id', 10)->update(['default_eis_setting_id' => 101]);
+$app['config']->set('eis.environment', 'production');
 
 foreach (['index', 'activate', 'latestConfig', 'deactivate', 'renewTokens', 'setDefault'] as $action) {
     managementReject(fn () => $controller->$action(managementRequest([], null), 101), 401, $action.' rejects anonymous users');

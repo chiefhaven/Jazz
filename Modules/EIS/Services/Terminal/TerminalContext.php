@@ -67,12 +67,20 @@ final class TerminalContext
         return $settings;
     }
 
+    public static function isOperational(bool $locallyEnabled, ?bool $remoteActive): bool
+    {
+        // Development EIS can report working terminals as inactive. Never bypass local deactivation.
+        $development = in_array(strtolower(trim((string) config('eis.environment', ''))), ['development', 'dev', 'sandbox'], true);
+
+        return $locallyEnabled && $remoteActive !== null && ($remoteActive || $development);
+    }
+
     public static function assertActive(EisSetting $settings): void
     {
         $configuration = \Modules\EIS\Models\EisConfiguration::where('eis_setting_id', $settings->id)
             ->where('business_id', $settings->business_id)->firstOrFail();
         $terminal = \Modules\EIS\Models\EisTerminalConfiguration::where('configuration_id', $configuration->id)->firstOrFail();
-        if (!$settings->status || !$terminal->is_active) {
+        if (!self::isOperational((bool) $settings->status, $terminal->is_active)) {
             throw new \InvalidArgumentException('The location default EIS terminal is inactive. Activate it before submitting sales.');
         }
     }

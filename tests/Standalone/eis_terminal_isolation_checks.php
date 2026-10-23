@@ -200,6 +200,39 @@ locationCheck(!TerminalContext::settings(1, null, $newId)->status, 'Deactivation
 $selectedConfiguration = Modules\EIS\Models\EisConfiguration::where('eis_setting_id', $newId)->firstOrFail();
 $sync->syncTerminalConfiguration($selectedConfiguration, activationResponse('A2', 'A', 3)->data->configuration);
 locationReject(fn () => TerminalContext::forLocation(1, 1, true), 'Remote configuration refresh cannot undo local deactivation');
+$previousEnvironment = $app['config']->get('eis.environment', 'development');
+DB::beginTransaction();
+DB::table('eis_settings')->where('id', $newId)->update(['status' => true]);
+$inactiveResponse = activationResponse('A2', 'A', 3)->data->configuration;
+$inactiveResponse->terminalConfiguration->isActiveTerminal = false;
+$sync->syncTerminalConfiguration($selectedConfiguration, $inactiveResponse);
+foreach (['development', 'dev', 'sandbox', 'production', 'invalid', ''] as $mode) {
+    $app['config']['eis.environment'] = $mode;
+    $development = in_array($mode, ['development', 'dev', 'sandbox'], true);
+    $status = $activation->getStatus(1, $newId);
+    locationCheck($status['success'] && $status['is_active'] === $development
+        && $status['data']['is_active'] === $development
+        && $status['data']['status'] === ($development ? 'Active' : 'Inactive'),
+        'Terminal API status consistently applies environment policy: '.$mode);
+    if ($development) {
+        locationCheck(TerminalContext::forLocation(1, 1, true)->id === $newId,
+            'Development can submit through locally enabled terminal despite inactive API flag: '.$mode);
+    } else {
+        locationReject(fn () => TerminalContext::forLocation(1, 1, true),
+            'Non-development rejects remotely inactive terminals: '.$mode);
+    }
+}
+locationCheck(!Modules\EIS\Models\EisTerminalConfiguration::where('configuration_id', $selectedConfiguration->id)->firstOrFail()->is_active,
+    'Environment exception preserves the original remote inactive flag');
+$app['config']['eis.environment'] = 'development';
+$toggled = $activation->toggle(1, TerminalContext::settings(1, null, $newId)->jwt_token, 1, $newId);
+locationCheck($toggled['success'] && !$activation->getStatus(1, $newId)['is_active'],
+    'Toggle deactivates an operational development terminal even when remote flag is false');
+$sync->syncTerminalConfiguration($selectedConfiguration, $inactiveResponse);
+locationReject(fn () => TerminalContext::forLocation(1, 1, true),
+    'Development exception never bypasses local deactivation after configuration refresh');
+DB::rollBack();
+$app['config']['eis.environment'] = $previousEnvironment;
 locationCheck(!$activation->getStatus(1, $newId)['is_active'], 'Status reports local deactivation even if remote terminal flag is active');
 locationCheck($activation->toggle(1, 'jwt-A2', 1, $newId)['success']
     && TerminalContext::forLocation(1, 1, true)->id === $newId, 'Explicit legacy toggle updates both local status flags');
