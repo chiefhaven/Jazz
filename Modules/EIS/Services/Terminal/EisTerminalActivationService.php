@@ -371,7 +371,7 @@ class EisTerminalActivationService
             'terminalActivationCode' => $activationCode,
             'environment' => [
                 'platform' => [
-                    'osName' => $environment['platform']['osName'] ?? 'Unknown',
+                    'osName' => $this->platformOsName($environment['platform']['osName'] ?? null),
                     'osVersion' => $environment['platform']['osVersion'] ?? 'Unknown',
                     'osBuild' => $environment['platform']['osBuild'] ?? '',
                     'macAddress' => $environment['platform']['macAddress'] ?? '00:00:00:00:00:00'
@@ -436,6 +436,26 @@ class EisTerminalActivationService
         }
 
         return $responseData;
+    }
+
+    private function platformOsName(?string $name): string
+    {
+        $name = trim($name ?? '');
+        if ($name === '' || in_array(strtolower($name), ['unknown', 'web'], true)) {
+            $name = (string) request()->header('User-Agent', '');
+        }
+        foreach ([
+            'Android' => '/android/i',
+            'iOS' => '/iphone|ipad|ipod|^ios$/i',
+            'Windows' => '/windows|^win32$|^win64$/i',
+            'MacOS' => '/macintosh|macintel|mac os|^macos$|^darwin$/i',
+            'Linux' => '/linux/i',
+        ] as $os => $pattern) {
+            if (preg_match($pattern, $name)) {
+                return $os;
+            }
+        }
+        throw new \InvalidArgumentException('Cannot identify the terminal operating system. Use Windows, MacOS, Linux, Android or iOS.');
     }
 
     /**

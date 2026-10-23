@@ -2,6 +2,8 @@
 
 ## Settings → MRA EIS terminal management
 
+Activation normalizes operating-system names before contacting EIS. Browser platform aliases such as `Win32`/`MacIntel` are not sent as OS names; the settings form lets the server identify the OS from the request user agent. Unrecognized operating systems are rejected locally with an actionable error.
+
 The settings tab lists terminals at the signed-in user's permitted locations, including restricted administrators. Multiple terminals may belong to a location; **Set default** designates the location's terminal for sales. Terminal IDs below are local `eis_settings.id` values, not EIS device IDs or configuration IDs.
 
 All management routes require a session-authenticated account with `business_settings.access`; POST requests require the normal web CSRF token. Business identity comes from the account, never from a client-supplied business ID. Locations and terminals must belong to that business and be permitted for that user (`all` is honored).

@@ -94,6 +94,37 @@ locationCheck($activation->toggle(1, 'jwt-A2', 1, $newId)['success']
     && TerminalContext::forLocation(1, 1, true)->id === $newId, 'Explicit legacy toggle updates both local status flags');
 $activation->deactivate(1, 'Test', 1, $newId);
 
+$callActivation = new ReflectionMethod($activation, 'callActivationAPI');
+$callActivation->setAccessible(true);
+$http = new Illuminate\Http\Client\Factory();
+$http->preventStrayRequests();
+Illuminate\Support\Facades\Http::swap($http);
+Illuminate\Support\Facades\Http::fake(fn () => Illuminate\Support\Facades\Http::response([
+    'statusCode' => 1, 'data' => ['activatedTerminal' => ['terminalId' => 'TEST']],
+]));
+foreach ([
+    'Win32' => 'Windows', 'Win64' => 'Windows', 'Windows' => 'Windows',
+    'MacIntel' => 'MacOS', 'MacOS' => 'MacOS', 'Linux x86_64' => 'Linux',
+    'Linux armv8l Android' => 'Android', 'iPhone' => 'iOS', 'iOS' => 'iOS',
+] as $inputOs => $expectedOs) {
+    $callActivation->invoke($activation, 1, 'TEST', ['platform' => ['osName' => $inputOs]]);
+    $request = Illuminate\Support\Facades\Http::recorded()->last()[0];
+    locationCheck($request['environment']['platform']['osName'] === $expectedOs,
+        'Activation HTTP payload normalizes '.$inputOs.' to '.$expectedOs);
+}
+$app->instance('request', Request::create('http://localhost/eis/terminals/activate', 'POST', [], [], [], [
+    'HTTP_USER_AGENT' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+]));
+foreach ([[], ['platform' => ['osName' => 'Web']]] as $environment) {
+    $callActivation->invoke($activation, 1, 'TEST', $environment);
+    locationCheck(Illuminate\Support\Facades\Http::recorded()->last()[0]['environment']['platform']['osName'] === 'Windows',
+        'Omitted/browser-placeholder OS is identified from request user agent');
+}
+$requestsBefore = count(Illuminate\Support\Facades\Http::recorded());
+locationReject(fn () => $callActivation->invoke($activation, 1, 'TEST', ['platform' => ['osName' => 'UnrecognizedOS']]),
+    'Unsupported explicit OS fails locally');
+locationCheck(count(Illuminate\Support\Facades\Http::recorded()) === $requestsBefore, 'Unsupported OS never reaches EIS');
+
 $http = new Illuminate\Http\Client\Factory();
 $http->preventStrayRequests();
 Illuminate\Support\Facades\Http::swap($http);
