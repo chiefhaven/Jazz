@@ -195,18 +195,66 @@ $db->table('eis_terminal_configurations')->insert([
     'configuration_id' => $db->table('eis_configurations')->where('business_id', 1)->value('id'),
     'terminal_id' => 'TERMINAL-A',
 ]);
+$db->getSchemaBuilder()->table('eis_settings', function (Blueprint $table) {
+   foreach (['last_sync_at', 'sync_status', 'sync_error'] as $column) {
+       $table->text($column)->nullable();
+   }
+});
+$db->getSchemaBuilder()->table('eis_configurations', function (Blueprint $table) {
+   foreach (['tax_office_code', 'tax_office_name'] as $column) {
+       $table->text($column)->nullable();
+   }
+});
+$db->getSchemaBuilder()->table('eis_terminal_configurations', function (Blueprint $table) {
+   foreach ([
+       'version', 'terminal_label', 'is_active', 'is_confirmed', 'email_address', 'phone_number',
+       'trading_name', 'max_transaction_age', 'max_cummulative_amount', 'address_lines', 'raw_data',
+       'last_synced_at', 'activated_at', 'activated_by', 'deactivated_at', 'deactivated_by',
+       'deactivation_reason', 'toggled_at', 'toggled_by', 'activation_code', 'activation_environment',
+       'terminal_position', 'taxpayer_id', 'activation_date', 'jwt_token', 'secret_key', 'created_at', 'updated_at',
+   ] as $column) {
+       $table->text($column)->nullable();
+   }
+});
+foreach (['eis_terminal_sites', 'eis_offline_limits'] as $tableName) {
+   $db->getSchemaBuilder()->create($tableName, function (Blueprint $table) {
+       $table->increments('id');
+       $table->integer('terminal_configuration_id');
+       $table->timestamps();
+   });
+}
 $db->table('eis_settings')->where('business_id', 1)->update(['device_id' => null]);
 $replacement = unserialize(serialize($data));
-$replacement->terminalConfiguration->terminalId = 'TERMINAL-B';
+$replacement->terminalConfiguration->terminalId = 'TERMINAL-C';
+$replacement->terminalConfiguration->terminalSite->siteId = 'SITE-C';
+$replacement->taxpayerConfiguration->tin = 'TIN-C';
 $response = (object) ['data' => (object) [
-    'activatedTerminal' => (object) ['terminalId' => 'TERMINAL-B'],
-    'configuration' => $replacement,
+   'activatedTerminal' => (object) [
+       'terminalId' => 'TERMINAL-C',
+       'terminalPosition' => 3,
+       'taxpayerId' => 300,
+       'terminalCredentials' => (object) ['jwtToken' => 'token-c', 'secretKey' => 'secret-c'],
+   ],
+   'configuration' => $replacement,
 ]];
-terminalReject(fn () => $process->invoke($activation, 1, $response, 'CODE', [], 1),
-    'Persisted terminal identity blocks replacement when settings device ID is missing');
-catalogCheck($db->table('eis_settings')->where('business_id', 1)->value('device_id') === null,
-    'Rejected activation leaves incomplete settings unchanged');
-$db->table('eis_settings')->where('business_id', 1)->update(['device_id' => 'TERMINAL-A']);
+$replacementResult = $process->invoke($activation, 1, $response, 'CODE-C', [], 1);
+catalogCheck($replacementResult['success'], 'A new terminal can replace the existing business terminal');
+catalogCheck($db->table('eis_settings')->where('business_id', 1)->value('device_id') === 'TERMINAL-C',
+   'Terminal replacement updates the business settings');
+catalogCheck($db->table('eis_terminal_configurations')->where('configuration_id',
+   $db->table('eis_configurations')->where('business_id', 1)->value('id'))->count() === 1
+   && $db->table('eis_terminal_configurations')->value('terminal_id') === 'TERMINAL-C',
+   'Terminal replacement updates the existing configuration instead of creating a second terminal');
+catalogCheck($db->table('eis_configurations')->where('business_id', 1)->value('tpin') === 'TIN-C',
+   'Terminal replacement updates the business configuration identity');
+$db->table('eis_settings')->where('business_id', 1)->update([
+   'device_id' => 'TERMINAL-A', 'branch_id' => 'SITE-A', 'tpin' => 'TIN-A',
+]);
+$db->table('eis_configurations')->where('business_id', 1)->update([
+   'tpin' => 'TIN-A', 'raw_response' => json_encode(['data' => $data]),
+]);
+$db->table('eis_terminal_configurations')->where('configuration_id',
+   $db->table('eis_configurations')->where('business_id', 1)->value('id'))->update(['terminal_id' => 'TERMINAL-A']);
 
 // Location reconciliation must target the terminal site, not the first business location.
 $db->getSchemaBuilder()->table('business', function (Blueprint $table) {
