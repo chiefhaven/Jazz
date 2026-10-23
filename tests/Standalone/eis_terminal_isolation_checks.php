@@ -328,7 +328,7 @@ DB::table('eis_configurations')->where('id', 2)->update([
     'raw_response' => json_encode(['data' => $configurationClient->data]),
 ]);
 $configurationValidator = Mockery::mock(Modules\EIS\Services\Configuration\Validators\ConfigurationValidator::class);
-$configurationValidator->shouldReceive('validate')->once()->andReturnNull();
+$configurationValidator->shouldReceive('validate')->times(5)->andReturnNull();
 $configService = new Modules\EIS\Services\Configuration\ConfigurationSyncService(
     $configurationClient, $configurationValidator
 );
@@ -350,6 +350,65 @@ locationCheck(DB::table('business_locations')->where('id', '!=', 2)->orderBy('id
     'Site rename preserves other locations and tenants');
 locationCheck($configService->sync(1, 'token2', false, 2)->id === 2,
     'Repeated unchanged configuration still skips validation and duplicate persistence');
+$configurationClient->data->terminalConfiguration->terminalLabel = 'Updated till label';
+$configurationClient->data->terminalConfiguration->tradingName = 'Updated trading name';
+$configurationClient->data->terminalConfiguration->emailAddress = 'site@example.invalid';
+$configurationClient->data->terminalConfiguration->phoneNumber = '0999000000';
+$configurationClient->data->terminalConfiguration->addressLines = ['Updated EIS address'];
+$configurationClient->data->terminalConfiguration->isActiveTerminal = false;
+$configurationClient->data->terminalConfiguration->offlineLimit->maxTransactionAgeInHours = 12;
+$configurationClient->data->terminalConfiguration->offlineLimit->maxCummulativeAmount = 4500;
+$configurationClient->data->globalConfiguration->newGlobalField = 'updated';
+$configurationClient->data->taxpayerConfiguration->taxOffice = (object) ['name' => 'Updated tax office'];
+$refreshed = $configService->sync(1, 'token2', false, 2);
+locationCheck(data_get($refreshed->raw_response, 'data.globalConfiguration.newGlobalField') === 'updated'
+    && data_get($refreshed->raw_response, 'data.taxpayerConfiguration.taxOffice.name') === 'Updated tax office',
+    'All global and taxpayer fields refresh at unchanged versions and remain accessible without double JSON decoding');
+$terminalRow = DB::table('eis_terminal_configurations')->where('configuration_id', 2)->first();
+locationCheck($terminalRow->terminal_label === 'Updated till label' && $terminalRow->trading_name === 'Updated trading name'
+    && $terminalRow->email_address === 'site@example.invalid' && $terminalRow->phone_number === '0999000000'
+    && json_decode($terminalRow->address_lines, true) === ['Updated EIS address'] && !$terminalRow->is_active,
+    'Unversioned terminal labels, contact details, addresses and remote activity refresh');
+$limitRow = DB::table('eis_offline_limits')->where('terminal_configuration_id', $terminalRow->id)->first();
+locationCheck((int) $limitRow->max_transaction_age_hours === 12 && (float) $limitRow->max_cumulative_amount === 4500.0,
+    'Unversioned offline limit changes refresh normalized limits');
+$locationRow = DB::table('business_locations')->where('id', 2)->first();
+locationCheck($locationRow->mobile === '0999000000' && $locationRow->email === 'site@example.invalid'
+    && (string) $locationRow->eis_site_id === 'B', 'Location contact projection refreshes without moving its site');
+locationCheck(DB::table('business_locations')->where('id', '!=', 2)->orderBy('id')->get()->toJson() === $otherLocations,
+    'Full configuration refresh leaves other locations and tenants unchanged');
+$configurationClient->data->terminalConfiguration->emailAddress = null;
+$configurationClient->data->terminalConfiguration->addressLines = [];
+$configService->sync(1, 'token2', false, 2);
+locationCheck(DB::table('business_locations')->where('id', 2)->value('email') === null
+    && json_decode(DB::table('eis_terminal_configurations')->where('configuration_id', 2)->value('address_lines'), true) === [],
+    'Explicit EIS field clearing is detected even without version changes');
+locationCheck($configService->sync(1, 'token2', false, 2)->id === 2,
+    'Identical full payload remains a no-op after refreshing all fields');
+$schema->create('tax_rates', function (Blueprint $table) {
+    $table->increments('id');
+    foreach (['business_id', 'configuration_id', 'tax_rate_id', 'name', 'charge_mode', 'ordinal',
+        'rate', 'amount', 'is_activated', 'activation_id'] as $column) { $table->text($column)->nullable(); }
+    $table->timestamps();
+});
+$configurationClient->data->globalConfiguration->taxrates = [
+    (object) ['id' => 'VAT', 'name' => 'Updated VAT', 'rate' => 16.5, 'chargeMode' => 'Item', 'ordinal' => 1],
+];
+$configurationClient->data->taxpayerConfiguration->activatedTaxRateIds = ['VAT'];
+DB::table('eis_settings')->where('id', 2)->update(['status' => 0]);
+$configService->sync(1, 'token2', false, 2);
+$vat = DB::table('tax_rates')->where('configuration_id', 2)->where('tax_rate_id', 'VAT')->first();
+locationCheck($vat && (float) $vat->rate === 16.5 && (bool) $vat->is_activated,
+    'Global tax rate and taxpayer activation changes synchronize even at unchanged versions');
+$configurationClient->data->globalConfiguration->taxrates[0]->rate = 17;
+$configurationClient->data->taxpayerConfiguration->activatedTaxRateIds = [];
+$configService->sync(1, 'token2', false, 2);
+$vat = DB::table('tax_rates')->where('configuration_id', 2)->where('tax_rate_id', 'VAT')->first();
+locationCheck((float) $vat->rate === 17.0 && !$vat->is_activated && DB::table('tax_rates')->count() === 1,
+    'Existing rate amount and activation update without duplicate rate rows');
+locationCheck(!DB::table('eis_settings')->where('id', 2)->value('status'),
+    'Full configuration refresh never re-enables a locally deactivated terminal');
+DB::table('eis_settings')->where('id', 2)->update(['status' => 1]);
 $configurationClient->data->terminalConfiguration->terminalSite->siteId = 'A';
 $snapshot = DB::table('eis_configurations')->get()->toJson();
 try {

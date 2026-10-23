@@ -48,7 +48,7 @@ Activation normalizes operating-system names before contacting EIS. Browser plat
 
 The settings tab lists terminals at the signed-in user's permitted locations, including restricted administrators. Multiple terminals may belong to a location; **Set default** designates the location's terminal for sales. Terminal IDs below are local `eis_settings.id` values, not EIS device IDs or configuration IDs.
 
-**Get latest config** detects EIS site-name changes even when configuration version numbers stay unchanged. Refresh updates the stored response, terminal-site details and the assigned location name without changing the site ID, terminal assignment, defaults or historical transactions.
+**Get latest config** compares the complete EIS configuration payload, not only version numbers. Site names, terminal labels, trading/contact/address details, remote activity, offline limits, tax configuration and other global/taxpayer fields refresh even when EIS versions stay unchanged. Explicit cleared fields are detected too. The stored response retains all API fields; existing normalized projections refresh, including the assigned location's name/mobile/email. Local site/terminal ownership, manual enablement, invoice/payment defaults and historical transactions remain unchanged. A changed site/terminal/TIN identity is rejected for explicit activation/reconciliation rather than silently reassigned.
 
 All management routes require a session-authenticated account with `business_settings.access`; POST requests require the normal web CSRF token. Business identity comes from the account, never from a client-supplied business ID. Locations and terminals must belong to that business and be permitted for that user (`all` is honored).
 

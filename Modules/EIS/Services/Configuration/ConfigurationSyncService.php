@@ -132,11 +132,20 @@ class ConfigurationSyncService
                 // Sync terminal configuration
                 Log::info('Starting terminal configuration sync...');
                 $this->syncTerminalConfiguration($configuration, $data);
+                $locationData = [];
                 $siteName = $data->terminalConfiguration->terminalSite->siteName ?? null;
                 if (is_string($siteName) && trim($siteName) !== '') {
+                    $locationData['name'] = $siteName;
+                }
+                foreach (['phoneNumber' => 'mobile', 'emailAddress' => 'email'] as $remote => $local) {
+                    if (property_exists($data->terminalConfiguration, $remote)) {
+                        $locationData[$local] = $data->terminalConfiguration->$remote;
+                    }
+                }
+                if ($locationData) {
                     \App\BusinessLocation::where('business_id', $businessId)
                         ->where('eis_site_id', \Modules\EIS\Services\Terminal\TerminalContext::site($settings))
-                        ->findOrFail($settings->location_id)->update(['name' => $siteName]);
+                        ->findOrFail($settings->location_id)->update($locationData);
                 }
 
                 Log::info('Configuration sync completed successfully', [
@@ -700,9 +709,9 @@ class ConfigurationSyncService
         if (is_string($storedResponse)) {
             $storedResponse = json_decode($storedResponse, true, 512, JSON_THROW_ON_ERROR);
         }
-        // EIS site renames do not necessarily increment the configuration versions.
-        $siteNameChanged = data_get($storedResponse, 'data.terminalConfiguration.terminalSite.siteName')
-            !== ($newData->terminalConfiguration->terminalSite->siteName ?? null);
+        // EIS may change configuration values without incrementing their versions.
+        $payloadChanged = data_get($storedResponse, 'data')
+            !== json_decode(json_encode($newData, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
         
         return $globalVersionChanged || 
                $terminalVersionChanged || 
@@ -710,7 +719,7 @@ class ConfigurationSyncService
                $tinChanged ||
                $vatChanged ||
                $taxOfficeChanged ||
-               $siteNameChanged;
+               $payloadChanged;
     }
 
     /**
@@ -731,7 +740,7 @@ class ConfigurationSyncService
             'is_vat_registered' => $data->taxpayerConfiguration->isVATRegistered ?? false,
             'tax_office_code' => $data->taxpayerConfiguration->taxOfficeCode ?? null,
             'tax_office_name' => $data->taxpayerConfiguration->taxOffice->name ?? null,
-            'raw_response' => json_encode(['data' => $data]),
+            'raw_response' => ['data' => $data],
             'last_synced_at' => now()
         ];
     }
