@@ -5,6 +5,15 @@ use Modules\EIS\Http\Controllers\StockOutboundController;
 use Modules\EIS\Http\Controllers\TerminalManagementController;
 use Modules\EIS\Http\Controllers\UtilitiesController;
 use Modules\EIS\Http\Controllers\SalesController;
+use Modules\EIS\Http\Controllers\StockToolsController;
+
+Route::prefix('eis/stock/tools')->middleware('auth')->name('eis.stock.tools.')->group(function () {
+    Route::get('/', [StockToolsController::class, 'index'])->name('index');
+    Route::post('execute', [StockToolsController::class, 'execute'])->name('execute');
+    Route::get('requests/{id}', [StockToolsController::class, 'show'])->whereNumber('id')->name('show');
+    Route::post('requests/{id}/submit', [StockToolsController::class, 'submit'])->whereNumber('id')->name('submit');
+    Route::post('requests/{id}/verify', [StockToolsController::class, 'verify'])->whereNumber('id')->name('verify');
+});
 
 Route::prefix('eis/sales')->middleware('auth')->name('eis.sales.')->group(function () {
     Route::get('/', [SalesController::class, 'index'])->name('index');

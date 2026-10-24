@@ -119,6 +119,12 @@ class StockReconciliationService
 
     private function assertSettled(int $businessId, int $locationId, string $tin): void
     {
+        if ($this->db->getSchemaBuilder()->hasTable('eis_stock_tool_requests')
+            && $this->db->table('eis_stock_tool_requests')->where('business_id', $businessId)->where('tin', $tin)
+                ->where('endpoint', \Modules\EIS\Services\Utilities\EisUtilitiesClient::baseUrl())
+                ->whereIn('status', ['sending', 'unknown', 'needs_review'])->lockForUpdate()->exists()) {
+            throw new \InvalidArgumentException('Verify unresolved EIS warehouse/production requests before reconciling site stock.');
+        }
         if ($this->db->getSchemaBuilder()->hasTable('eis_sale_adjustments')
             && $this->db->table('eis_sale_adjustments')->where('business_id', $businessId)->where('location_id', $locationId)
                 ->where('status', '!=', 'accepted')->lockForUpdate()->exists()) {

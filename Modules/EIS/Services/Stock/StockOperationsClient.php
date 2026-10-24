@@ -9,6 +9,74 @@ use Modules\EIS\Services\Terminal\TerminalContext;
 
 class StockOperationsClient
 {
+    public function lookup(EisSetting $setting, string $operation, array $query = []): array
+    {
+        $paths = [
+            'warehouse-inventory' => ['GET', 'stock/warehouse-inventory'],
+            'get-raw-material' => ['GET', 'raw-material/get-raw-material'],
+            'get-suppliers' => ['POST', 'stock/get-suppliers'],
+            'get-hs-codes' => ['GET', 'stock/get-hs-codes'],
+            'get-units-of-measure' => ['GET', 'stock/get-units-of-measure'],
+        ];
+        if (!isset($paths[$operation])) { throw new \InvalidArgumentException('Select a documented stock lookup.'); }
+        $query = StockToolsOperations::payload($setting, $operation, $query);
+        [$method, $path] = $paths[$operation];
+        $response = $this->request($setting)->send($method, $path, $query ? ['query' => $query] : []);
+        $body = $response->json();
+        if (!$response->successful() || !is_array($body) || ($body['statusCode'] ?? null) !== 1
+            || !empty($body['errors']) || !is_array($body['data'] ?? null)) {
+            throw new \UnexpectedValueException('EIS returned an unsuccessful or invalid stock lookup.');
+        }
+        $data = $body['data'];
+        if (in_array($operation, ['warehouse-inventory', 'get-raw-material'], true)) {
+            if (array_key_exists('stocks', $data) && $data['stocks'] === null && ($data['total'] ?? null) === 0) {
+                $data['stocks'] = [];
+                $body['data'] = $data;
+            }
+            if (!is_array($data['stocks'] ?? null) || !array_is_list($data['stocks'])
+                || !is_int($data['total'] ?? null) || $data['total'] < 0
+                || ($data['page'] ?? null) !== $query['page'] || ($data['pageSize'] ?? null) !== $query['pageSize']
+                || count($data['stocks']) > $query['pageSize'] || count($data['stocks']) > $data['total']) {
+                throw new \UnexpectedValueException('EIS returned invalid inventory pagination.');
+            }
+            foreach ($data['stocks'] as $stock) {
+                if (!is_array($stock) || (isset($stock['barcode']) && !is_string($stock['barcode']))
+                    || !is_numeric($stock['currentQuantity'] ?? null) || !is_finite((float) $stock['currentQuantity'])) {
+                    throw new \UnexpectedValueException('EIS returned an invalid inventory item.');
+                }
+            }
+        } elseif (!array_is_list($data)) {
+            throw new \UnexpectedValueException('EIS returned an invalid lookup list.');
+        } else {
+            $identity = match ($operation) {
+                'get-suppliers' => 'supplierId', 'get-hs-codes' => 'code', 'get-units-of-measure' => 'unitOfMeasure',
+            };
+            foreach ($data as $item) {
+                $value = is_array($item) ? ($item[$identity] ?? null) : null;
+                if ($operation === 'get-suppliers' ? (!is_int($value) || $value <= 0)
+                    : (!is_string($value) || trim($value) === '')) {
+                    throw new \UnexpectedValueException('EIS returned an invalid lookup item.');
+                }
+            }
+        }
+        return array_intersect_key($body, array_flip(['statusCode', 'remark', 'errors', 'data']));
+    }
+
+    public function submitTool(EisSetting $setting, string $operation, array $payload): array
+    {
+        $path = match ($operation) {
+            'warehouse-transfer' => 'stock/transfer-inventory',
+            'submit-conversion' => 'raw-material/submit-conversion',
+            'add-product' => 'stock/add-product',
+            default => throw new \InvalidArgumentException('Select a documented stock mutation.'),
+        };
+        $response = $this->request($setting)->post($path, $payload);
+        $result = $this->result($response);
+        $body = $response->json();
+        if (is_array($body) && array_key_exists('data', $body)) { $result['response']['data'] = $body['data']; }
+        return $result;
+    }
+
     public function adjustmentReasons(EisSetting $setting): array
     {
         $response = $this->request($setting)
@@ -65,6 +133,7 @@ class StockOperationsClient
             ->withToken($setting->jwt_token)
             ->acceptJson()
             ->asJson()
+            ->withOptions(['allow_redirects' => false])
             ->timeout(30)
             ->connectTimeout(10);
     }

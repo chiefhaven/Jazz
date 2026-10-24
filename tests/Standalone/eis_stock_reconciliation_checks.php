@@ -32,6 +32,8 @@ $migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_
 $migration->up();
 $migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_24_030000_create_eis_sale_adjustments.php';
 $migration->up();
+$migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_24_040000_create_eis_stock_tool_requests.php';
+$migration->up();
 $client = new class extends StockInventoryClient {
     public array $inventory = ['EIS-ONE' => '8.0000'];
     public function fetch(\Modules\EIS\Models\EisSetting $setting): array { return $this->inventory; }
@@ -150,6 +152,24 @@ foreach (Modules\EIS\Services\Stock\StockOutboundService::UNSETTLED_STATUSES as 
         $db->table('eis_stock_operations')->where('id', $op)->delete();
     }
 }
+
+$stockTool = $db->table('eis_stock_tool_requests')->insertGetId([
+    'business_id' => 1, 'location_id' => 4, 'eis_setting_id' => 1, 'created_by' => 7,
+    'operation' => 'submit-conversion', 'status' => 'unknown', 'request_key' => 'abc',
+    'identity' => str_repeat('c', 64), 'endpoint' => 'https://eis.invalid/api/v1', 'tin' => 'TIN',
+    'site_id' => 'SITE-A', 'device_id' => 'TEST', 'payload' => '{}',
+]);
+foreach (['sending', 'unknown', 'needs_review'] as $state) {
+    $db->table('eis_stock_tool_requests')->where('id', $stockTool)->update(['status' => $state]);
+    stockReject(fn () => $service->preview(1, 1, 7), 'Unresolved taxpayer stock tool '.$state.' blocks reconciliation even from another site');
+}
+foreach (['prepared', 'submitted', 'rejected', 'verified'] as $state) {
+    $db->table('eis_stock_tool_requests')->where('id', $stockTool)->update(['status' => $state]);
+    verify($service->preview(1, 1, 7)->status === 'preview', 'Unsent/settled taxpayer stock tool '.$state.' permits fresh stock reconciliation');
+}
+$db->table('eis_stock_tool_requests')->where('id', $stockTool)->update(['status' => 'unknown', 'tin' => 'OTHER-TAXPAYER']);
+verify($service->preview(1, 1, 7)->status === 'preview', 'Other taxpayer stock tool does not block current reconciliation');
+$db->table('eis_stock_tool_requests')->where('id', $stockTool)->delete();
 
 $adjustment = $db->table('eis_sale_adjustments')->insertGetId([
     'business_id' => 1, 'location_id' => 2, 'eis_setting_id' => 1, 'sale_id' => 100, 'return_id' => 101,

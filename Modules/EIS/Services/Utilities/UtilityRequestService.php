@@ -64,6 +64,7 @@ class UtilityRequestService
                 throw new \InvalidArgumentException('Endpoint or terminal ownership changed. Do not submit this saved request.');
             }
             if ($row->operation === 'taxpayer-initial-inventory-upload') {
+                \Modules\EIS\Services\Stock\StockToolsService::assertSettled($setting);
                 $this->assertInitialUploadSequence($row);
             } else {
                 $saleId = self::assertReceipt($setting, json_decode($row->payload, true, 512, JSON_THROW_ON_ERROR)['receiptNumber']);

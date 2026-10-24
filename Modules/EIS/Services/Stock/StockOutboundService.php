@@ -53,9 +53,10 @@ class StockOutboundService
 
         $operationId = DB::transaction(function () use (
             $businessId, $locationId, $terminalId, $operationType, $siteId,
-            $requestPayload, $linePayloads, $actorId, $sourceStockAdjustmentId, $destinationLocationId
+            $requestPayload, $linePayloads, $actorId, $sourceStockAdjustmentId, $destinationLocationId, $setting
         ) {
             DB::table('business')->where('id', $businessId)->lockForUpdate()->first();
+            StockToolsService::assertSettled($setting);
             DB::table('business_locations')->where('business_id', $businessId)
                 ->whereIn('id', array_filter([$locationId, $destinationLocationId]))->orderBy('id')->lockForUpdate()->get();
             $now = now();
@@ -225,8 +226,21 @@ class StockOutboundService
         if (!$operation || $operation->status !== 'queued') {
             return;
         }
-        $updated = DB::table('eis_stock_operations')->where('id', $operationId)->where('status', 'queued')
-            ->update(['status' => 'submitting', 'updated_at' => now()]);
+        $updated = DB::transaction(function () use ($operation, $operationId) {
+            DB::table('business')->where('id', $operation->business_id)->lockForUpdate()->first();
+            $setting = EisSetting::where('business_id', $operation->business_id)
+                ->where('location_id', $operation->location_id)->find($operation->eis_setting_id);
+            try {
+                if ($setting) { StockToolsService::assertSettled($setting); }
+            } catch (\InvalidArgumentException $exception) {
+                DB::table('eis_stock_operations')->where('id', $operationId)->where('status', 'queued')
+                    ->update(['error_message' => $exception->getMessage(), 'updated_at' => now()]);
+                Log::warning('EIS stock outbox blocked by unresolved stock tools', ['operation_id' => $operationId]);
+                return 0;
+            }
+            return DB::table('eis_stock_operations')->where('id', $operationId)->where('status', 'queued')
+                ->update(['status' => 'submitting', 'updated_at' => now()]);
+        });
         if ($updated !== 1) {
             return;
         }

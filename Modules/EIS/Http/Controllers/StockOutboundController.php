@@ -242,7 +242,7 @@ class StockOutboundController extends Controller
             ], $items);
             $requestPayload = [
                 'supplierId' => (int) $input['supplier_id'],
-                'receivingDate' => $input['receiving_date'],
+                'receivingDate' => \Carbon\Carbon::parse($input['receiving_date'])->toIso8601String(),
                 'receivedBy' => $input['received_by'],
                 'totalItems' => count($apiItems),
                 'totalQuantity' => array_sum(array_column($apiItems, 'quantityReceived')),

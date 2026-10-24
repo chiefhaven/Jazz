@@ -1,5 +1,45 @@
 # EIS Terminal Activation and Configuration Fixes
 
+## All StockOperations endpoints
+
+Settings -> MRA EIS -> **EIS warehouse / production / catalog** opens `/eis/stock/tools`. Together with the existing **EIS outbound stock operations** screen, this covers all 11 operations tagged `StockOperations` in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json), including the two `/raw-material` paths:
+
+| Method / path (under `/api/v1`) | Surface / behavior |
+| --- | --- |
+| POST `/stock/transfer-inventory` | Existing site-to-site outbox; new reviewed warehouse-to-site transfer pins the destination to the selected terminal's assigned site. No deprecated site-to-warehouse operation. |
+| GET `/stock/warehouse-inventory` | Taxpayer warehouse stock, `page` >= 1 and `pageSize` 1-200 (template 50). |
+| GET `/raw-material/get-raw-material` | Taxpayer raw-material warehouse stock with the same pagination. |
+| POST `/stock/submit-informal-purchase` | Existing goods-receiving outbox; requires approval, not an immediate local purchase. Receiving date is serialized as ISO-8601 date-time. |
+| POST `/raw-material/submit-conversion` | New reviewed raw-material consumption / finished-production request. No local manufacturing movement. |
+| POST `/stock/submit-adjustment` | Existing reason-backed Increase/Decrease outbox. |
+| POST `/stock/getStockAdjustmentReasons` | Existing live reason lookup used by local/outbound stock adjustments. |
+| POST `/stock/get-suppliers` | New supplier lookup exposes documented EIS supplier IDs for the informal-receiving form. |
+| POST `/stock/add-product` | New reviewed master-product creation with zero-quantity EIS warehouse inventory. |
+| GET `/stock/get-hs-codes` | New HS-code lookup for product creation. |
+| GET `/stock/get-units-of-measure` | New unit lookup for product creation / production. |
+
+New tools require `business_settings.access` and **all-location access** because warehouse, production and catalog results are taxpayer-wide. Mutations additionally require `stock_transfer.create`, `stock_adjustment.create` or `product.create`, respectively. Authentication always uses the selected tenant-owned terminal token; remote TIN/site/endpoint overrides are not accepted. Lookups follow their exact HTTP methods, send no invented request body, validate envelope/pagination/item shape and do not follow redirects.
+
+Warehouse transfers accept 1-100 unique barcodes with positive quantity and optional nonnegative price. Conversion requires a genuine unique `productionBatchId`, ISO-8601 `productionDate` with timezone, 1-100 unique raw materials and 1-100 unique finished products. Raw materials require `productId`, `productName`, `availableQuantity`, `usedQuantity`; quantities are at least 0.01 and usage cannot exceed availability. Finished items require `barcode`, `productDescription`, `unitOfMeasure`, quantity >= 0.01, and optional expiry on/after production. Finite quantities/prices are capped at 1 billion as a console safety limit, not an asserted API limit. Product creation requires `hsCode`, `name`, `description`, `uom`; optional barcode has at least four characters. Use the lookup values for HS code/uom; omit barcode to let EIS assign it.
+
+### Reviewed EIS-only mutations
+
+Apply the additive `eis_stock_tool_requests` InnoDB migration first. **Prepare -> review -> explicit confirm/send** stores endpoint/TIN/site/device/location, immutable payload, actors, timestamps and result. Preparation sends nothing. One request key survives repeat clicks and lost responses; changed input cannot replace an already prepared request. Start a different request only for a different genuine operation. Production batch IDs and product identities cannot be prepared twice under another request key. Warehouse transfers have no documented EIS idempotency token: deliberately starting another request for the same goods can duplicate the remote movement, so recover the original record through history instead.
+
+The send claim commits before HTTP and cannot be wrapped in an outer transaction. Only the claiming caller sends; no retries or redirects. Endpoint/terminal ownership and the assigned location's site are rechecked. Unknown/review outcomes block later taxpayer tool submissions, initial-inventory uploads, new stock-outbox requests and site-stock reconciliation. An already queued outbox request remains queued with an explicit blocking reason until the tool outcome is verified; dispatch it afterward. Conversely, queued/unresolved outbox requests and unfinished/uncertain initial-inventory batches block new tool sends. These claims share the business lock to prevent overlapping sends. Accepted product creation requires a matching documented product result, not just a success envelope. Uncertain conversion/transfer responses are not inferred from local quantities.
+
+History supports **record verified outcome** only after independent MRA verification, with a reference/outcome of at least 20 characters, verifying actor and timestamp. It never resends, changes the original result or approves anything at EIS. A request still marked sending cannot be reset this way. Verified requests remain non-retryable. Submitted/rejected/prepared requests do not require uncertain-outcome verification.
+
+These tools deliberately do **not** create local purchases, manufacturing records, transfers, products or stock quantities. After confirmed movements, compare/reconcile each affected site; import the catalog separately after product creation. Warehouse/raw-material retrieval never substitutes warehouse quantities for site inventory. Existing outbound flows and their permissions/audits remain unchanged.
+
+```powershell
+php -d error_reporting=24575 tests\Standalone\eis_stock_tools_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_stock_outbound_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_stock_reconciliation_checks.php
+```
+
+Validated with 115 new stock-tools checks, 35 existing outbound checks, 395 cumulative reconciliation checks and 119 Utilities checks (SQLite / fake HTTP). Related PHP and JavaScript syntax, Blade compilation and authenticated web routes pass. The additive migration is applied; its record, all 23 audit columns and InnoDB storage are verified. There were zero stock-tool requests after deployment verification; no live EIS mutation was sent.
+
 ## Sales submission, retrieval and linked credit/debit notes
 
 Settings -> MRA EIS -> **EIS Sales** provides the Sales endpoints in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json).

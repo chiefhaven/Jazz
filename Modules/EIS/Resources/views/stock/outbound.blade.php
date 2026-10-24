@@ -5,6 +5,7 @@
 @section('content')
 <section class="content-header">
     <h1>EIS stock operations</h1>
+    <p><a href="{{ route('eis.stock.tools.index') }}">Warehouse inventory, raw materials, warehouse-to-site transfers, suppliers, conversion and product tools</a></p>
     <p>Submitted operations are immutable. Unknown outcomes are not retried because EIS does not document an idempotency key.</p>
     <p>These forms submit to EIS only. After acceptance (and approval for informal purchases), compare/reconcile each affected location to create the local stock movements. Do not also enter a separate local transfer or purchase for the same operation.</p>
 </section>
