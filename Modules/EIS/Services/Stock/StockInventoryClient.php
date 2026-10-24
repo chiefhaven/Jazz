@@ -2,13 +2,15 @@
 
 namespace Modules\EIS\Services\Stock;
 
-use Illuminate\Support\Facades\Http;
 use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Products\OpeningStockInitializer;
 use Modules\EIS\Services\Terminal\TerminalContext;
+use Modules\EIS\Services\Utilities\EisUtilitiesClient;
 
 class StockInventoryClient
 {
+    public function __construct(private EisUtilitiesClient $client = new EisUtilitiesClient()) {}
+
     public function fetch(EisSetting $setting): array
     {
         $base = rtrim((string) config('eis.base_url'), '/');
@@ -17,10 +19,9 @@ class StockInventoryClient
         }
         $site = TerminalContext::site($setting);
         // InventoryRequest has no pagination fields in the published EIS contract.
-        $response = Http::withToken($setting->jwt_token)->acceptJson()->timeout(30)
-            ->post($base.'/utilities/get-terminal-site-products', ['tin' => $setting->tpin, 'siteId' => $site])
-            ->throw()->json();
-        if (!is_array($response) || ($response['statusCode'] ?? null) !== 1
+        $result = $this->client->send($setting, 'get-terminal-site-products', ['tin' => $setting->tpin, 'siteId' => $site]);
+        $response = $result['response'];
+        if ($result['outcome'] !== 'accepted'
             || !is_array($response['data'] ?? null) || !array_is_list($response['data'])) {
             throw new \UnexpectedValueException('EIS returned an unsuccessful or invalid site inventory response.');
         }

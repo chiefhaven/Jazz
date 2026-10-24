@@ -9,6 +9,7 @@ use Modules\EIS\Services\Stock\StockReconciliationService;
 [$db, $upserter] = openingFixture();
 $schema = $db->getSchemaBuilder();
 $container = Illuminate\Container\Container::getInstance();
+$container['config']['eis.base_url'] = 'https://eis.invalid/api/v1';
 $schema->table('transactions', function (Blueprint $t) {
     foreach (['source', 'ref_no', 'adjustment_type'] as $column) { $t->text($column)->nullable(); }
 });
@@ -26,6 +27,8 @@ $container->instance('db.schema', $schema);
 $migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_23_231000_create_eis_stock_reconciliations.php';
 $migration->up();
 $migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_23_234000_create_eis_stock_operations.php';
+$migration->up();
+$migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_24_020000_create_eis_utility_requests.php';
 $migration->up();
 $client = new class extends StockInventoryClient {
     public array $inventory = ['EIS-ONE' => '8.0000'];
@@ -145,6 +148,30 @@ foreach (Modules\EIS\Services\Stock\StockOutboundService::UNSETTLED_STATUSES as 
         $db->table('eis_stock_operations')->where('id', $op)->delete();
     }
 }
+
+$upload = $db->table('eis_utility_requests')->insertGetId([
+    'business_id' => 1, 'location_id' => 2, 'eis_setting_id' => 1, 'created_by' => 7,
+    'operation' => 'taxpayer-initial-inventory-upload', 'status' => 'accepted',
+    'endpoint' => 'https://eis.invalid/api/v1', 'tin' => 'TIN', 'site_id' => 'SITE-A',
+    'device_id' => 'TEST', 'identity' => str_repeat('a', 64), 'payload' => '{"isLastBatch":false,"products":[]}',
+]);
+stockReject(fn () => $service->preview(1, 1, 7), 'Staged taxpayer inventory blocks site reconciliation until finalization');
+foreach (['sending', 'unknown', 'needs_review'] as $state) {
+    $db->table('eis_utility_requests')->where('id', $upload)->update(['status' => $state]);
+    stockReject(fn () => $service->preview(1, 1, 7), 'Unresolved '.$state.' initial upload blocks reconciliation');
+}
+$db->table('eis_utility_requests')->where('id', $upload)->update(['status' => 'accepted', 'payload' => '{"isLastBatch":true,"products":[]}']);
+verify($service->preview(1, 1, 7)->status === 'preview', 'Accepted final initial upload clears stock reconciliation staging blocker');
+$otherUpload = (array) $db->table('eis_utility_requests')->find($upload);
+unset($otherUpload['id']);
+$otherUpload['tin'] = 'OTHER-TAXPAYER'; $otherUpload['identity'] = str_repeat('b', 64);
+$db->table('eis_utility_requests')->insert($otherUpload);
+$db->table('eis_utility_requests')->where('id', $upload)->update(['payload' => '{"isLastBatch":false,"products":[]}']);
+stockReject(fn () => $service->preview(1, 1, 7), 'A final batch for a different taxpayer cannot clear current taxpayer staging');
+$db->table('eis_utility_requests')->where('id', $upload)->update(['status' => 'unknown', 'endpoint' => 'https://other.invalid/api/v1']);
+verify($service->preview(1, 1, 7)->status === 'preview', 'Another endpoint or taxpayer cannot block current taxpayer reconciliation');
+$db->table('eis_utility_requests')->where('identity', str_repeat('b', 64))->delete();
+$db->table('eis_utility_requests')->where('id', $upload)->delete();
 
 $container['config']['eis.base_url'] = 'https://eis.invalid/api/v1';
 $db->table('eis_settings')->where('id', 1)->update(['jwt_token' => 'fixture-token']);

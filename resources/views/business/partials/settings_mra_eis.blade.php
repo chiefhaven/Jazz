@@ -1,6 +1,7 @@
 <div class="pos-tab-content" id="eis-terminal-management">
     <h4>MRA EIS terminals</h4>
     <p>
+        <a class="btn btn-default" href="{{ route('eis.utilities.index') }}">EIS Utilities</a>
         <a class="btn btn-info" href="{{ route('eis.stock.index') }}">Compare / reconcile EIS stock levels</a>
         <a class="btn btn-default" href="{{ route('eis.stock.outbound.index') }}">EIS outbound stock operations</a>
     </p>

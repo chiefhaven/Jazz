@@ -1,5 +1,39 @@
 # EIS Terminal Activation and Configuration Fixes
 
+## All Swagger Utilities operations
+
+Settings -> MRA EIS -> **EIS Utilities** opens `/eis/utilities`. This administrative console implements every operation tagged `Utilities` in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json), including the two tagged operations under `/sales`. Select a permitted terminal, select an operation, and fill the JSON template. Invalid/unknown fields fail validation before HTTP. Lookups show the full documented response envelope; a negative business validation (e.g. certificate `isValid=false`) remains visible rather than being treated as network success for a sale. Existing POS buyer/certificate validation retains its stricter business-validity checks.
+
+| Operation (POST) | User fields / behavior |
+| --- | --- |
+| `/utilities/validate-vat5-certificate` | `projectNumber`, `certificateNumber`, numeric `quantity` |
+| `/utilities/get-terminal-blocking-message` | `{}`; remote `terminalId` supplied from selected terminal |
+| `/utilities/check-terminal-unblock-status` | `{}`; remote `terminalId` supplied; does not locally enable a terminal |
+| `/utilities/check-tin-authorization-requirement` | Buyer `tin`; shows existence/authorization requirement |
+| `/utilities/validate-authorization-code` | `authorizationCode`; shows validity and returned details |
+| `/utilities/ping` | `{}`; no request body sent; displays server date |
+| `/utilities/product-status` | `productId`; own taxpayer TIN supplied; mapping/tax/stock details |
+| `/sales/cancel-receipt` | `receiptNumber`, `reason`, optional canonical base64 `supportingDocuments` (5 MiB decoded maximum) |
+| `/sales/get-void-receipts` | Optional `status`, `invoiceNumber`, ISO-8601 `startDate`/`endDate`; `page` defaults 1, `pageSize` defaults 20/max 200 |
+| `/utilities/get-terminal-site-products` | `{}`; exact selected-site `{tin, siteId}` supplied, no pagination |
+| `/utilities/taxpayer-initial-inventory-upload` | `isLastBatch`, list of 1-50 `products`; own TIN supplied |
+
+Initial inventory items require `barCode`, `productName`, `productDescription`, `unitPrice`, `quantityInStock`, `costPrice`, `sellingPrice`; optional `reorderLevel` and `overQuantityStockLevel`. Numeric values must be finite and within the console's 1-billion safety limit; required price/stock values cannot be negative. Duplicate barcodes within a batch or previously accepted batches are rejected. This is **initial taxpayer inventory**, not ongoing purchase receiving or a site-stock adjustment; do not upload dummy repair inventory or use it to resolve ordinary stock differences.
+
+Access requires `business_settings.access` and permitted locations, including administrators. Product status and initial inventory are taxpayer-wide and require all-location access; initial inventory additionally requires `stock_adjustment.create`. Cancellation requires `sell.delete` and a locally submitted fiscal receipt matching the selected terminal/location/business. Restricted users may list voids only with an owned submitted invoice filter; an upstream response containing other invoices is withheld. Historical request access also checks the saved location, even after a terminal moves. Remote identity overrides are rejected; no user-provided token or arbitrary endpoint is accepted.
+
+Cancellation and initial upload use **prepare -> review -> confirm/send**. Preparation never contacts EIS. Additive `eis_utility_requests` records retain the preparing and submitting actors, business/location/terminal, API endpoint, taxpayer/site/device identity, immutable payload, result and timestamps. Review displays these saved identities, not credentials. A duplicate receipt request reuses its original record even when the reason or receipt/invoice alias changes. Only the caller that atomically claims `prepared` can send; the claim commits before HTTP and cannot run inside an outer database transaction. Sending/accepted/rejected/unknown/review outcomes cannot be resent. No automatic HTTP retries or automatic local sale, stock or terminal-state changes occur. Void acceptance is a request for approval, not permission to reverse a local fiscal sale.
+
+For phased inventory, send each batch once and explicitly mark the final batch. Staged or uncertain uploads block authoritative site-stock reconciliation for the same business, taxpayer and endpoint; accepted finalization clears only that taxpayer's staged blocker. Unknown/sending/partial/skipped/unmapped results require MRA verification before further batches. There is no documented Utilities API for safely retrying/resetting uncertain staging; this console deliberately provides no blind reset or retry. After a final batch is accepted, another initial upload for that taxpayer/endpoint is blocked. A lost browser response can be recovered through **Recent reviewed requests -> Review** without resending.
+
+Run migrations before opening Utilities or reconciling stock. Existing POS buyer validation and stock retrieval share the Utilities transport; both host-only and `/api/v1` endpoint configurations work. No live EIS mutation is needed for validation:
+
+```powershell
+php -d error_reporting=24575 tests\Standalone\eis_utilities_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_pos_validation_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_stock_reconciliation_checks.php
+```
+
 ## EIS-authoritative site stock reconciliation
 
 Settings -> MRA EIS -> **Compare / reconcile stock** opens `/eis/stock`. Viewing/comparing requires `business_settings.access` or `stock_adjustment.view`; applying also requires `stock_adjustment.create`. Every operation enforces the authenticated business and permitted location, including administrators.

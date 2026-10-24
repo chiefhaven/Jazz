@@ -3,6 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use Modules\EIS\Http\Controllers\StockOutboundController;
 use Modules\EIS\Http\Controllers\TerminalManagementController;
+use Modules\EIS\Http\Controllers\UtilitiesController;
+
+Route::prefix('eis/utilities')->middleware('auth')->name('eis.utilities.')->group(function () {
+    Route::get('/', [UtilitiesController::class, 'index'])->name('index');
+    Route::post('execute', [UtilitiesController::class, 'execute'])->name('execute');
+    Route::get('requests/{requestId}', [UtilitiesController::class, 'show'])->whereNumber('requestId')->name('show');
+    Route::post('requests/{requestId}/submit', [UtilitiesController::class, 'submit'])->whereNumber('requestId')->name('submit');
+});
 
 Route::prefix('eis')->group(function () {
     Route::get('/', 'EISController@index');

@@ -19,7 +19,7 @@ class StockReconciliationService
         $inventory = $this->client->fetch($setting);
         return $this->db->transaction(function () use ($businessId, $setting, $inventory, $actorId) {
             $this->lockLocation($setting);
-            $this->assertSettled($businessId, (int) $setting->location_id);
+            $this->assertSettled($businessId, (int) $setting->location_id, (string) $setting->tpin);
             $lines = $this->lines($setting, $inventory);
             $id = $this->db->table('eis_stock_reconciliations')->insertGetId([
                 'business_id' => $businessId, 'location_id' => $setting->location_id,
@@ -54,7 +54,7 @@ class StockReconciliationService
                 throw new \InvalidArgumentException('Terminal site changed. Fetch a fresh stock comparison.');
             }
             $this->lockLocation($setting);
-            $this->assertSettled($businessId, (int) $setting->location_id);
+            $this->assertSettled($businessId, (int) $setting->location_id, (string) $setting->tpin);
             $inventory = $this->client->fetch($setting);
             if ($inventory !== json_decode($snapshot->inventory, true, 512, JSON_THROW_ON_ERROR)) {
                 throw new \InvalidArgumentException('EIS stock changed since comparison. Fetch a fresh comparison.');
@@ -90,7 +90,7 @@ class StockReconciliationService
         foreach (['business', 'business_locations', 'products', 'product_variations', 'variations', 'eis_product_maps',
             'transactions', 'purchase_lines', 'variation_location_details', 'stock_adjustment_lines',
             'transaction_sell_lines', 'transaction_sell_lines_purchase_lines', 'eis_stock_reconciliations',
-            'eis_settings', 'eis_stock_operations'] as $table) {
+            'eis_settings', 'eis_stock_operations', 'eis_utility_requests'] as $table) {
             $row = $this->db->selectOne('SELECT ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
                 [$this->db->getTablePrefix().$table]);
             if (!$row || strtoupper((string) $row->engine) !== 'INNODB') {
@@ -117,8 +117,21 @@ class StockReconciliationService
         TerminalContext::assertActive($current);
     }
 
-    private function assertSettled(int $businessId, int $locationId): void
+    private function assertSettled(int $businessId, int $locationId, string $tin): void
     {
+        $uploads = $this->db->table('eis_utility_requests')->where('business_id', $businessId)
+            ->where('endpoint', \Modules\EIS\Services\Utilities\EisUtilitiesClient::baseUrl())
+            ->where('tin', $tin)
+            ->where('operation', 'taxpayer-initial-inventory-upload')
+            ->whereIn('status', ['sending', 'unknown', 'needs_review', 'accepted'])->lockForUpdate()->get();
+        $finalized = $uploads->contains(fn ($upload) => $upload->status === 'accepted'
+            && json_decode($upload->payload, true, 512, JSON_THROW_ON_ERROR)['isLastBatch'] === true);
+        foreach ($uploads as $upload) {
+            if ($upload->status !== 'accepted' || !$finalized) {
+                throw new \InvalidArgumentException('Initial-inventory upload #'.$upload->id
+                    .' is staged or unresolved. Finish/verify the taxpayer upload with MRA before reconciling site stock.');
+            }
+        }
         $outbound = $this->db->table('eis_stock_operations')->where('business_id', $businessId)
             ->where(fn ($q) => $q->where('location_id', $locationId)->orWhere('destination_location_id', $locationId))
             ->whereIn('status', StockOutboundService::UNSETTLED_STATUSES)

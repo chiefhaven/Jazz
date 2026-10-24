@@ -3,13 +3,14 @@
 namespace Modules\EIS\Services\Utilities;
 
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Modules\EIS\Models\EisSetting;
 
 /** Contracts: https://eis-api.mra.mw/swagger/v1/swagger.json */
 class EisValidationClient
 {
+    public function __construct(private EisUtilitiesClient $client = new EisUtilitiesClient()) {}
+
     public function checkTinAuthorizationRequirement(EisSetting $settings, string $tin): array
     {
         return $this->post($settings, 'check-tin-authorization-requirement', ['tin' => $tin], 'buyerTIN');
@@ -38,22 +39,15 @@ class EisValidationClient
 
     private function post(EisSetting $settings, string $endpoint, array $payload, string $field): array
     {
-        $base = rtrim((string) config('eis.base_url'), '/');
-        // Existing deployments use either the host or a base ending in /api/v1.
-        $base = preg_replace('~/api/v1$~', '', $base);
-        if ($base === '' || trim((string) $settings->jwt_token) === '') {
-            throw ValidationException::withMessages([$field => 'EIS validation is not configured for this business.']);
-        }
         try {
-            $response = Http::acceptJson()->asJson()->withToken($settings->jwt_token)
-                ->connectTimeout(10)->timeout((int) config('eis.timeout', 30))
-                ->post($base.'/api/v1/utilities/'.$endpoint, $payload);
+            $result = $this->client->send($settings, $endpoint, $payload);
         } catch (ConnectionException $e) {
             throw ValidationException::withMessages([$field => 'EIS validation is unavailable. Please retry before saving the sale.']);
+        } catch (\InvalidArgumentException $e) {
+            throw ValidationException::withMessages([$field => 'EIS validation is not configured for this business.']);
         }
-        $body = $response->json();
-        if (! $response->successful() || ! is_array($body) || ($body['statusCode'] ?? null) !== 1
-            || ! empty($body['errors']) || ! is_array($body['data'] ?? null)) {
+        $body = $result['response'];
+        if ($result['outcome'] !== 'accepted' || ! is_array($body['data'] ?? null)) {
             throw ValidationException::withMessages([$field => 'EIS could not validate the buyer or certificate. Check the details and retry.']);
         }
         return $body['data'];
