@@ -1,6 +1,7 @@
 <div class="pos-tab-content" id="eis-terminal-management">
     <h4>MRA EIS terminals</h4>
     <p>
+        <a class="btn btn-default" href="{{ route('eis.sales.index') }}">EIS Sales</a>
         <a class="btn btn-default" href="{{ route('eis.utilities.index') }}">EIS Utilities</a>
         <a class="btn btn-info" href="{{ route('eis.stock.index') }}">Compare / reconcile EIS stock levels</a>
         <a class="btn btn-default" href="{{ route('eis.stock.outbound.index') }}">EIS outbound stock operations</a>
@@ -37,4 +38,10 @@
         </table>
     </div>
     <p class="text-muted">Only terminals in your permitted locations are shown. Token renewal stores new credentials securely on the server.</p>
+    <div id="eis-configuration-panel" hidden>
+        <h4>Global, Terminal and Taxpayer configurations</h4>
+        <p>Saved configuration for the selected terminal. Use Latest config to fetch all three groups from EIS. Local enablement and terminal ownership are not overwritten. Credentials are excluded.</p>
+        <pre id="eis-configuration-data" style="max-height: 500px; overflow: auto;"></pre>
+    </div>
+    <p class="text-muted">Request new token uses the Configuration API; Renew tokens uses the separate onboarding credentials operation. A lost or unrecognized token response requires MRA verification, not another request.</p>
 </div>

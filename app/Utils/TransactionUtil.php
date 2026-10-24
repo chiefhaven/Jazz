@@ -6378,6 +6378,9 @@ class TransactionUtil extends Util
                         ->with(['sell_lines', 'sell_lines.sub_unit'])
                         ->findOrFail($input['transaction_id']);
 
+        $eisReturns = app(\Modules\EIS\Services\Sales\SaleAdjustmentService::class);
+        $eisFiscal = $eisReturns->beforeReturn($sell, (int) $user_id);
+
         //Check if any sell return exists for the sale
         $sell_return = Transaction::where('business_id', $business_id)
                 ->where('type', 'sell_return')
@@ -6468,6 +6471,10 @@ class TransactionUtil extends Util
                 // Update quantity in variation location details
                 $productUtil->updateProductQuantity($sell_return->location_id, $sell_line->product_id, $sell_line->variation_id, $quantity, $quantity_before, null, false);
             }
+        }
+
+        if ($eisFiscal) {
+            $eisReturns->capture($sell, $sell_return, $eisFiscal, (int) $user_id);
         }
 
         return $sell_return;

@@ -153,6 +153,8 @@
             index: @json(route('eis.terminals.index')),
             activate: @json(route('eis.terminals.activate')),
             'latest-config': @json(route('eis.terminals.latest-config', ['terminalId' => 0])),
+            configuration: @json(route('eis.terminals.configuration', ['terminalId' => 0])),
+            'request-new-token': @json(route('eis.terminals.request-new-token', ['terminalId' => 0])),
             deactivate: @json(route('eis.terminals.deactivate', ['terminalId' => 0])),
             'renew-tokens': @json(route('eis.terminals.renew-tokens', ['terminalId' => 0])),
             'default': @json(route('eis.terminals.default', ['terminalId' => 0]))
@@ -195,7 +197,7 @@
                     $('<td>').text(terminal.is_default ? 'Default' : '—').appendTo(row);
                     $('<td>').text(terminal.is_active ? 'Active' : 'Inactive').appendTo(row);
                     var actions = $('<td>').appendTo(row);
-                    $.each({'latest-config': 'Latest config', 'deactivate': 'Deactivate', 'renew-tokens': 'Renew tokens', 'default': 'Set default'}, function(action, label) {
+                    $.each({configuration: 'View configurations', 'latest-config': 'Latest config', 'request-new-token': 'Request new token', 'deactivate': 'Deactivate', 'renew-tokens': 'Renew tokens', 'default': 'Set default'}, function(action, label) {
                         if ((action === 'deactivate' || action === 'default') && !terminal.is_active) return;
                         $('<button>', {type: 'button', 'class': 'btn btn-default btn-xs eis-terminal-action'})
                             .attr('data-terminal-id', terminal.id)
@@ -217,6 +219,11 @@
             });
         }
 
+        function showEisConfiguration(data) {
+            $('#eis-configuration-data').text(JSON.stringify(data, null, 2));
+            $('#eis-configuration-panel').prop('hidden', false);
+        }
+
         function eisAction(url, data, activated) {
             var reload = false;
             eisBusy = true;
@@ -230,6 +237,7 @@
             }).done(function(result) {
                 eisMessage(result.msg || result.message || 'Terminal updated.', !result.success);
                 if (result.success) {
+                    if (result.data && result.data.globalConfiguration) showEisConfiguration(result.data);
                     if (activated) $('#eis-activation-code').val('');
                     reload = true;
                 }
@@ -265,6 +273,19 @@
             var action = $(this).attr('data-action');
             var terminalId = $(this).attr('data-terminal-id');
             var data = {};
+            if (action === 'configuration') {
+                eisBusy = true; eisControls();
+                $('#eis-configuration-panel').prop('hidden', true);
+                $.getJSON(eisUrls.configuration.replace('/0/', '/' + terminalId + '/'))
+                    .done(function(result) { showEisConfiguration(result.data); })
+                    .fail(eisError).always(function() { eisBusy = false; eisControls(); });
+                return;
+            }
+            if (action === 'latest-config') $('#eis-configuration-panel').prop('hidden', true);
+            if (action === 'request-new-token') {
+                if (!window.confirm('Request a new token for terminal #' + terminalId + '? This may invalidate the existing token. An uncertain response must be verified with MRA; do not repeat it.')) return;
+                data.confirmed = 1;
+            }
             if (action === 'deactivate') {
                 var reason = window.prompt('Deactivate terminal #' + terminalId + '? Reason (optional):', '');
                 if (reason === null) return;

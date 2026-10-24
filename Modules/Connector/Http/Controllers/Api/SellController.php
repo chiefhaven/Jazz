@@ -1862,6 +1862,9 @@ class SellController extends ApiController
                 $output = $this->transactionUtil->addSellReturn($input, $business_id, $user->id);
 
                 DB::commit();
+                if (\Modules\EIS\Models\EisSale::where('business_id', $business_id)->where('transaction_id', $output->return_parent_id)->exists()) {
+                    $output->setAttribute('eis_adjustment_message', 'EIS adjustment saved for review in Settings > MRA EIS > EIS Sales; not sent yet.');
+                }
             }
         } catch (ModelNotFoundException $e) {
             DB::rollback();

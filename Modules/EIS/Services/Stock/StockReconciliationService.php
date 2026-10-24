@@ -119,6 +119,11 @@ class StockReconciliationService
 
     private function assertSettled(int $businessId, int $locationId, string $tin): void
     {
+        if ($this->db->getSchemaBuilder()->hasTable('eis_sale_adjustments')
+            && $this->db->table('eis_sale_adjustments')->where('business_id', $businessId)->where('location_id', $locationId)
+                ->where('status', '!=', 'accepted')->lockForUpdate()->exists()) {
+            throw new \InvalidArgumentException('Resolve linked EIS return credit/debit notes before reconciling site stock.');
+        }
         $uploads = $this->db->table('eis_utility_requests')->where('business_id', $businessId)
             ->where('endpoint', \Modules\EIS\Services\Utilities\EisUtilitiesClient::baseUrl())
             ->where('tin', $tin)

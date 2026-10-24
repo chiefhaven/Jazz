@@ -1,5 +1,29 @@
 # EIS Terminal Activation and Configuration Fixes
 
+## Configuration: latest Global, Terminal and Taxpayer groups
+
+Settings -> MRA EIS provides **View configurations**, **Latest config** and **Request new token** per permitted terminal. These implement both operations tagged `Configuration` in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json):
+
+| Operation | Behavior |
+| --- | --- |
+| POST `/api/v1/configuration/get-latest-configs` | Authenticated, no request body. Retrieves all three groups together and updates the existing terminal-scoped configuration projections. |
+| POST `/api/v1/configuration/request-new-terminal-token` | Authenticated, no request body. Explicit confirmation; one audited request, no automatic retry. Recognized credentials are stored server-side. |
+
+**View configurations** displays saved Global, Terminal and Taxpayer groups, their independent version numbers, selected terminal/location and last sync time. Global tax rates, terminal site/contact/address/offline limits and taxpayer VAT/tax-office/activated rates/levies are included. The viewer allowlists documented fields, including nested objects; credentials and activation fields are never returned. **Latest config** refreshes all three groups before displaying them; the existing complete-payload comparison detects field changes even when EIS does not increment versions. Ownership, historical routing, local enablement and designated defaults are preserved.
+
+Both host-only and `/api/v1` endpoint configurations work. Read-only configuration retrieval retries connection/server failures at most three times; rejected, redirected, malformed or incomplete responses fail explicitly and are not persisted. Requests do not follow redirects, and error logs exclude API bodies and credentials.
+
+Apply the additive `eis_terminal_token_requests` migration before using **Request new token**. This InnoDB audit table records actor, business, terminal, saved location, endpoint, status and timestamps without storing token response bodies. The send claim commits before HTTP. Concurrent/pending or uncertain requests block another token request, and terminal ownership/credentials are checked again before atomic persistence to the setting and terminal configuration. A network loss, persistence failure or unsupported response remains **unknown**, requiring MRA verification; there is no blind reset/retry.
+
+Swagger declares token-response `data` only as an object, without naming its properties. The implementation recognizes the integration's existing `jwtToken` and optional `secretKey` fields; it deliberately does not guess other shapes or expose them in the browser. A JWT-only response preserves the existing secret. This operation is separate from the legacy onboarding **Renew tokens** credentials-regeneration action. Do not use another rotation action to work around an uncertain result.
+
+Validation uses isolated SQLite and fake HTTP, never a live token rotation:
+
+```powershell
+php -d error_reporting=24575 tests\Standalone\eis_configuration_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_terminal_isolation_checks.php
+```
+
 ## All Swagger Utilities operations
 
 Settings -> MRA EIS -> **EIS Utilities** opens `/eis/utilities`. This administrative console implements every operation tagged `Utilities` in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json), including the two tagged operations under `/sales`. Select a permitted terminal, select an operation, and fill the JSON template. Invalid/unknown fields fail validation before HTTP. Lookups show the full documented response envelope; a negative business validation (e.g. certificate `isValid=false`) remains visible rather than being treated as network success for a sale. Existing POS buyer/certificate validation retains its stricter business-validity checks.

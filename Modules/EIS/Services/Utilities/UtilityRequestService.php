@@ -21,6 +21,10 @@ class UtilityRequestService
         $receiptId = $operation === 'cancel-receipt' ? self::assertReceipt($setting, $payload['receiptNumber']) : null;
         return DB::transaction(function () use ($setting, $operation, $payload, $actorId, $receiptId) {
             DB::table('business')->where('id', $setting->business_id)->lockForUpdate()->first();
+            if ($operation === 'cancel-receipt' && DB::getSchemaBuilder()->hasTable('eis_sale_adjustments')
+                && DB::table('eis_sale_adjustments')->where('business_id', $setting->business_id)->where('sale_id', $receiptId)->exists()) {
+                throw new \InvalidArgumentException('This sale has a linked fiscal return adjustment. Do not void the original invoice; verify its note chain with MRA.');
+            }
             $identityPayload = $operation === 'cancel-receipt' ? ['transaction_id' => $receiptId] : $payload;
             $identity = hash('sha256', json_encode([
                 $setting->business_id, $this->endpoint(), $setting->tpin, $operation, $this->canonical($identityPayload),
@@ -62,7 +66,11 @@ class UtilityRequestService
             if ($row->operation === 'taxpayer-initial-inventory-upload') {
                 $this->assertInitialUploadSequence($row);
             } else {
-                self::assertReceipt($setting, json_decode($row->payload, true, 512, JSON_THROW_ON_ERROR)['receiptNumber']);
+                $saleId = self::assertReceipt($setting, json_decode($row->payload, true, 512, JSON_THROW_ON_ERROR)['receiptNumber']);
+                if (DB::getSchemaBuilder()->hasTable('eis_sale_adjustments')
+                    && DB::table('eis_sale_adjustments')->where('business_id', $setting->business_id)->where('sale_id', $saleId)->exists()) {
+                    throw new \InvalidArgumentException('This sale has a linked fiscal return adjustment. Verify its note chain instead of voiding the original invoice.');
+                }
             }
             DB::table('eis_utility_requests')->where('id', $row->id)->update([
                 'status' => 'sending', 'submitted_by' => $actorId, 'submitted_at' => now(), 'updated_at' => now(),

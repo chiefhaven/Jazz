@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Modules\EIS\Models\EisSetting;
+use Modules\EIS\Services\Configuration\TerminalTokenService;
 use Modules\EIS\Services\Terminal\EisTerminalActivationService;
 use Modules\EIS\Services\Terminal\TerminalContext;
 
@@ -78,7 +79,65 @@ class TerminalManagementController extends Controller
     {
         $terminal = $this->terminal($request, $terminalId);
 
-        return $this->result($this->activationService->getLatestConfig((int) $terminal->business_id, $terminalId));
+        $result = $this->activationService->getLatestConfig((int) $terminal->business_id, $terminalId);
+        if (empty($result['success'])) { return $this->result($result); }
+        return response()->json([
+            'success' => true, 'message' => $result['message'] ?? $result['msg'] ?? 'Latest configuration fetched.',
+            'data' => $this->configurationData($terminal),
+        ]);
+    }
+
+    public function configuration(Request $request, int $terminalId)
+    {
+        return response()->json(['success' => true, 'data' => $this->configurationData($this->terminal($request, $terminalId))]);
+    }
+
+    public function requestNewToken(Request $request, int $terminalId, TerminalTokenService $tokens)
+    {
+        $terminal = $this->terminal($request, $terminalId);
+        $request->validate(['confirmed' => 'required|accepted']);
+        try {
+            return $this->result($tokens->request($terminal, (int) $request->user()->id));
+        } catch (\InvalidArgumentException $exception) {
+            \Illuminate\Support\Facades\Log::warning('EIS terminal token request blocked', ['terminal_id' => $terminalId]);
+            return $this->result(['success' => false, 'message' => $exception->getMessage()]);
+        }
+    }
+
+    private function configurationData(EisSetting $setting): array
+    {
+        $configuration = TerminalContext::configuration((int) $setting->business_id, (int) $setting->id);
+        abort_unless($configuration, 404, 'Refresh the latest configuration for this terminal first.');
+        $raw = $configuration->raw_response;
+        if (is_string($raw)) { $raw = json_decode($raw, true, 512, JSON_THROW_ON_ERROR); }
+        $data = $raw['data'] ?? null;
+        abort_unless(is_array($data), 409, 'Stored configuration is incomplete. Fetch the latest configuration.');
+        $groups = [
+            'globalConfiguration' => ['id', 'versionNo', 'taxrates'],
+            'terminalConfiguration' => ['versionNo', 'terminalLabel', 'isActiveTerminal', 'emailAddress',
+                'phoneNumber', 'tradingName', 'addressLines', 'terminalSite', 'offlineLimit'],
+            'taxpayerConfiguration' => ['versionNo', 'tin', 'isVATRegistered', 'taxOfficeCode', 'taxOffice',
+                'activatedTaxRateIds', 'activatedTaxrates', 'activatedLevies'],
+        ];
+        $result = ['terminal_id' => $setting->id, 'location_id' => $setting->location_id,
+            'last_synced_at' => $configuration->last_synced_at];
+        foreach ($groups as $name => $keys) {
+            abort_unless(isset($data[$name]) && is_array($data[$name]), 409, 'Stored configuration is incomplete. Fetch the latest configuration.');
+            $result[$name] = array_intersect_key($data[$name], array_flip($keys));
+        }
+        foreach ([
+            ['globalConfiguration', 'taxrates', ['id', 'name', 'chargeMode', 'ordinal', 'rate'], true],
+            ['terminalConfiguration', 'terminalSite', ['siteId', 'siteName'], false],
+            ['terminalConfiguration', 'offlineLimit', ['maxTransactionAgeInHours', 'maxCummulativeAmount'], false],
+            ['taxpayerConfiguration', 'taxOffice', ['code', 'name'], false],
+            ['taxpayerConfiguration', 'activatedTaxrates', ['id', 'taxpayerConfigurationId', 'taxRateId'], true],
+            ['taxpayerConfiguration', 'activatedLevies', ['id', 'name', 'chargeMode', 'rate', 'isActive'], true],
+        ] as [$group, $field, $keys, $list]) {
+            if (!isset($result[$group][$field])) { continue; }
+            $filter = fn (array $item) => array_intersect_key($item, array_flip($keys));
+            $result[$group][$field] = $list ? array_map($filter, $result[$group][$field]) : $filter($result[$group][$field]);
+        }
+        return $result;
     }
 
     public function deactivate(Request $request, int $terminalId)

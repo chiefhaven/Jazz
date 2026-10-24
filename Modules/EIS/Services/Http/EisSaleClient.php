@@ -19,7 +19,7 @@ class EisSaleClient
         protected EisHealthService $health
     )
     {
-        $this->baseUrl = rtrim(config('eis.base_url'), '/');
+        $this->baseUrl = \Modules\EIS\Services\Utilities\EisUtilitiesClient::baseUrl();
         $this->timeout = config('eis.http_timeout', 60);
         $this->connectTimeout = config('eis.connect_timeout', 10);
         $this->retries = config('eis.http_retries', 3);
@@ -86,6 +86,7 @@ class EisSaleClient
                 ->asJson()
                 ->connectTimeout($this->connectTimeout)
                 ->timeout($this->timeout)
+                ->withOptions(['allow_redirects' => false])
                 // Retry via persisted sale tracking, not by silently replaying
                 // a first-attempt payload without its offline signature.
                 ->withToken($settings->jwt_token)

@@ -1,0 +1,139 @@
+<?php
+
+namespace Modules\EIS\Http\Controllers;
+
+use App\BusinessLocation;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Modules\EIS\Models\EisSetting;
+use Modules\EIS\Services\Sales\SaleAdjustmentService;
+use Modules\EIS\Services\Sales\SalesApiClient;
+use Modules\EIS\Services\Terminal\TerminalContext;
+use Modules\EIS\Services\Utilities\UtilityRequestService;
+
+class SalesController extends Controller
+{
+    public function index(Request $request)
+    {
+        $this->authorize($request);
+        $locations = BusinessLocation::where('business_id', $request->user()->business_id);
+        $permitted = $request->user()->permitted_locations();
+        if ($permitted !== 'all') { $locations->whereIn('id', $permitted); }
+        $locations = $locations->get(['id', 'name']);
+        $terminals = EisSetting::where('business_id', $request->user()->business_id)
+            ->whereIn('location_id', $locations->pluck('id'))->get(['id', 'location_id', 'device_id']);
+        $adjustments = DB::table('eis_sale_adjustments')->where('business_id', $request->user()->business_id)
+            ->whereIn('location_id', $locations->pluck('id'))->orderByDesc('id')->limit(50)->get();
+        return view('eis::sales.index', compact('locations', 'terminals', 'adjustments'));
+    }
+
+    public function lookup(Request $request, SalesApiClient $client)
+    {
+        $this->authorize($request);
+        $input = $request->validate(['terminal_id' => 'required|integer|min:1',
+            'operation' => 'required|in:last-submitted-online-transaction,last-submitted-offline-transaction,get-invoice-by-number',
+            'invoice_number' => 'nullable|string|max:1000']);
+        $setting = $this->terminal($request, (int) $input['terminal_id']);
+        $payload = [];
+        if ($input['operation'] === 'get-invoice-by-number') {
+            $request->validate(['invoice_number' => 'required|string|max:1000']);
+            $number = $input['invoice_number'];
+            try {
+                $saleId = UtilityRequestService::assertReceipt($setting, $number);
+                $fiscal = DB::table('eis_sales')->where('business_id', $setting->business_id)
+                    ->where('transaction_id', $saleId)->first();
+                $number = $fiscal->eis_invoice_number ?: $fiscal->fiscal_invoice_number;
+            } catch (\InvalidArgumentException $exception) {
+                $owned = DB::table('eis_sale_adjustments')->where('business_id', $setting->business_id)
+                    ->where('location_id', $setting->location_id)->where('eis_setting_id', $setting->id)
+                    ->where('status', 'accepted')->where('invoice_number', $number)->exists();
+                abort_unless($owned, 422, 'Select an invoice or accepted note belonging to this terminal.');
+            }
+            $payload = ['invoiceNumber' => $number];
+        }
+        try {
+            $result = $client->send($setting, $input['operation'], $payload);
+        } catch (\Illuminate\Http\Client\ConnectionException $exception) {
+            Log::warning('EIS sales lookup unavailable', ['terminal_id' => $setting->id, 'operation' => $input['operation']]);
+            return response()->json(['success' => false, 'message' => 'EIS could not be reached. No invoice was confirmed.'], 502);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->blocked($exception->getMessage());
+        }
+        $data = $result['response']['data'] ?? [];
+        $header = $data['invoiceHeader'] ?? [];
+        if ($result['outcome'] !== 'accepted' || ($header['siteId'] ?? null) !== TerminalContext::site($setting)
+            || ($header['sellerTIN'] ?? null) !== $setting->tpin
+            || !is_string($header['invoiceNumber'] ?? null)
+            || (isset($payload['invoiceNumber']) && $header['invoiceNumber'] !== $payload['invoiceNumber'])
+            || !is_array($data['invoiceLineItems'] ?? null) || !is_array($data['invoiceSummary'] ?? null)) {
+            Log::warning('EIS sales lookup invalid or outside terminal scope', ['terminal_id' => $setting->id]);
+            return response()->json(['success' => false, 'message' => 'EIS did not return a verifiable invoice for this terminal/site.'], 502);
+        }
+        return response()->json(['success' => true, 'data' => $result['response']]);
+    }
+
+    public function show(Request $request, int $id)
+    {
+        return response()->json(['success' => true, 'data' => $this->review($this->record($request, $id))]);
+    }
+
+    public function submit(Request $request, int $id, SaleAdjustmentService $service)
+    {
+        $row = $this->record($request, $id);
+        abort_unless($request->user()->can('access_sell_return'), 403,
+            'Sending fiscal adjustments requires full sales-return permission.');
+        $request->validate(['confirmed' => 'required|accepted']);
+        try {
+            $row = $service->submit($this->terminal($request, (int) $row->eis_setting_id), $id, (int) $request->user()->id);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->blocked($exception->getMessage());
+        }
+        return response()->json(['success' => $row->status === 'accepted', 'data' => $this->review($row),
+            'message' => $row->result_message ?: 'This request has started and was not resent.'], $row->status === 'accepted' ? 200 : 409);
+    }
+
+    private function record(Request $request, int $id): object
+    {
+        $this->authorize($request);
+        $row = DB::table('eis_sale_adjustments')->where('business_id', $request->user()->business_id)->where('id', $id)->first();
+        abort_unless($row, 404);
+        $permitted = $request->user()->permitted_locations();
+        abort_unless($permitted === 'all' || in_array((int) $row->location_id, array_map('intval', (array) $permitted), true), 403);
+        $this->terminal($request, (int) $row->eis_setting_id);
+        return $row;
+    }
+
+    private function terminal(Request $request, int $id): EisSetting
+    {
+        $setting = EisSetting::where('business_id', $request->user()->business_id)->findOrFail($id);
+        BusinessLocation::where('business_id', $setting->business_id)->findOrFail($setting->location_id);
+        $permitted = $request->user()->permitted_locations();
+        abort_unless($permitted === 'all' || in_array((int) $setting->location_id, array_map('intval', (array) $permitted), true), 403);
+        return $setting;
+    }
+
+    private function authorize(Request $request): void
+    {
+        abort_unless($request->user() && $request->user()->business_id && $request->user()->can('business_settings.access'), 403);
+    }
+
+    private function review(object $row): array
+    {
+        return ['id' => $row->id, 'sale_id' => $row->sale_id, 'return_id' => $row->return_id,
+            'terminal_id' => $row->eis_setting_id, 'location_id' => $row->location_id, 'endpoint' => $row->endpoint,
+            'site_id' => $row->site_id, 'tin' => $row->tin, 'device_id' => $row->device_id,
+            'status' => $row->status, 'note_type' => $row->note_type, 'invoice_number' => $row->invoice_number,
+            'created_by' => $row->created_by, 'submitted_by' => $row->submitted_by, 'submitted_at' => $row->submitted_at,
+            'payload' => json_decode($row->payload, true, 512, JSON_THROW_ON_ERROR),
+            'response' => $row->response ? json_decode($row->response, true, 512, JSON_THROW_ON_ERROR) : null,
+            'message' => $row->result_message];
+    }
+
+    private function blocked(string $message)
+    {
+        Log::warning('EIS sales operation blocked', ['reason' => $message]);
+        return response()->json(['success' => false, 'message' => $message], 422);
+    }
+}

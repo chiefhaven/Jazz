@@ -42,7 +42,7 @@ $schema = $capsule->getConnection()->getSchemaBuilder();
 foreach ([
     'business_locations' => ['business_id', 'name', 'default_eis_setting_id'],
     'eis_settings' => ['business_id', 'location_id', 'status', 'jwt_token', 'secret_key', 'device_id'],
-    'eis_configurations' => ['business_id', 'eis_setting_id', 'location_id'],
+    'eis_configurations' => ['business_id', 'eis_setting_id', 'location_id', 'raw_response', 'last_synced_at'],
     'eis_terminal_configurations' => ['configuration_id', 'terminal_label', 'is_active'],
 ] as $name => $columns) {
     $schema->create($name, function (Blueprint $table) use ($columns) {
@@ -66,6 +66,12 @@ foreach ([[101, 1, 10, 1], [102, 1, 10, 0], [103, 1, 11, 1], [104, 1, null, 1], 
     ]);
     $db->table('eis_configurations')->insert([
         'id' => $id + 1000, 'business_id' => $business, 'location_id' => $location, 'eis_setting_id' => $id,
+        'raw_response' => json_encode(['data' => [
+            'globalConfiguration' => ['versionNo' => 1, 'taxrates' => []],
+            'terminalConfiguration' => ['versionNo' => 2, 'terminalLabel' => 'Label '.$id, 'jwtToken' => 'never-expose',
+                'terminalSite' => ['siteId' => 'SITE-'.$id, 'siteName' => 'Site '.$id, 'secretKey' => 'nested-secret']],
+            'taxpayerConfiguration' => ['versionNo' => 3, 'tin' => '12345678'],
+        ]]),
     ]);
     $db->table('eis_terminal_configurations')->insert([
         'id' => $id + 2000, 'configuration_id' => $id + 1000,
@@ -184,13 +190,13 @@ $db->table('eis_settings')->where('id', 102)->update(['status' => 0]);
 $db->table('business_locations')->where('id', 10)->update(['default_eis_setting_id' => 101]);
 $app['config']->set('eis.environment', 'production');
 
-foreach (['index', 'activate', 'latestConfig', 'deactivate', 'renewTokens', 'setDefault'] as $action) {
+foreach (['index', 'activate', 'latestConfig', 'configuration', 'deactivate', 'renewTokens', 'setDefault'] as $action) {
     managementReject(fn () => $controller->$action(managementRequest([], null), 101), 401, $action.' rejects anonymous users');
     $user->allowed = false;
     managementReject(fn () => $controller->$action(managementRequest(), 101), 403, $action.' requires business settings permission');
     $user->allowed = true;
 }
-foreach (['latestConfig', 'deactivate', 'renewTokens', 'setDefault'] as $action) {
+foreach (['latestConfig', 'configuration', 'deactivate', 'renewTokens', 'setDefault'] as $action) {
     foreach ([103, 104, 201, 999] as $id) {
         managementReject(fn () => $controller->$action(managementRequest(), $id), 404, $action.' rejects inaccessible terminal '.$id);
     }
@@ -219,6 +225,21 @@ managementCheck($result === ['success' => true, 'message' => 'Activated', 'msg' 
 $service->shouldReceive('getLatestConfig')->once()->with(1, 102)->andReturn(['success' => true, 'msg' => 'Synced']);
 managementCheck($controller->latestConfig(managementRequest(['terminal_id' => 201]), 102)->getData(true)['message'] === 'Synced',
     'Latest config pins canonical route terminal ID, not a body override');
+$shown = $controller->configuration(managementRequest(['terminal_id' => 201]), 102)->getData(true)['data'];
+managementCheck($shown['terminal_id'] === 102 && $shown['terminalConfiguration']['terminalLabel'] === 'Label 102'
+    && $shown['globalConfiguration']['versionNo'] === 1 && $shown['taxpayerConfiguration']['versionNo'] === 3,
+    'Configuration viewer pins route terminal and includes all three groups with their own versions');
+managementCheck(!str_contains(json_encode($shown), 'never-expose') && !isset($shown['terminalConfiguration']['jwtToken']),
+    'Configuration viewer excludes credentials from saved API payload');
+managementCheck(!str_contains(json_encode($shown), 'nested-secret') && $shown['terminalConfiguration']['terminalSite']['siteId'] === 'SITE-102',
+    'Nested configuration fields are allowlisted without dropping documented site identity');
+$stored = $db->table('eis_configurations')->where('id', 1102)->value('raw_response');
+$db->table('eis_configurations')->where('id', 1102)->update(['raw_response' => json_encode($stored)]);
+managementCheck($controller->configuration(managementRequest(), 102)->getData(true)['data']['globalConfiguration']['versionNo'] === 1,
+    'Viewer supports legacy double-encoded configuration without rewriting storage');
+$db->table('eis_configurations')->where('id', 1102)->update(['raw_response' => '{"data":{}}']);
+managementReject(fn () => $controller->configuration(managementRequest(), 102), 409, 'Incomplete saved configuration requires an explicit refresh');
+$db->table('eis_configurations')->where('id', 1102)->update(['raw_response' => $stored]);
 $service->shouldReceive('deactivate')->once()->with(1, 'Retired', 7, 102)->andReturn(['success' => true]);
 managementCheck($controller->deactivate(managementRequest(['reason' => 'Retired']), 102)->getData(true)['success'],
     'Deactivation pins tenant, actor, reason and terminal');
@@ -252,6 +273,8 @@ foreach ([
     'index' => ['GET', 'eis/terminals'],
     'activate' => ['POST', 'eis/terminals/activate'],
     'latest-config' => ['POST', 'eis/terminals/{terminalId}/latest-config'],
+    'configuration' => ['GET', 'eis/terminals/{terminalId}/configuration'],
+    'request-new-token' => ['POST', 'eis/terminals/{terminalId}/request-new-token'],
     'deactivate' => ['POST', 'eis/terminals/{terminalId}/deactivate'],
     'renew-tokens' => ['POST', 'eis/terminals/{terminalId}/renew-tokens'],
     'default' => ['POST', 'eis/terminals/{terminalId}/default'],

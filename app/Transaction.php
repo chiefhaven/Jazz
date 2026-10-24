@@ -25,6 +25,12 @@ class Transaction extends Model
         });
         static::deleting(function ($model) {
             \App\Services\Sales\SavedSaleWriteGuard::model($model, true);
+            if ($model->type === 'sell_return' && $model->return_parent_id
+                && $model->getConnection()->getSchemaBuilder()->hasTable('eis_sales')
+                && $model->getConnection()->table('eis_sales')->where('business_id', $model->business_id)
+                    ->where('transaction_id', $model->return_parent_id)->exists()) {
+                throw new \InvalidArgumentException('Fiscal returns cannot be deleted. Reduce the return through the POS return form to create a linked debit note.');
+            }
         });
     }
 

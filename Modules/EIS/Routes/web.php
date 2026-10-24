@@ -4,6 +4,14 @@ use Illuminate\Support\Facades\Route;
 use Modules\EIS\Http\Controllers\StockOutboundController;
 use Modules\EIS\Http\Controllers\TerminalManagementController;
 use Modules\EIS\Http\Controllers\UtilitiesController;
+use Modules\EIS\Http\Controllers\SalesController;
+
+Route::prefix('eis/sales')->middleware('auth')->name('eis.sales.')->group(function () {
+    Route::get('/', [SalesController::class, 'index'])->name('index');
+    Route::post('lookup', [SalesController::class, 'lookup'])->name('lookup');
+    Route::get('adjustments/{id}', [SalesController::class, 'show'])->whereNumber('id')->name('show');
+    Route::post('adjustments/{id}/submit', [SalesController::class, 'submit'])->whereNumber('id')->name('submit');
+});
 
 Route::prefix('eis/utilities')->middleware('auth')->name('eis.utilities.')->group(function () {
     Route::get('/', [UtilitiesController::class, 'index'])->name('index');
@@ -29,6 +37,10 @@ Route::prefix('eis/terminals')->middleware(['web', 'auth'])->name('eis.terminals
     Route::post('activate', [TerminalManagementController::class, 'activate'])->name('activate');
     Route::post('{terminalId}/latest-config', [TerminalManagementController::class, 'latestConfig'])
         ->whereNumber('terminalId')->name('latest-config');
+    Route::get('{terminalId}/configuration', [TerminalManagementController::class, 'configuration'])
+        ->whereNumber('terminalId')->name('configuration');
+    Route::post('{terminalId}/request-new-token', [TerminalManagementController::class, 'requestNewToken'])
+        ->whereNumber('terminalId')->name('request-new-token');
     Route::post('{terminalId}/deactivate', [TerminalManagementController::class, 'deactivate'])
         ->whereNumber('terminalId')->name('deactivate');
     Route::post('{terminalId}/renew-tokens', [TerminalManagementController::class, 'renewTokens'])

@@ -398,14 +398,16 @@ class SellReturnController extends Controller
                 DB::commit();
 
                 $output = ['success' => 1,
-                    'msg' => __('lang_v1.success'),
+                    'msg' => __('lang_v1.success').(\Modules\EIS\Models\EisSale::where('business_id', $business_id)
+                        ->where('transaction_id', $sell_return->return_parent_id)->exists()
+                        ? ' EIS adjustment saved for review in Settings > MRA EIS > EIS Sales; not sent yet.' : ''),
                     'receipt' => $receipt,
                 ];
             }
         } catch (\Exception $e) {
             DB::rollBack();
 
-            if (get_class($e) == \App\Exceptions\PurchaseSellMismatch::class) {
+            if (get_class($e) == \App\Exceptions\PurchaseSellMismatch::class || $e instanceof \InvalidArgumentException) {
                 $msg = $e->getMessage();
             } else {
                 \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
@@ -556,7 +558,7 @@ class SellReturnController extends Controller
             } catch (\Exception $e) {
                 DB::rollBack();
 
-                if (get_class($e) == \App\Exceptions\PurchaseSellMismatch::class) {
+                if (get_class($e) == \App\Exceptions\PurchaseSellMismatch::class || $e instanceof \InvalidArgumentException) {
                     $msg = $e->getMessage();
                 } else {
                     \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
