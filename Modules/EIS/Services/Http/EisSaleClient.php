@@ -96,7 +96,7 @@ class EisSaleClient
                 ->post($url, $payload);
 
             // Handle HTTP errors
-            if ($response->failed()) {
+            if (!$response->successful()) {
                 $status = $response->status();
                 $body = $response->body();
                 

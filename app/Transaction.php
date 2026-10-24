@@ -25,6 +25,11 @@ class Transaction extends Model
         });
         static::deleting(function ($model) {
             \App\Services\Sales\SavedSaleWriteGuard::model($model, true);
+            if ($model->type === 'sell' && $model->getConnection()->getSchemaBuilder()->hasTable('eis_sale_adjustments')
+                && $model->getConnection()->table('eis_sale_adjustments')->where('business_id', $model->business_id)
+                    ->where('sale_id', $model->id)->exists()) {
+                throw new \InvalidArgumentException('A sale with fiscal return adjustments cannot be deleted.');
+            }
             if ($model->type === 'sell_return' && $model->return_parent_id
                 && $model->getConnection()->getSchemaBuilder()->hasTable('eis_sales')
                 && $model->getConnection()->table('eis_sales')->where('business_id', $model->business_id)

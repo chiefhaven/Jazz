@@ -11,7 +11,6 @@ use Modules\EIS\Models\EisSetting;
 use Modules\EIS\Services\Sales\SaleAdjustmentService;
 use Modules\EIS\Services\Sales\SalesApiClient;
 use Modules\EIS\Services\Terminal\TerminalContext;
-use Modules\EIS\Services\Utilities\UtilityRequestService;
 
 class SalesController extends Controller
 {
@@ -19,7 +18,7 @@ class SalesController extends Controller
     {
         $this->authorize($request);
         $locations = BusinessLocation::where('business_id', $request->user()->business_id);
-        $permitted = $request->user()->permitted_locations();
+        $permitted = $request->user()->permitted_locations((int) $request->user()->business_id);
         if ($permitted !== 'all') { $locations->whereIn('id', $permitted); }
         $locations = $locations->get(['id', 'name']);
         $terminals = EisSetting::where('business_id', $request->user()->business_id)
@@ -39,18 +38,8 @@ class SalesController extends Controller
         $payload = [];
         if ($input['operation'] === 'get-invoice-by-number') {
             $request->validate(['invoice_number' => 'required|string|max:1000']);
-            $number = $input['invoice_number'];
-            try {
-                $saleId = UtilityRequestService::assertReceipt($setting, $number);
-                $fiscal = DB::table('eis_sales')->where('business_id', $setting->business_id)
-                    ->where('transaction_id', $saleId)->first();
-                $number = $fiscal->eis_invoice_number ?: $fiscal->fiscal_invoice_number;
-            } catch (\InvalidArgumentException $exception) {
-                $owned = DB::table('eis_sale_adjustments')->where('business_id', $setting->business_id)
-                    ->where('location_id', $setting->location_id)->where('eis_setting_id', $setting->id)
-                    ->where('status', 'accepted')->where('invoice_number', $number)->exists();
-                abort_unless($owned, 422, 'Select an invoice or accepted note belonging to this terminal.');
-            }
+            $number = $this->ownedNumber($setting, $input['invoice_number']);
+            abort_unless($number, 422, 'Select a tracked fiscal invoice or accepted note belonging to this terminal.');
             $payload = ['invoiceNumber' => $number];
         }
         try {
@@ -70,6 +59,11 @@ class SalesController extends Controller
             || !is_array($data['invoiceLineItems'] ?? null) || !is_array($data['invoiceSummary'] ?? null)) {
             Log::warning('EIS sales lookup invalid or outside terminal scope', ['terminal_id' => $setting->id]);
             return response()->json(['success' => false, 'message' => 'EIS did not return a verifiable invoice for this terminal/site.'], 502);
+        }
+        if ($this->ownedNumber($setting, $header['invoiceNumber']) !== $header['invoiceNumber']) {
+            Log::warning('EIS returned an invoice without matching local terminal history', ['terminal_id' => $setting->id]);
+            return response()->json(['success' => false,
+                'message' => 'The returned invoice is not linked to this terminal locally. Verify historical routing before viewing it.'], 502);
         }
         return response()->json(['success' => true, 'data' => $result['response']]);
     }
@@ -99,7 +93,7 @@ class SalesController extends Controller
         $this->authorize($request);
         $row = DB::table('eis_sale_adjustments')->where('business_id', $request->user()->business_id)->where('id', $id)->first();
         abort_unless($row, 404);
-        $permitted = $request->user()->permitted_locations();
+        $permitted = $request->user()->permitted_locations((int) $request->user()->business_id);
         abort_unless($permitted === 'all' || in_array((int) $row->location_id, array_map('intval', (array) $permitted), true), 403);
         $this->terminal($request, (int) $row->eis_setting_id);
         return $row;
@@ -109,7 +103,7 @@ class SalesController extends Controller
     {
         $setting = EisSetting::where('business_id', $request->user()->business_id)->findOrFail($id);
         BusinessLocation::where('business_id', $setting->business_id)->findOrFail($setting->location_id);
-        $permitted = $request->user()->permitted_locations();
+        $permitted = $request->user()->permitted_locations((int) $request->user()->business_id);
         abort_unless($permitted === 'all' || in_array((int) $setting->location_id, array_map('intval', (array) $permitted), true), 403);
         return $setting;
     }
@@ -117,6 +111,20 @@ class SalesController extends Controller
     private function authorize(Request $request): void
     {
         abort_unless($request->user() && $request->user()->business_id && $request->user()->can('business_settings.access'), 403);
+    }
+
+    private function ownedNumber(EisSetting $setting, string $number): ?string
+    {
+        $sale = DB::table('eis_sales as e')->join('transactions as t', 't.id', '=', 'e.transaction_id')
+            ->where('e.business_id', $setting->business_id)->where('t.business_id', $setting->business_id)
+            ->where('e.eis_setting_id', $setting->id)->where('e.location_id', $setting->location_id)
+            ->where('t.location_id', $setting->location_id)->whereIn('e.status', ['submitted', 'pending', 'failed'])
+            ->where(fn ($query) => $query->where('e.receipt_number', $number)->orWhere('e.fiscal_invoice_number', $number)
+                ->orWhere('e.eis_invoice_number', $number))->first(['e.eis_invoice_number', 'e.fiscal_invoice_number']);
+        if ($sale) { return $sale->eis_invoice_number ?: $sale->fiscal_invoice_number; }
+        return DB::table('eis_sale_adjustments')->where('business_id', $setting->business_id)
+            ->where('eis_setting_id', $setting->id)->where('location_id', $setting->location_id)
+            ->where('status', 'accepted')->where('invoice_number', $number)->value('invoice_number');
     }
 
     private function review(object $row): array

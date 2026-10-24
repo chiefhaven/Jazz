@@ -18,7 +18,16 @@ class SaleAdjustmentService
     {
         if (!DB::getSchemaBuilder()->hasTable('eis_sales')) { return null; }
         $fiscal = EisSale::where('business_id', $sale->business_id)->where('transaction_id', $sale->id)->first();
-        if (!$fiscal) { return null; }
+        if (!$fiscal) {
+            $location = \App\BusinessLocation::where('business_id', $sale->business_id)->find($sale->location_id);
+            if ($location && $location->default_eis_setting_id) {
+                throw new \InvalidArgumentException('Submit the original sale to EIS before recording its return.');
+            }
+            return null;
+        }
+        if (!$fiscal->eis_setting_id || (int) $fiscal->location_id !== (int) $sale->location_id) {
+            throw new \InvalidArgumentException('Historical fiscal terminal routing needs repair before a return.');
+        }
         if ($fiscal->status !== 'submitted') {
             throw new \InvalidArgumentException('Finish fiscal submission before returning an EIS sale.');
         }
@@ -59,11 +68,34 @@ class SaleAdjustmentService
         $original = $fiscal->request_payload;
         if (is_string($original)) { $original = json_decode($original, true, 512, JSON_THROW_ON_ERROR); }
         if (!is_array($original)) { throw new \InvalidArgumentException('Original fiscal payload is unavailable; the return cannot be safely mapped.'); }
+        if (round((float) $sale->final_total, 2) !== round((float) ($original['invoiceSummary']['invoiceTotal'] ?? -1), 2)) {
+            throw new \InvalidArgumentException('Local sale total no longer matches its original fiscal invoice.');
+        }
         if (($original['invoiceHeader']['siteId'] ?? null) !== TerminalContext::site($setting)
             || ($original['invoiceHeader']['sellerTIN'] ?? null) !== $setting->tpin) {
             throw new \InvalidArgumentException('Original fiscal invoice does not match its terminal ownership.');
         }
         $lines = $this->lines((int) $sale->id);
+        foreach ($lines as $line) {
+            $stock = DB::table('variation_location_details')->where('location_id', $sale->location_id)
+                ->where('product_id', $line['product_id'])->where('variation_id', $line['variation_id'])
+                ->lockForUpdate()->first();
+            if ($line['enable_stock'] && (!$stock || (float) $stock->qty_available < -0.00001)) {
+                throw new \InvalidArgumentException('Returned stock is no longer available. Replenish it before reducing the return.');
+            }
+            $allocations = DB::table('transaction_sell_lines_purchase_lines')->where('sell_line_id', $line['id'])->lockForUpdate()->get();
+            if ($line['enable_stock'] && (abs((float) $allocations->sum('quantity') - (float) $line['quantity']) > 0.00001
+                || abs((float) $allocations->sum('qty_returned') - (float) $line['quantity_returned']) > 0.00001)) {
+                throw new \InvalidArgumentException('Repair the original sale purchase allocations before recording a fiscal return.');
+            }
+            foreach ($allocations as $allocation) {
+                $purchase = DB::table('purchase_lines')->where('id', $allocation->purchase_line_id)->lockForUpdate()->first();
+                if (!$purchase || (float) $purchase->quantity_sold < -0.00001
+                    || (float) $purchase->quantity_sold > (float) $purchase->quantity + 0.00001) {
+                    throw new \InvalidArgumentException('Original sale purchase supply is inconsistent. Repair it before a fiscal return.');
+                }
+            }
+        }
         $last = DB::table('eis_sale_adjustments')->where('business_id', $sale->business_id)
             ->where('sale_id', $sale->id)->orderByDesc('id')->lockForUpdate()->first();
         if (!$last && collect($lines)->contains(fn ($line) => (float) $line['quantity_returned'] > 0)
@@ -140,13 +172,14 @@ class SaleAdjustmentService
         }
         $status = $result['outcome']; $data = $result['response']['data'] ?? [];
         if ($status === 'accepted' && (!is_string($data['invoiceNumber'] ?? null) || trim($data['invoiceNumber']) === ''
+            || $data['invoiceNumber'] === $payload['invoiceHeader']['invoiceNumber']
             || ($data['originalInvoiceNumber'] ?? null) !== $payload['invoiceHeader']['invoiceNumber']
             || strcasecmp((string) ($data['noteType'] ?? ''), $row->note_type.' Note') !== 0
                 && strcasecmp((string) ($data['noteType'] ?? ''), $row->note_type) !== 0
             || !is_numeric($data['invoiceTotal'] ?? null) || !is_numeric($data['totalVat'] ?? null)
             || !is_finite((float) $data['invoiceTotal']) || !is_finite((float) $data['totalVat'])
-            || abs((float) $data['invoiceTotal'] - $payload['invoiceSummary']['invoiceTotal']) > 0.01
-            || abs((float) $data['totalVat'] - $payload['invoiceSummary']['totalVAT']) > 0.01)) {
+            || round((float) $data['invoiceTotal'], 2) !== round((float) $payload['invoiceSummary']['invoiceTotal'], 2)
+            || round((float) $data['totalVat'], 2) !== round((float) $payload['invoiceSummary']['totalVAT'], 2))) {
             $status = 'needs_review';
         }
         $message = $status === 'accepted' ? 'EIS note accepted. The linked POS return already accounts for stock and customer credit; nothing was applied twice.'
@@ -162,15 +195,18 @@ class SaleAdjustmentService
     {
         return DB::table('transaction_sell_lines as l')->join('products as p', 'p.id', '=', 'l.product_id')
             ->where('l.transaction_id', $saleId)->orderBy('l.id')->lockForUpdate()
-            ->get(['l.id', 'l.quantity', 'l.quantity_returned', 'l.unit_price_inc_tax', 'l.item_tax',
-                'l.parent_sell_line_id', 'p.sku'])->map(fn ($line) => (array) $line)->all();
+            ->get(['l.id', 'l.product_id', 'l.variation_id', 'l.quantity', 'l.quantity_returned', 'l.unit_price_inc_tax', 'l.item_tax',
+                'l.parent_sell_line_id', 'p.sku', 'p.enable_stock'])->map(fn ($line) => (array) $line)->all();
     }
 
     private function snapshot(Transaction $return, array $lines): string
     {
         return json_encode(['return_id' => $return->id, 'business_id' => $return->business_id,
             'location_id' => $return->location_id, 'sale_id' => $return->return_parent_id,
-            'total' => number_format((float) $return->final_total, 4, '.', ''), 'lines' => $lines], JSON_THROW_ON_ERROR);
+            'total' => number_format((float) $return->final_total, 4, '.', ''),
+            'sale' => (array) DB::table('transactions')->where('id', $return->return_parent_id)
+                ->first(['business_id', 'location_id', 'type', 'status', 'contact_id', 'final_total']),
+            'lines' => $lines], JSON_THROW_ON_ERROR);
     }
 
     private function storage(): void

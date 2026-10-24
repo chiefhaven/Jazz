@@ -30,6 +30,8 @@ $migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_
 $migration->up();
 $migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_24_020000_create_eis_utility_requests.php';
 $migration->up();
+$migration = require dirname(__DIR__, 2).'\Modules\EIS\Database\Migrations\2026_10_24_030000_create_eis_sale_adjustments.php';
+$migration->up();
 $client = new class extends StockInventoryClient {
     public array $inventory = ['EIS-ONE' => '8.0000'];
     public function fetch(\Modules\EIS\Models\EisSetting $setting): array { return $this->inventory; }
@@ -148,6 +150,19 @@ foreach (Modules\EIS\Services\Stock\StockOutboundService::UNSETTLED_STATUSES as 
         $db->table('eis_stock_operations')->where('id', $op)->delete();
     }
 }
+
+$adjustment = $db->table('eis_sale_adjustments')->insertGetId([
+    'business_id' => 1, 'location_id' => 2, 'eis_setting_id' => 1, 'sale_id' => 100, 'return_id' => 101,
+    'created_by' => 7, 'endpoint' => 'https://eis.invalid/api/v1', 'tin' => 'TIN', 'site_id' => 'SITE-A',
+    'device_id' => 'TEST', 'status' => 'prepared', 'note_type' => 'Credit', 'payload' => '{}', 'local_snapshot' => '{}',
+]);
+foreach (['prepared', 'sending', 'unknown', 'needs_review', 'rejected'] as $state) {
+    $db->table('eis_sale_adjustments')->where('id', $adjustment)->update(['status' => $state]);
+    stockReject(fn () => $service->preview(1, 1, 7), 'Unsettled '.$state.' return note blocks stock reconciliation');
+}
+$db->table('eis_sale_adjustments')->where('id', $adjustment)->update(['status' => 'accepted']);
+verify($service->preview(1, 1, 7)->status === 'preview', 'Accepted fiscal return note permits reconciliation');
+$db->table('eis_sale_adjustments')->where('id', $adjustment)->delete();
 
 $upload = $db->table('eis_utility_requests')->insertGetId([
     'business_id' => 1, 'location_id' => 2, 'eis_setting_id' => 1, 'created_by' => 7,

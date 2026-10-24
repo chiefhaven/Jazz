@@ -4498,12 +4498,12 @@ class TransactionUtil extends Util
                             $tslpl->save();
                             break;
                         } else {
-                            $purchase_line->quantity_sold += $tslpl->quantity;
+                            $purchase_line->quantity_sold += $tslpl->qty_returned;
                             $purchase_line->save();
 
+                            $qty_left_to_update += $tslpl->qty_returned;
                             $tslpl->qty_returned = 0;
                             $tslpl->save();
-                            $qty_left_to_update += $tslpl->quantity;
                         }
                     }
                 }
@@ -6375,7 +6375,8 @@ class TransactionUtil extends Util
 
         //Get parent sale
         $sell = Transaction::where('business_id', $business_id)
-                        ->with(['sell_lines', 'sell_lines.sub_unit'])
+                        ->with(['sell_lines' => function ($query) { $query->lockForUpdate(); }, 'sell_lines.sub_unit'])
+                        ->lockForUpdate()
                         ->findOrFail($input['transaction_id']);
 
         $eisReturns = app(\Modules\EIS\Services\Sales\SaleAdjustmentService::class);
@@ -6385,6 +6386,7 @@ class TransactionUtil extends Util
         $sell_return = Transaction::where('business_id', $business_id)
                 ->where('type', 'sell_return')
                 ->where('return_parent_id', $sell->id)
+                ->lockForUpdate()
                 ->first();
 
         $sell_return_data = [

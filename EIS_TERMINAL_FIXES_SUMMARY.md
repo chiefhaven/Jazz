@@ -1,5 +1,39 @@
 # EIS Terminal Activation and Configuration Fixes
 
+## Sales submission, retrieval and linked credit/debit notes
+
+Settings -> MRA EIS -> **EIS Sales** provides the Sales endpoints in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json).
+
+| Operation (POST) | Integration |
+| --- | --- |
+| `/sales/submit-sales-transaction` | Existing POS fiscal submission, immutable terminal routing, persisted invoice identity and signed retries. No second raw-submission form is introduced. Host-only and `/api/v1` endpoint configurations are normalized; redirects are disabled. |
+| `/sales/last-submitted-online-transaction` | Selected terminal token, no body; displays a verified, locally linked invoice. |
+| `/sales/last-submitted-offline-transaction` | Selected terminal token, no body; retrieval does not resend or alter local fiscal state. |
+| `/sales/get-invoice-by-number` | Exact `{invoiceNumber}` request; local receipt aliases resolve to the original fiscal invoice. Accepted adjustment invoice numbers are also supported. |
+| `/sales/process-credit-debit-note` | A saved POS return creates a linked, immutable invoice-adjustment outbox for review and explicit send. No arbitrary JSON fiscal adjustment is accepted. |
+
+The console requires `business_settings.access`, the authenticated business and permitted locations. Sending notes additionally requires full `access_sell_return` permission. Retrieval verifies the response site/TIN, requested invoice number and local terminal ownership; a mismatching or unlinked upstream invoice is withheld. Locally pending/failed tracked invoice numbers can be retrieved for investigation without resending or silently changing their fiscal status. Receipt cancellation and void retrieval remain available under **EIS Utilities**, where Swagger tags them.
+
+### POS return/accounting integration
+
+Both the web and Connector POS return paths call the shared `TransactionUtil::addSellReturn`. For fiscal sales, the original sale must already be submitted with exact terminal/location routing. The user must have return permission and location access. Saving a return and its EIS request occurs in the same InnoDB transaction as the existing customer return/refund ledger, stock increase and purchase-allocation release. Preparation makes **no HTTP request**. The return response directs the operator to EIS Sales for review.
+
+The request represents the **remaining updated invoice**, not a second sale or a negative stock adjustment. Product quantities, prices and VAT are mapped against the saved original fiscal payload, and VAT/taxable amounts are summed by the documented `rateId`. The first return produces a credit note. After acceptance, reducing/reversing the return through the same POS form produces a debit note against the latest accepted note invoice; the return-credit balance and local returned stock decrease through the normal ledger. Refund payments exceeding the new return balance must be reversed first. Stock already resold cannot be removed by reducing the return. Multi-supply allocation reversal uses the actually returned quantity, not the entire purchase allocation.
+
+Full returns retain original line identities with zero remaining quantities/totals. Supported automatic mapping requires unchanged product identities/prices/taxes and an exact match between fiscal line totals and the POS refund. Levied/service/modifier invoices, invoice-level discounts/charges that prevent exact matching, inconsistent historical VAT and unlinked historical returns fail explicitly and roll back the local return. There is no guessed tax allocation or silent fallback for unsupported invoices.
+
+Apply `2026_10_24_030000_create_eis_sale_adjustments` before returning fiscal sales. The additive audit table stores the original sale, return, actor, terminal/endpoint identities, exact payload, local snapshot, result and submitting actor/time. **Review -> confirm/send** atomically claims a prepared record and commits the claim before HTTP. The response must identify the expected original invoice and note direction with matching totals before acceptance. Sending never repeats local accounting or stock changes. Accepted requests are idempotent on replay; sending/unknown/rejected/needs-review outcomes cannot be resent and block further return edits and stock reconciliation. Verify uncertain outcomes with MRA; no blind reset is provided.
+
+Fiscal returns cannot be deleted, and sales with linked adjustments cannot be deleted. Use the return-reduction/debit workflow instead. A sale with a note chain cannot also void its original receipt. Existing void requests similarly block return preparation. No price-only surcharge/debit-note ledger was introduced.
+
+Validation uses actual POS return, quantity and purchase-allocation methods with SQLite and fake HTTP only:
+
+```powershell
+php -d error_reporting=24575 tests\Standalone\eis_sales_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_submission_retry_checks.php
+php -d error_reporting=24575 tests\Standalone\eis_stock_reconciliation_checks.php
+```
+
 ## Configuration: latest Global, Terminal and Taxpayer groups
 
 Settings -> MRA EIS provides **View configurations**, **Latest config** and **Request new token** per permitted terminal. These implement both operations tagged `Configuration` in the [official Swagger](https://dev-eis-api.mra.mw/swagger/v1/swagger.json):

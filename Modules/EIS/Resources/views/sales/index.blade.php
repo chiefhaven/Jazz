@@ -78,6 +78,7 @@ $(function() {
         request(lookupUrl, 'POST', {terminal_id: $('#eis-sales-terminal').val(),
             operation: $('#eis-sales-operation').val(), invoice_number: $('#eis-sales-invoice').val()});
     });
+    $('#eis-sales-terminal, #eis-sales-operation, #eis-sales-invoice').on('change input', reset);
     $('.eis-sales-review').on('click', function() { request(showUrl.replace(/\/0$/, '/' + $(this).attr('data-id')), 'GET', {}); });
     $('#eis-sales-submit').on('click', function() {
         if (!pending || !$('#eis-sales-confirm').prop('checked')) {
